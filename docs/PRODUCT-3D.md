@@ -76,7 +76,7 @@ Open-source path — no proprietary CAD. Optional AI beauty remains underlay onl
 
 | `templateId` | Builder |
 |--------------|---------|
-| `sat_clock` | Bamboo base, brass frame, OLED, solar wings |
+| `sat_clock` | **Wire cube cage** on metal stand, battery in cage, dual solar wings (photo-matched) |
 | `weather_stick` | Mast + sensor head |
 | `robot_chassis` | Body + wheels + front sensor |
 | `sensor_pod` | Rounded shell pod |

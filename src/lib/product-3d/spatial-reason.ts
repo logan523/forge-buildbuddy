@@ -59,34 +59,43 @@ function faceY(nodes: SceneNode3D[]): number {
 }
 
 /**
- * Solar active face is local +Z on our meshes.
- * Want normal to point skyward-outward: significant +Y and ±X for wings.
- * Euler XYZ: pitch (X) negative lifts +Z toward +Y; roll (Z) dihedral; small yaw.
+ * Solar wings for wire-cube sat_clock: attach at cube mid-sides, slight dihedral.
+ * Active face is local +Z — mild pitch so glass catches light without tower pose.
  */
-function solarWingPose(
+function solarWingPoseCube(
   side: "left" | "right" | "center",
-  faceHeight: number
+  cageCenter: [number, number, number],
+  cageSize: number,
+  wingW: number
 ): { position: [number, number, number]; rotation: [number, number, number] } {
-  // Elevate above face so panels clear frame and catch light
-  const y = faceHeight + 22;
-  // Dihedral ~35°, pitch ~55° toward sky (active face up-out)
-  const pitch = -0.95; // ~-54° about X: +Z → up-out
+  const [cx, cy, cz] = cageCenter;
+  const xOff = cageSize / 2 + wingW * 0.48;
+  const pitch = 0.1; // slight up toward light
   if (side === "left") {
     return {
-      position: [-68, y, 8],
-      rotation: [pitch, 0.15, 0.55], // roll opens wing left, slight yaw
+      position: [cx - xOff, cy + cageSize * 0.06, cz],
+      rotation: [pitch, 0, 0.1],
     };
   }
   if (side === "right") {
     return {
-      position: [68, y, 8],
-      rotation: [pitch, -0.15, -0.55],
+      position: [cx + xOff, cy + cageSize * 0.06, cz],
+      rotation: [pitch, 0, -0.1],
     };
   }
   return {
-    position: [0, y + 8, -12],
-    rotation: [pitch * 0.85, 0, 0],
+    position: [cx, cy + cageSize * 0.4, cz - xOff * 0.5],
+    rotation: [pitch, 0, 0],
   };
+}
+
+function getCageCenter(nodes: SceneNode3D[]): { center: [number, number, number]; size: number } {
+  const frame = nodes.find((n) => n.id === "frame" || n.geom.kind === "wire_cube_cage");
+  if (frame) {
+    const size = frame.geom.params.size || 58;
+    return { center: [...frame.position] as [number, number, number], size };
+  }
+  return { center: [0, 100, 0], size: 58 };
 }
 
 /** Apply all spatial design rules to a built scene. */
@@ -94,119 +103,168 @@ export function applySpatialReasoning(scene: ProductScene3D): SpatialReasonResul
   const notes: SpatialReasonNote[] = [];
   const nodes = scene.nodes.map(cloneNode);
   const template = scene.templateId;
-  const fy = faceY(nodes);
+  const isCubeSat = template === "sat_clock" && nodes.some((n) => n.geom.kind === "wire_cube_cage");
+  const { center: cageC, size: cageSize } = getCageCenter(nodes);
 
-  // ── Rule: solar_sky_facing + solar_elevated ──
-  // Panels only (not spars) — spars repositioned to connect frame→panel
+  // ── Rule: solar wings (cube sat vs tower) ──
   const solars = nodes.filter(
-    (n) => isSolar(n) && (n.geom.kind === "solar_module" || n.geom.kind === "solar_panel" || n.id.startsWith("solar-"))
+    (n) =>
+      isSolar(n) &&
+      (n.geom.kind === "solar_module" || n.geom.kind === "solar_panel" || n.id.startsWith("solar-"))
   );
   if (solars.length > 0) {
     const ids: string[] = [];
     for (const n of solars) {
       const side: "left" | "right" | "center" =
-        n.id.includes("-l") || n.id.endsWith("l") || n.position[0] < -5
+        n.id.includes("-l") || n.position[0] < -5
           ? "left"
-          : n.id.includes("-r") || n.id.endsWith("r") || n.position[0] > 5
+          : n.id.includes("-r") || n.position[0] > 5
             ? "right"
             : "center";
-      const pose = solarWingPose(side, fy);
-      n.position = pose.position;
-      n.rotation = pose.rotation;
-      n.explodeDir = side === "left" ? [-1.4, 0.8, 0.3] : side === "right" ? [1.4, 0.8, 0.3] : [0, 1.2, -0.4];
+      if (isCubeSat) {
+        const wingW = n.geom.params.width || cageSize * 1.1;
+        const pose = solarWingPoseCube(side, cageC, cageSize, wingW);
+        n.position = pose.position;
+        n.rotation = pose.rotation;
+        n.explodeDir = side === "left" ? [-1.3, 0.15, 0] : side === "right" ? [1.3, 0.15, 0] : [0, 0.5, -1];
+      }
       ids.push(n.id);
     }
-    // Spars: midpoint between frame center and solar panel
-    const frame = nodes.find((n) => n.id === "frame");
-    const fx = frame?.position[0] ?? 0;
-    const fy0 = frame?.position[1] ?? fy;
-    const fz = frame?.position[2] ?? 0;
-    for (const n of nodes) {
-      if (!n.id.startsWith("spar-")) continue;
-      const left = n.id.includes("-l") || n.id.endsWith("l");
-      const panel = solars.find((s) =>
-        left ? s.id.includes("-l") || s.position[0] < 0 : s.id.includes("-r") || s.position[0] > 0
-      );
-      if (!panel) continue;
-      const mx = (fx + (left ? -20 : 20) + panel.position[0]) / 2;
-      const my = (fy0 + panel.position[1]) / 2;
-      const mz = (fz + panel.position[2]) / 2;
-      n.position = [mx, my, mz];
-      // Aim spar roughly toward panel
-      const dx = panel.position[0] - mx;
-      const dy = panel.position[1] - my;
-      n.rotation = [0, 0, left ? Math.atan2(dy, -dx) : -Math.atan2(dy, dx)];
-      ids.push(n.id);
+    // Short spars for cube sat
+    if (isCubeSat) {
+      for (const n of nodes) {
+        if (!n.id.startsWith("spar-")) continue;
+        const left = n.id.includes("-l");
+        const panel = solars.find((s) => (left ? s.position[0] < 0 : s.position[0] > 0));
+        if (!panel) continue;
+        n.position = [
+          (cageC[0] + panel.position[0]) / 2,
+          panel.position[1],
+          (cageC[2] + panel.position[2]) / 2,
+        ];
+        n.rotation = [0, 0, Math.PI / 2];
+        ids.push(n.id);
+      }
     }
     notes.push({
       id: "solar_sky",
-      rule: "Solar faces the sky",
+      rule: "Solar wings on cage",
       nodeIds: ids,
-      detail: `Elevated above display (y≈${Math.round(fy + 22)}mm) and pitched ~55° so the active face collects light.`,
+      detail: isCubeSat
+        ? "Dual solar panels attach at cube mid-sides with slight dihedral (photo silhouette)."
+        : "Solar panels oriented to collect light.",
     });
   }
 
-  // ── Rule: display_forward (face user / +Z) ──
+  // ── Rule: display_forward ──
   const displays = nodes.filter(isDisplay);
   if (displays.length > 0) {
     for (const n of displays) {
-      // Keep slight upright; face +Z (viewer)
-      n.rotation = [n.rotation[0] * 0.15, n.rotation[1], 0];
-      n.position = [n.position[0], n.position[1], Math.max(n.position[2], 5)];
+      if (isCubeSat) {
+        // Front face of cube
+        n.position = [cageC[0], cageC[1], cageC[2] + cageSize / 2 + 1.5];
+        n.rotation = [0, 0, 0];
+      } else {
+        n.rotation = [n.rotation[0] * 0.15, n.rotation[1], 0];
+        n.position = [n.position[0], n.position[1], Math.max(n.position[2], 5)];
+      }
     }
     notes.push({
       id: "display_forward",
       rule: "Display faces the user",
       nodeIds: displays.map((n) => n.id),
-      detail: "OLED/active surface oriented toward the viewer (+Z) for readability.",
+      detail: isCubeSat
+        ? "OLED module mounted on the front face of the wire cage."
+        : "OLED oriented toward the viewer (+Z).",
     });
   }
 
-  // ── Rule: power_low (mass near base) ──
+  // ── Rule: power ──
   const power = nodes.filter(isPower);
   if (power.length > 0 && template !== "breadboard") {
-    for (const n of power) {
-      if (n.position[1] > 40) {
-        n.position = [n.position[0], Math.min(n.position[1], 18), n.position[2]];
+    if (isCubeSat) {
+      // Keep battery / straps inside cage volume
+      for (const n of power) {
+        if (n.id === "battery" || n.id === "straps") {
+          n.position = [cageC[0], cageC[1] + 2, cageC[2] - 4];
+        } else if (n.id === "charger") {
+          n.position = [cageC[0], cageC[1] - 8, cageC[2] - cageSize / 2 - 1];
+        }
       }
+      notes.push({
+        id: "power_in_cage",
+        rule: "Battery in cage",
+        nodeIds: power.map((n) => n.id),
+        detail: "Cell sits inside the brass wire cage with straps (matches physical sat build).",
+      });
+    } else {
+      for (const n of power) {
+        if (n.position[1] > 40) {
+          n.position = [n.position[0], Math.min(n.position[1], 18), n.position[2]];
+        }
+      }
+      notes.push({
+        id: "power_low",
+        rule: "Power sits low",
+        nodeIds: power.map((n) => n.id),
+        detail: "Battery and charge circuit stay near the base.",
+      });
     }
-    notes.push({
-      id: "power_low",
-      rule: "Power sits low",
-      nodeIds: power.map((n) => n.id),
-      detail: "Battery and charge circuit stay near the base for stability and short power runs.",
-    });
   }
 
-  // ── Rule: brain_mid (MCU mid-structure, serviceable) ──
+  // ── Rule: brain ──
   const brains = nodes.filter((n) => n.layer === "brain" || n.id === "brain");
   if (brains.length > 0) {
-    for (const n of brains) {
-      // Mid height, slightly proud of structure
-      const mid = Math.max(48, Math.min(fy - 20, 70));
-      n.position = [n.position[0], mid, Math.max(n.position[2], 10)];
+    if (isCubeSat) {
+      for (const n of brains) {
+        n.position = [cageC[0] - 12, cageC[1] - 6, cageC[2] + cageSize / 2 - 8];
+      }
+      notes.push({
+        id: "brain_mid",
+        rule: "Controller in cage",
+        nodeIds: brains.map((n) => n.id),
+        detail: "MCU sits inside the cube behind the OLED for short I2C runs.",
+      });
+    } else {
+      const fy = faceY(nodes);
+      for (const n of brains) {
+        const mid = Math.max(48, Math.min(fy - 20, 70));
+        n.position = [n.position[0], mid, Math.max(n.position[2], 10)];
+      }
+      notes.push({
+        id: "brain_mid",
+        rule: "Controller mid-structure",
+        nodeIds: brains.map((n) => n.id),
+        detail: "MCU placed mid-height for wiring reach.",
+      });
     }
-    notes.push({
-      id: "brain_mid",
-      rule: "Controller mid-structure",
-      nodeIds: brains.map((n) => n.id),
-      detail: "MCU placed mid-height for wiring reach and heat access.",
-    });
   }
 
-  // ── Rule: touch_top (reachable input) ──
+  // ── Rule: touch on cube top ──
   const touches = nodes.filter((n) => n.layer === "touch" || n.id === "touch");
   if (touches.length > 0) {
-    const top = maxY(nodes.filter((n) => !touches.includes(n)));
-    for (const n of touches) {
-      n.position = [n.position[0], Math.max(n.position[1], top + 6), n.position[2]];
+    if (isCubeSat) {
+      for (const n of touches) {
+        n.position = [cageC[0], cageC[1] + cageSize / 2 + 1.2, cageC[2]];
+      }
+      notes.push({
+        id: "touch_top",
+        rule: "Controls on top",
+        nodeIds: touches.map((n) => n.id),
+        detail: "Touch pad sits on the top face of the wire cube.",
+      });
+    } else {
+      const top = maxY(nodes.filter((n) => !touches.includes(n)));
+      for (const n of touches) {
+        n.position = [n.position[0], Math.max(n.position[1], top + 6), n.position[2]];
+      }
+      notes.push({
+        id: "touch_top",
+        rule: "Controls on top",
+        nodeIds: touches.map((n) => n.id),
+        detail: "Touch/button sits at the highest reachable surface.",
+      });
     }
-    notes.push({
-      id: "touch_top",
-      rule: "Controls on top",
-      nodeIds: touches.map((n) => n.id),
-      detail: "Touch/button sits at the highest reachable surface.",
-    });
   }
 
   // ── Rule: sensor_exposed ──

@@ -16,7 +16,13 @@ export type GeomKind =
   | "oled_module"
   | "solar_module"
   | "pcb_module"
-  | "brass_frame";
+  | "brass_frame"
+  /** Photo-matched sat_clock: thin brass rod cube cage */
+  | "wire_cube_cage"
+  /** Thin metal stand (stem + foot) */
+  | "metal_stand"
+  /** Battery retention straps/rings inside cage */
+  | "battery_straps";
 
 export interface GeomSpec {
   kind: GeomKind;

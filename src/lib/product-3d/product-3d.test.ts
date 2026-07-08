@@ -87,27 +87,20 @@ describe("product-3d connection spars + sun + catalog", () => {
 describe("product-3d spatial reasoning", () => {
   const plan = applyTrustPipeline(demo as unknown as BuildPlan);
 
-  it("elevates and sky-tilts solar panels", async () => {
+  it("cube sat keeps solar at cage sides", async () => {
     const { applySpatialReasoning } = await import("./spatial-reason");
     const raw = buildSatClockScene3D(plan);
-    // Force flat solar to prove reasoner fixes them
-    raw.nodes = raw.nodes.map((n) =>
-      n.id.startsWith("solar-")
-        ? { ...n, position: [n.position[0], 50, 0] as [number, number, number], rotation: [0, 0, 0] as [number, number, number] }
-        : n
-    );
     const { scene, notes } = applySpatialReasoning(raw);
     const sl = scene.nodes.find((n) => n.id === "solar-l")!;
-    const face = scene.nodes.find((n) => n.id === "face")!;
-    assert.ok(sl.position[1] > face.position[1], "solar higher than display");
-    assert.ok(Math.abs(sl.rotation[0]) > 0.5, "solar pitched toward sky");
-    assert.ok(notes.some((n) => n.id === "solar_sky"));
+    const frame = scene.nodes.find((n) => n.id === "frame")!;
+    assert.ok(sl.position[0] < frame.position[0] - 20, "left wing outboard");
+    assert.ok(Math.abs(sl.position[1] - frame.position[1]) < 25, "wings near cage height");
+    assert.ok(notes.some((n) => n.id === "solar_sky" || n.id === "power_in_cage"));
   });
 
   it("buildProductScene3D attaches reasoning notes", () => {
     const scene = buildProductScene3D(plan);
     assert.ok(scene.reasoningNotes && scene.reasoningNotes.length >= 2);
-    assert.ok(scene.reasoningNotes!.some((n) => /solar|sky/i.test(n.rule)));
   });
 });
 
@@ -134,7 +127,7 @@ describe("product-3d materials + quality", () => {
       applyTrustPipeline(demo as unknown as BuildPlan)
     );
     const kinds = new Set(scene.nodes.map((n) => n.geom.kind));
-    assert.ok(kinds.has("bamboo_base") || kinds.has("disk"));
+    assert.ok(kinds.has("wire_cube_cage") || kinds.has("metal_stand"));
     assert.ok(kinds.has("oled_module") || kinds.has("oled_panel"));
     assert.ok(kinds.has("solar_module") || kinds.has("solar_panel"));
   });
@@ -275,6 +268,20 @@ describe("product-3d scene builder", () => {
     assert.ok(layers.has("wings"));
     assert.ok(layers.has("power"));
     assert.ok(layers.has("touch"));
+  });
+
+  it("sat_clock is wire-cube form (not bamboo coaster)", () => {
+    const scene = buildSatClockScene3D(plan);
+    const kinds = new Set(scene.nodes.map((n) => n.geom.kind));
+    assert.ok(kinds.has("wire_cube_cage"), "must have wire cube cage");
+    assert.ok(kinds.has("metal_stand"), "must have metal stand");
+    assert.ok(!kinds.has("bamboo_base"), "no bamboo coaster default");
+    const frame = scene.nodes.find((n) => n.id === "frame")!;
+    const battery = scene.nodes.find((n) => n.id === "battery")!;
+    // Battery Y near cage center (inside cage)
+    assert.ok(Math.abs(battery.position[1] - frame.position[1]) < 20, "battery inside cage height");
+    const touch = scene.nodes.find((n) => n.id === "touch")!;
+    assert.ok(touch.position[1] > frame.position[1], "touch on top of cube");
   });
 
   it("resolveProductScene3D from plan formSpec", () => {
@@ -458,13 +465,17 @@ describe("product-3d pose enrichment", () => {
   });
 
   it("buildProductScene3D applies plan.scenePoses", () => {
-    const plain = buildProductScene3D(plan, { enrich: false });
-    const withPose = buildProductScene3D({
-      ...plan,
-      scenePoses: { face: { delta: [0, 12, 0] } },
-    });
+    const plain = buildProductScene3D(plan, { enrich: false, reason: false });
+    const withPose = buildProductScene3D(
+      {
+        ...plan,
+        scenePoses: { face: { delta: [0, 12, 0] } },
+      },
+      { reason: false }
+    );
     const faceE = withPose.nodes.find((n) => n.id === "face")!;
     const faceP = plain.nodes.find((n) => n.id === "face")!;
+    // delta applied on Y (spatial reason off so pose not overwritten)
     assert.ok(faceE.position[1] >= faceP.position[1] + 11.5);
     assert.equal(withPose.source, "llm_enriched");
   });

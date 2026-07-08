@@ -96,6 +96,127 @@ export function NodeMesh({
   let inner: React.ReactNode = null;
 
   switch (kind) {
+    case "metal_stand": {
+      const stemR = (p.stemR || 1.6) * s;
+      const ht = (p.height || 95) * s;
+      const footR = (p.footR || 10) * s;
+      const footH = (p.footH || 2.5) * s;
+      inner = (
+        <group onClick={onClick}>
+          <mesh position={[0, footH / 2, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[footR, footR * 1.05, footH, segments]} />
+            <meshPhysicalMaterial color="#8a9299" metalness={0.88} roughness={0.28} envMapIntensity={1.1} transparent opacity={opacity} />
+            <SelectOutline selected={selected} />
+          </mesh>
+          <mesh position={[0, footH + ht / 2, 0]} castShadow>
+            <cylinderGeometry args={[stemR, stemR * 0.95, ht, Math.max(12, segments / 2)]} />
+            <meshPhysicalMaterial color="#b0b8c0" metalness={0.9} roughness={0.25} envMapIntensity={1.15} transparent opacity={opacity} />
+          </mesh>
+          {/* Stem cap into cage */}
+          <mesh position={[0, footH + ht + 0.001, 0]}>
+            <sphereGeometry args={[stemR * 1.4, 12, 12]} />
+            <meshPhysicalMaterial color="#c9a227" metalness={0.92} roughness={0.25} transparent opacity={opacity} />
+          </mesh>
+        </group>
+      );
+      break;
+    }
+
+    case "wire_cube_cage": {
+      const size = (p.size || 58) * s;
+      const r = (p.rodR || 1) * s;
+      const half = size / 2;
+      // 8 corners of cube
+      const corners: [number, number, number][] = [
+        [-half, -half, -half],
+        [half, -half, -half],
+        [half, half, -half],
+        [-half, half, -half],
+        [-half, -half, half],
+        [half, -half, half],
+        [half, half, half],
+        [-half, half, half],
+      ];
+      // 12 edges as [i,j] corner indices
+      const edges: [number, number][] = [
+        [0, 1], [1, 2], [2, 3], [3, 0], // back
+        [4, 5], [5, 6], [6, 7], [7, 4], // front
+        [0, 4], [1, 5], [2, 6], [3, 7], // sides
+      ];
+      const brass = (
+        <meshPhysicalMaterial
+          color="#c9a227"
+          metalness={0.94}
+          roughness={0.24}
+          clearcoat={0.3}
+          clearcoatRoughness={0.2}
+          envMapIntensity={1.25}
+          transparent
+          opacity={opacity}
+        />
+      );
+      inner = (
+        <group onClick={onClick}>
+          {corners.map((c, i) => (
+            <mesh key={`c${i}`} position={c} castShadow>
+              <sphereGeometry args={[r * 1.35, 10, 10]} />
+              {brass}
+            </mesh>
+          ))}
+          {edges.map(([ia, ib], i) => {
+            const a = corners[ia];
+            const b = corners[ib];
+            const mx = (a[0] + b[0]) / 2;
+            const my = (a[1] + b[1]) / 2;
+            const mz = (a[2] + b[2]) / 2;
+            const dx = b[0] - a[0];
+            const dy = b[1] - a[1];
+            const dz = b[2] - a[2];
+            const len = Math.hypot(dx, dy, dz);
+            // Align Y-cylinder to edge direction
+            const yaw = Math.atan2(dx, dz);
+            const pitch = Math.atan2(dy, Math.hypot(dx, dz));
+            return (
+              <mesh
+                key={`e${i}`}
+                position={[mx, my, mz]}
+                rotation={[pitch - Math.PI / 2, yaw, 0]}
+                castShadow
+              >
+                <cylinderGeometry args={[r, r, len, 8]} />
+                {brass}
+              </mesh>
+            );
+          })}
+          {selected && (
+            <mesh>
+              <boxGeometry args={[size * 1.02, size * 1.02, size * 1.02]} />
+              <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={0.25} />
+            </mesh>
+          )}
+        </group>
+      );
+      break;
+    }
+
+    case "battery_straps": {
+      const size = (p.size || 50) * s;
+      const r = (p.rodR || 0.7) * s;
+      const ringR = size * 0.38;
+      inner = (
+        <group onClick={onClick}>
+          {[-1, 1].map((sign) => (
+            <mesh key={sign} position={[sign * size * 0.22, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <torusGeometry args={[ringR * 0.55, r, 8, 24]} />
+              <meshPhysicalMaterial color="#c9a227" metalness={0.92} roughness={0.28} envMapIntensity={1.1} transparent opacity={opacity} />
+              <SelectOutline selected={selected} />
+            </mesh>
+          ))}
+        </group>
+      );
+      break;
+    }
+
     case "bamboo_base": {
       const r = (p.radius || 55) * s;
       const h = (p.height || 10) * s;
@@ -137,38 +258,55 @@ export function NodeMesh({
 
     case "oled_module":
     case "oled_panel": {
-      const w = (p.width || 52) * s;
-      const h = (p.height || 30) * s;
-      const d = (p.depth || 4) * s;
+      const w = (p.width || 34) * s;
+      const h = (p.height || 24) * s;
+      const d = (p.depth || 3.5) * s;
       const bezel = (p.bezel || 2.2) * s;
+      const showPcb = (p.pcb ?? 1) > 0;
+      const pcbW = w * 1.18;
+      const pcbH = h * 1.35;
       inner = (
         <group onClick={onClick}>
-          {/* Bezel shell */}
-          <RoundedBox args={[w, h, d]} radius={d * 0.15} smoothness={4} castShadow>
-            <meshPhysicalMaterial color="#141418" metalness={0.4} roughness={0.4} clearcoat={0.15} envMapIntensity={0.7} transparent opacity={opacity} />
+          {/* PCB flange (blue module board) */}
+          {showPcb && (
+            <RoundedBox position={[0, -h * 0.08, -d * 0.35]} args={[pcbW, pcbH, d * 0.45]} radius={d * 0.08} smoothness={3} castShadow>
+              <meshPhysicalMaterial color="#1e3a5f" metalness={0.15} roughness={0.5} envMapIntensity={0.6} transparent opacity={opacity} />
+            </RoundedBox>
+          )}
+          {/* Black module shell */}
+          <RoundedBox args={[w, h, d]} radius={d * 0.12} smoothness={4} castShadow>
+            <meshPhysicalMaterial color="#0c0c10" metalness={0.35} roughness={0.4} clearcoat={0.12} envMapIntensity={0.75} transparent opacity={opacity} />
             <SelectOutline selected={selected} />
           </RoundedBox>
-          {/* Glass / active area */}
-          <mesh position={[0, 0, d * 0.35]}>
+          {/* Glass screen */}
+          <mesh position={[0, 0, d * 0.4]}>
             <planeGeometry args={[w - bezel * 2, h - bezel * 2]} />
             <meshPhysicalMaterial
-              color="#061018"
-              metalness={0.2}
-              roughness={0.08}
+              color="#050a08"
+              metalness={0.15}
+              roughness={0.06}
               clearcoat={1}
-              clearcoatRoughness={0.04}
-              emissive="#0e7490"
-              emissiveIntensity={0.55}
-              envMapIntensity={1.5}
+              clearcoatRoughness={0.03}
+              emissive="#14532d"
+              emissiveIntensity={0.35}
+              envMapIntensity={1.4}
               transparent
               opacity={opacity}
             />
           </mesh>
-          {/* Fake time digits glow */}
-          <mesh position={[0, 0.002 * s, d * 0.36]}>
-            <planeGeometry args={[(w - bezel * 2) * 0.55, (h - bezel * 2) * 0.28]} />
-            <meshBasicMaterial color="#67e8f9" transparent opacity={0.55 * opacity} />
+          {/* Green pixel text glow */}
+          <mesh position={[0, 0, d * 0.42]}>
+            <planeGeometry args={[(w - bezel * 2) * 0.72, (h - bezel * 2) * 0.22]} />
+            <meshBasicMaterial color="#4ade80" transparent opacity={0.75 * opacity} />
           </mesh>
+          {/* Header pins along bottom of PCB */}
+          {showPcb &&
+            Array.from({ length: 8 }).map((_, i) => (
+              <mesh key={i} position={[-pcbW * 0.35 + i * (pcbW * 0.1), -pcbH * 0.42, -d * 0.55]}>
+                <boxGeometry args={[d * 0.2, d * 0.2, d * 0.7]} />
+                <meshPhysicalMaterial color="#cbd5e1" metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+            ))}
         </group>
       );
       break;
@@ -178,54 +316,54 @@ export function NodeMesh({
     case "solar_panel": {
       const w = (p.width || 42) * s;
       const h = (p.height || 28) * s;
-      const d = (p.depth || 2.5) * s;
-      const cells = Math.min(6, Math.max(2, Math.round(p.cells || 4)));
-      const cellW = (w * 0.88) / cells;
-      const cellH = h * 0.78;
+      const d = Math.min((p.depth || 1.6) * s, w * 0.06); // keep thin
+      const cells = Math.min(8, Math.max(2, Math.round(p.cells || 6)));
+      const cellW = (w * 0.9) / cells;
+      const cellH = h * 0.82;
       inner = (
         <group onClick={onClick}>
-          <RoundedBox args={[w, h, d]} radius={d * 0.2} smoothness={3} castShadow>
-            <meshPhysicalMaterial color="#64748b" metalness={0.85} roughness={0.28} envMapIntensity={1} transparent opacity={opacity} />
+          {/* Thin metal frame lip */}
+          <RoundedBox args={[w, h, d]} radius={d * 0.25} smoothness={3} castShadow>
+            <meshPhysicalMaterial color="#94a3b8" metalness={0.88} roughness={0.28} envMapIntensity={1.05} transparent opacity={opacity} />
             <SelectOutline selected={selected} />
           </RoundedBox>
-          <mesh position={[0, 0, d * 0.4]}>
-            <planeGeometry args={[w * 0.92, h * 0.88]} />
+          {/* Dark cell plane */}
+          <mesh position={[0, 0, d * 0.35]}>
+            <planeGeometry args={[w * 0.94, h * 0.9]} />
             <meshPhysicalMaterial
-              color="#0a1020"
-              metalness={0.6}
-              roughness={0.28}
-              clearcoat={0.5}
-              clearcoatRoughness={0.12}
-              envMapIntensity={1.1}
+              color="#0a0f18"
+              metalness={0.65}
+              roughness={0.22}
+              clearcoat={0.85}
+              clearcoatRoughness={0.08}
+              envMapIntensity={1.35}
               transparent
               opacity={opacity}
             />
           </mesh>
           {Array.from({ length: cells }).map((_, i) => {
-            const x = -w * 0.4 + cellW * 0.5 + i * cellW;
+            const x = -w * 0.42 + cellW * 0.5 + i * cellW;
             return (
-              <mesh key={i} position={[x, 0, d * 0.42]}>
-                <planeGeometry args={[cellW * 0.88, cellH]} />
-                <meshPhysicalMaterial
-                  color="#111827"
-                  metalness={0.5}
-                  roughness={0.35}
-                  transparent
-                  opacity={0.95 * opacity}
-                />
+              <mesh key={i} position={[x, 0, d * 0.38]}>
+                <planeGeometry args={[cellW * 0.9, cellH]} />
+                <meshPhysicalMaterial color="#0f172a" metalness={0.55} roughness={0.3} transparent opacity={0.92 * opacity} />
               </mesh>
             );
           })}
-          {/* Bus bars */}
           {Array.from({ length: cells - 1 }).map((_, i) => {
-            const x = -w * 0.4 + cellW * (i + 1);
+            const x = -w * 0.42 + cellW * (i + 1);
             return (
-              <mesh key={`b${i}`} position={[x, 0, d * 0.43]}>
-                <boxGeometry args={[0.0004, cellH * 0.95, 0.0003]} />
+              <mesh key={`b${i}`} position={[x, 0, d * 0.4]}>
+                <boxGeometry args={[s * 0.15, cellH * 0.95, s * 0.08]} />
                 <meshPhysicalMaterial color="#cbd5e1" metalness={0.9} roughness={0.2} transparent opacity={opacity} />
               </mesh>
             );
           })}
+          {/* Glass highlight strip */}
+          <mesh position={[0, h * 0.28, d * 0.42]} rotation={[0, 0, 0]}>
+            <planeGeometry args={[w * 0.7, h * 0.08]} />
+            <meshBasicMaterial color="#e2e8f0" transparent opacity={0.12 * opacity} />
+          </mesh>
         </group>
       );
       break;
