@@ -9,6 +9,7 @@ import type { FormLayerId, FormSpec } from "@/lib/product-visual/formspec/types"
 import type { ProductScene3D, SceneNode3D, PoseLayout3D } from "./types";
 import { applyPoseLayout } from "./types";
 import { applyEnrichmentToScene } from "./enrich-poses";
+import { applySpatialReasoning } from "./spatial-reason";
 
 function findPart(parts: Part[], pred: (p: Part, role: string) => boolean): Part | undefined {
   return parts.find((p) => pred(p, classifyRole(p)));
@@ -146,28 +147,50 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     explodeDir: [0, 0, 1],
   });
 
+  // Seed poses; spatial-reason brain elevates + sky-tilts these
   nodes.push({
     id: "solar-l",
     layer: "wings",
     partId: solar?.id,
     ref: refOf(solar),
     label: "Solar panel L",
-    geom: { kind: "solar_module", params: { width: 44, height: 30, depth: 2.5, cells: 4 } },
-    position: [-62, 94, 0],
-    rotation: [0, 0, 0.32],
+    geom: { kind: "solar_module", params: { width: 48, height: 32, depth: 2.8, cells: 5 } },
+    position: [-68, 115, 8],
+    rotation: [-0.95, 0.15, 0.55],
     material: { color: "#0c1222", preset: "solar_cell" },
-    explodeDir: [-1.2, 0.3, 0],
+    explodeDir: [-1.4, 0.8, 0.3],
   });
   nodes.push({
     id: "solar-r",
     layer: "wings",
     partId: solar?.id,
     label: "Solar panel R",
-    geom: { kind: "solar_module", params: { width: 44, height: 30, depth: 2.5, cells: 4 } },
-    position: [62, 94, 0],
-    rotation: [0, 0, -0.32],
+    geom: { kind: "solar_module", params: { width: 48, height: 32, depth: 2.8, cells: 5 } },
+    position: [68, 115, 8],
+    rotation: [-0.95, -0.15, -0.55],
     material: { color: "#0c1222", preset: "solar_cell" },
-    explodeDir: [1.2, 0.3, 0],
+    explodeDir: [1.4, 0.8, 0.3],
+  });
+  // Structural spars frame → solar (visual “thinking” of structure)
+  nodes.push({
+    id: "spar-l",
+    layer: "wings",
+    label: "Wing spar L",
+    geom: { kind: "tube", params: { radius: 1.2, height: 36 } },
+    position: [-48, 102, 4],
+    rotation: [0, 0, 0.9],
+    material: { color: "#c9a227", preset: "brass" },
+    explodeDir: [-1, 0.5, 0],
+  });
+  nodes.push({
+    id: "spar-r",
+    layer: "wings",
+    label: "Wing spar R",
+    geom: { kind: "tube", params: { radius: 1.2, height: 36 } },
+    position: [48, 102, 4],
+    rotation: [0, 0, -0.9],
+    material: { color: "#c9a227", preset: "brass" },
+    explodeDir: [1, 0.5, 0],
   });
 
   nodes.push({
@@ -250,8 +273,8 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     rootScale: 0.011,
     nodes,
     cameraHint: {
-      position: [1.05, 0.95, 1.25],
-      target: [0, 0.58, 0],
+      position: [1.15, 1.05, 1.35],
+      target: [0, 0.72, 0],
     },
     source: plan.id === "sat-line-smart-clock" ? "demo_golden" : "parametric",
     grade: plan.id === "sat-line-smart-clock" ? "high" : "medium",
@@ -640,6 +663,8 @@ export function buildProductScene3D(
     applyFormLayout?: boolean;
     /** Apply FormSpec params + plan.scenePoses (default true) */
     enrich?: boolean;
+    /** Spatial design-intent brain (default true) */
+    reason?: boolean;
   }
 ): ProductScene3D {
   const form = resolveFormSpec(plan);
@@ -682,6 +707,10 @@ export function buildProductScene3D(
   // Param + LLM pose enrichment (before explicit user poses)
   if (opts?.enrich !== false) {
     scene = applyEnrichmentToScene(scene, { ...plan, formSpec: form });
+  }
+  // Design brain: solar sky-facing, power low, display forward, …
+  if (opts?.reason !== false) {
+    scene = applySpatialReasoning(scene).scene;
   }
   if (opts?.poses) {
     scene = applyPoseLayout(scene, opts.poses);

@@ -44,6 +44,8 @@ export {
   applyEnrichmentToScene,
   mergePoseLayouts,
 } from "./enrich-poses";
+export type { SpatialReasonNote, SpatialReasonResult } from "./spatial-reason";
+export { applySpatialReasoning, reasoningChips } from "./spatial-reason";
 export type { MaterialPresetId } from "./materials";
 export {
   getMaterialPreset,

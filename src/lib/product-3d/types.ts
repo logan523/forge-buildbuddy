@@ -62,6 +62,11 @@ export interface ProductScene3D {
   source: "parametric" | "llm_enriched" | "demo_golden";
   grade: "high" | "medium" | "assumed";
   templateId: string;
+  /**
+   * Design-intent notes from spatial reasoning brain
+   * (solar sky-facing, power low, display forward, …).
+   */
+  reasoningNotes?: import("./spatial-reason").SpatialReasonNote[];
 }
 
 export interface LayerViewState {

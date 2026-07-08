@@ -46,6 +46,33 @@ import {
   beautyGenerationConfigured,
 } from "./beauty-mesh";
 
+describe("product-3d spatial reasoning", () => {
+  const plan = applyTrustPipeline(demo as unknown as BuildPlan);
+
+  it("elevates and sky-tilts solar panels", async () => {
+    const { applySpatialReasoning } = await import("./spatial-reason");
+    const raw = buildSatClockScene3D(plan);
+    // Force flat solar to prove reasoner fixes them
+    raw.nodes = raw.nodes.map((n) =>
+      n.id.startsWith("solar-")
+        ? { ...n, position: [n.position[0], 50, 0] as [number, number, number], rotation: [0, 0, 0] as [number, number, number] }
+        : n
+    );
+    const { scene, notes } = applySpatialReasoning(raw);
+    const sl = scene.nodes.find((n) => n.id === "solar-l")!;
+    const face = scene.nodes.find((n) => n.id === "face")!;
+    assert.ok(sl.position[1] > face.position[1], "solar higher than display");
+    assert.ok(Math.abs(sl.rotation[0]) > 0.5, "solar pitched toward sky");
+    assert.ok(notes.some((n) => n.id === "solar_sky"));
+  });
+
+  it("buildProductScene3D attaches reasoning notes", () => {
+    const scene = buildProductScene3D(plan);
+    assert.ok(scene.reasoningNotes && scene.reasoningNotes.length >= 2);
+    assert.ok(scene.reasoningNotes!.some((n) => /solar|sky/i.test(n.rule)));
+  });
+});
+
 describe("product-3d materials + quality", () => {
   it("resolves bamboo and brass presets", async () => {
     const { resolvePhysicalMaterial, inferMaterialPreset } = await import("./materials");

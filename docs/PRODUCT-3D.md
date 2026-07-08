@@ -17,6 +17,21 @@ Orbitable **3D product model** built from the BOM — not a flat SVG stand-in, n
 - Materials: `materials.ts` (MeshPhysical PBR presets)  
 - Quality: `quality.ts` (high/medium/low + PerformanceMonitor)  
 
+## Spatial reasoning brain
+
+After template build, `applySpatialReasoning` applies design-intent rules:
+
+| Rule | Behavior |
+|------|----------|
+| Solar faces sky | Elevate above display; pitch ~55° so active face collects light |
+| Display faces user | OLED toward +Z |
+| Power sits low | Battery/charger near base |
+| Controller mid | MCU mid-height for service |
+| Controls on top | Touch at highest surface |
+| Sensor exposed | Proud of chassis for airflow |
+
+Notes surface as **Brain** chips in the 3D viewer (click peels related layer).
+
 ## Visual quality (Palantir-grade parametric)
 
 | Layer | Technique |

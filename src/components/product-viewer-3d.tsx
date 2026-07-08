@@ -482,41 +482,55 @@ export function ProductViewer3D({
   }
 
   const poseCount = Object.keys(poses).length;
+  const notes = scene.reasoningNotes || [];
+  const selectedLabel = view.selectedNodeId
+    ? scene.nodes.find((n) => n.id === view.selectedNodeId)?.label
+    : null;
+
+  const chipBtn = (active: boolean, accent = "cyan") =>
+    active
+      ? accent === "amber"
+        ? "bg-amber-400 text-black font-semibold shadow-sm"
+        : accent === "violet"
+          ? "bg-violet-500/50 text-violet-50 font-semibold"
+          : "bg-cyan-500/35 text-cyan-50 font-semibold ring-1 ring-cyan-400/40"
+      : "bg-white/[0.06] text-white/65 hover:bg-white/10 hover:text-white/90";
 
   return (
-    <div className={`rounded-xl border border-border-subtle bg-[#0f1419] overflow-hidden ${compact ? "" : ""}`}>
-      <div className="px-3 py-2 flex items-center justify-between border-b border-white/10 gap-2">
+    <div
+      className={`rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1219] to-[#080b10] overflow-hidden shadow-2xl shadow-black/40 ${
+        compact ? "" : ""
+      }`}
+    >
+      {/* Header */}
+      <div className="px-3.5 py-2.5 flex items-center justify-between gap-2 border-b border-white/[0.07] bg-black/20">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold text-cyan-400/90 uppercase tracking-wider">
-            3D product model
-            <span className="ml-2 font-mono text-white/30 normal-case tracking-normal">
-              {quality.tier}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+            <p className="text-[11px] font-semibold text-white/90 tracking-wide">
+              Product assembly
+            </p>
+            <span className="text-[9px] font-mono text-white/30 px-1.5 py-0.5 rounded bg-white/5">
+              {scene.templateId}
             </span>
-          </p>
-          <p className="text-[11px] text-white/60 truncate">
+            <span className="text-[9px] font-mono text-white/25">{quality.tier}</span>
+          </div>
+          <p className="text-[10px] text-white/45 mt-0.5 truncate pl-3.5">
             {editMode
-              ? "Drag gizmo to pose · orbit off while selected"
-              : "Orbit · click a part · layers to peel"}
-            <span className="ml-1.5 font-mono text-white/35">· {scene.templateId}</span>
-            {scene.source === "llm_enriched" && (
-              <span className="ml-1.5 text-amber-400/80">· pose-enriched</span>
-            )}
-            {showBeauty && <span className="ml-1.5 text-violet-300/80">· beauty underlay</span>}
+              ? "Drag gizmo · orbit paused while selected"
+              : selectedLabel
+                ? `Selected · ${selectedLabel}`
+                : "Orbit drag · click part · peel layers"}
+            {showBeauty && <span className="text-violet-300/70"> · beauty</span>}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {beautySpec && beautySpec.status === "ready" && (
+        <div className="flex items-center gap-1 shrink-0">
+          {beautySpec?.status === "ready" && (
             <button
               type="button"
               title={beautyResolved.disclaimer}
               onClick={() => setBeautyOn((b) => !b)}
-              className={`text-[10px] px-2 py-1 rounded cursor-pointer font-medium ${
-                beautyOn && showBeauty
-                  ? "bg-violet-500/40 text-violet-100"
-                  : beautyOn
-                    ? "bg-violet-500/20 text-violet-200/70"
-                    : "bg-white/10 text-white/70 hover:bg-white/15"
-              }`}
+              className={`text-[10px] px-2 py-1 rounded-lg cursor-pointer transition-colors ${chipBtn(beautyOn && showBeauty, "violet")}`}
             >
               Beauty
             </button>
@@ -525,19 +539,11 @@ export function ProductViewer3D({
             <button
               type="button"
               disabled={genBusy}
-              title="Generate AI beauty underlay (Meshy/Tripo). Layers stay authority."
+              title="AI beauty underlay — layers stay authority"
               onClick={() => void runBeautyGenerate()}
-              className={`text-[10px] px-2 py-1 rounded cursor-pointer font-medium disabled:opacity-50 ${
-                genBusy
-                  ? "bg-violet-500/30 text-violet-100"
-                  : "bg-white/10 text-white/70 hover:bg-white/15"
-              }`}
+              className={`text-[10px] px-2 py-1 rounded-lg cursor-pointer disabled:opacity-50 transition-colors ${chipBtn(genBusy, "violet")}`}
             >
-              {genBusy
-                ? genProgress != null
-                  ? `Gen ${genProgress}%`
-                  : "Gen…"
-                : "Gen beauty"}
+              {genBusy ? (genProgress != null ? `${genProgress}%` : "…") : "Gen"}
             </button>
           )}
           {editable && (
@@ -550,60 +556,90 @@ export function ProductViewer3D({
                     return !e;
                   });
                 }}
-                className={`text-[10px] px-2 py-1 rounded cursor-pointer font-medium ${
-                  editMode
-                    ? "bg-amber-400 text-black"
-                    : "bg-white/10 text-white/70 hover:bg-white/15"
-                }`}
+                className={`text-[10px] px-2 py-1 rounded-lg cursor-pointer transition-colors ${chipBtn(editMode, "amber")}`}
               >
-                {editMode ? "Editing" : "Pose"}
+                {editMode ? "Done" : "Pose"}
               </button>
               {editMode && (
                 <>
                   <button
                     type="button"
                     onClick={() => setGizmoMode("translate")}
-                    className={`text-[10px] px-1.5 py-1 rounded cursor-pointer ${
-                      gizmoMode === "translate" ? "bg-cyan-500/40 text-cyan-100" : "text-white/40 hover:text-white"
-                    }`}
+                    className={`text-[10px] px-1.5 py-1 rounded-md cursor-pointer ${chipBtn(gizmoMode === "translate")}`}
                   >
                     Move
                   </button>
                   <button
                     type="button"
                     onClick={() => setGizmoMode("rotate")}
-                    className={`text-[10px] px-1.5 py-1 rounded cursor-pointer ${
-                      gizmoMode === "rotate" ? "bg-cyan-500/40 text-cyan-100" : "text-white/40 hover:text-white"
-                    }`}
+                    className={`text-[10px] px-1.5 py-1 rounded-md cursor-pointer ${chipBtn(gizmoMode === "rotate")}`}
                   >
-                    Rotate
+                    Rot
                   </button>
                 </>
               )}
             </>
           )}
-          <span className="text-[9px] uppercase text-white/40 font-mono">{scene.grade}</span>
+          <span className="text-[9px] uppercase tracking-wider text-white/30 font-medium pl-1">
+            {scene.grade}
+          </span>
         </div>
       </div>
 
+      {/* Design brain chips */}
+      {notes.length > 0 && (
+        <div className="px-3 py-1.5 flex flex-wrap gap-1.5 border-b border-white/[0.05] bg-cyan-500/[0.03]">
+          <span className="text-[9px] font-semibold text-cyan-500/80 uppercase tracking-wider self-center mr-0.5">
+            Brain
+          </span>
+          {notes.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              title={n.detail}
+              onClick={() => {
+                const id = n.nodeIds[0];
+                if (id) {
+                  const node = scene.nodes.find((x) => x.id === id);
+                  setView((v) => ({
+                    ...v,
+                    selectedNodeId: id,
+                    soloLayerId: node?.layer || null,
+                    explode: Math.max(v.explode, 0.15),
+                  }));
+                }
+              }}
+              className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.04] border border-cyan-500/20 text-cyan-100/80 hover:bg-cyan-500/15 hover:border-cyan-400/40 cursor-pointer transition-colors"
+            >
+              {n.rule}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className={`flex ${showLayerPanel ? "flex-col sm:flex-row" : "flex-col"}`}>
-        <div className="flex-1 relative" style={{ height }}>
+        <div className="flex-1 relative min-h-0" style={{ height }}>
           <Canvas
             camera={{
               position: scene.cameraHint.position,
-              fov: 38,
+              fov: 36,
               near: 0.01,
               far: 50,
             }}
             dpr={quality.dpr}
             shadows
-            gl={{ antialias: quality.antialias, alpha: true, powerPreference: "high-performance" }}
+            gl={{
+              antialias: quality.antialias,
+              alpha: true,
+              powerPreference: "high-performance",
+              toneMappingExposure: 1.05,
+            }}
             onPointerMissed={() => {
-              if (!editMode) setView((v) => ({ ...v, selectedNodeId: null }));
+              if (!editMode) setView((v) => ({ ...v, selectedNodeId: null, soloLayerId: null }));
             }}
           >
-            <color attach="background" args={["#0a0e14"]} />
-            <fog attach="fog" args={["#0a0e14", 3.5, 8]} />
+            <color attach="background" args={["#070a0f"]} />
+            <fog attach="fog" args={["#070a0f", 4, 9]} />
             <Suspense fallback={null}>
               <SceneContent
                 scene={scene}
@@ -619,38 +655,45 @@ export function ProductViewer3D({
               />
             </Suspense>
           </Canvas>
+          {/* Floating hint */}
+          <div className="pointer-events-none absolute bottom-2 left-2 right-2 sm:right-auto flex gap-1.5">
+            <span className="text-[9px] px-2 py-1 rounded-md bg-black/50 text-white/40 backdrop-blur-sm border border-white/5">
+              Scroll zoom · drag orbit
+            </span>
+          </div>
         </div>
 
         {showLayerPanel && (
-          <div className="sm:w-44 shrink-0 border-t sm:border-t-0 sm:border-l border-white/10 p-2 bg-[#121820]">
-            <p className="text-[9px] font-semibold text-white/50 uppercase tracking-wider mb-2 px-1">
+          <div className="sm:w-[11.5rem] shrink-0 border-t sm:border-t-0 sm:border-l border-white/[0.07] p-2.5 bg-[#0a0e14]/90 backdrop-blur">
+            <p className="text-[9px] font-semibold text-white/40 uppercase tracking-[0.14em] mb-2 px-0.5">
               Layers
             </p>
-            <ul className="space-y-1 max-h-[280px] overflow-y-auto">
+            <ul className="space-y-0.5 max-h-[min(280px,40vh)] overflow-y-auto overscroll-contain pr-0.5">
               {layers.map((l) => {
                 const on = view.visible[l.id] !== false;
                 const solo = view.soloLayerId === l.id;
                 return (
-                  <li key={l.id} className="flex items-center gap-1">
+                  <li key={l.id} className="flex items-center gap-0.5 group">
                     <button
                       type="button"
                       onClick={() => toggleLayer(l.id)}
-                      className={`flex-1 text-left text-[11px] px-2 py-1 rounded cursor-pointer ${
+                      className={`flex-1 text-left text-[11px] px-2 py-1.5 rounded-lg cursor-pointer transition-colors ${
                         solo
-                          ? "bg-cyan-500/30 text-cyan-100"
+                          ? "bg-cyan-500/25 text-cyan-50 ring-1 ring-cyan-400/30"
                           : on
-                            ? "bg-white/5 text-white/80 hover:bg-white/10"
-                            : "bg-transparent text-white/30 line-through"
+                            ? "text-white/80 hover:bg-white/[0.06]"
+                            : "text-white/25 line-through"
                       }`}
                     >
-                      {on ? "●" : "○"} {l.label}
+                      <span className={`mr-1.5 inline-block w-1.5 h-1.5 rounded-full ${on ? "bg-cyan-400/90" : "bg-white/20"}`} />
+                      {l.label}
                     </button>
                     <button
                       type="button"
-                      title="Solo this layer"
+                      title="Solo"
                       onClick={() => soloLayer(l.id)}
-                      className={`text-[9px] px-1.5 py-1 rounded cursor-pointer ${
-                        solo ? "bg-cyan-500 text-black font-bold" : "text-white/40 hover:text-white"
+                      className={`text-[9px] px-1.5 py-1 rounded-md cursor-pointer opacity-60 group-hover:opacity-100 transition-opacity ${
+                        solo ? "bg-cyan-400 text-black font-bold opacity-100" : "text-white/50 hover:text-white"
                       }`}
                     >
                       Solo
@@ -659,10 +702,12 @@ export function ProductViewer3D({
                 );
               })}
             </ul>
-            <div className="mt-3 px-1">
-              <label className="text-[9px] text-white/50 uppercase tracking-wider">
-                Explode {Math.round(view.explode * 100)}%
-              </label>
+
+            <div className="mt-3 px-0.5">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[9px] text-white/40 uppercase tracking-wider">Explode</label>
+                <span className="text-[10px] font-mono text-cyan-400/80">{Math.round(view.explode * 100)}%</span>
+              </div>
               <input
                 type="range"
                 min={0}
@@ -671,32 +716,41 @@ export function ProductViewer3D({
                 onChange={(e) =>
                   setView((v) => ({ ...v, explode: Number(e.target.value) / 100 }))
                 }
-                className="w-full mt-1 accent-cyan-400"
+                className="w-full accent-cyan-400 h-1 cursor-pointer"
               />
             </div>
-            <button
-              type="button"
-              className="mt-2 w-full text-[10px] py-1.5 rounded bg-white/10 text-white/70 hover:bg-white/15 cursor-pointer"
-              onClick={() => setView(defaultLayerView(scene.nodes))}
-            >
-              Reset view
-            </button>
-            {poseCount > 0 && (
+
+            <div className="mt-2.5 flex flex-col gap-1">
               <button
                 type="button"
-                className="mt-1 w-full text-[10px] py-1.5 rounded bg-amber-500/20 text-amber-200/90 hover:bg-amber-500/30 cursor-pointer"
-                onClick={resetPoses}
+                className="w-full text-[10px] py-1.5 rounded-lg bg-white/[0.06] text-white/60 hover:bg-white/10 hover:text-white/80 cursor-pointer transition-colors"
+                onClick={() => setView(defaultLayerView(scene.nodes))}
               >
-                Reset poses ({poseCount})
+                Reset view
               </button>
+              {poseCount > 0 && (
+                <button
+                  type="button"
+                  className="w-full text-[10px] py-1.5 rounded-lg bg-amber-500/15 text-amber-200/80 hover:bg-amber-500/25 cursor-pointer transition-colors"
+                  onClick={resetPoses}
+                >
+                  Reset poses ({poseCount})
+                </button>
+              )}
+            </div>
+
+            {notes[0] && (
+              <p className="mt-3 px-0.5 text-[9px] leading-relaxed text-white/30 border-t border-white/5 pt-2">
+                {notes.find((n) => n.nodeIds.includes(view.selectedNodeId || ""))?.detail ||
+                  notes[0].detail}
+              </p>
             )}
             {(beautySpec || beautyProviderConfigured || genError) && (
-              <p className="mt-2 px-1 text-[9px] leading-snug text-white/35">
-                {genError
-                  ? genError
-                  : beautyOn && !showBeauty
-                    ? "Beauty hidden during solo / explode / pose."
-                    : beautyResolved.disclaimer}
+              <p className="mt-1.5 px-0.5 text-[9px] leading-snug text-white/25">
+                {genError ||
+                  (beautyOn && !showBeauty
+                    ? "Beauty hidden while peeling / posing."
+                    : beautyResolved.disclaimer)}
               </p>
             )}
           </div>
