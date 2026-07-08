@@ -14,6 +14,21 @@ Orbitable **3D product model** built from the BOM — not a flat SVG stand-in, n
 - `three` + `@react-three/fiber` + `@react-three/drei`  
 - Authority: `src/lib/product-3d/`  
 - Viewer: `src/components/product-viewer-3d.tsx`  
+- Materials: `materials.ts` (MeshPhysical PBR presets)  
+- Quality: `quality.ts` (high/medium/low + PerformanceMonitor)  
+
+## Visual quality (Palantir-grade parametric)
+
+| Layer | Technique |
+|-------|-----------|
+| Materials | `MeshPhysicalMaterial` presets: bamboo, brass, copper, oled glass, PCB, solar |
+| Lighting | Studio HDRI + key/fill/rim + Lightformer |
+| Geometry | Composite kinds: `bamboo_base`, `oled_module`, `solar_module`, `pcb_module`, `brass_frame` |
+| Shadows | Soft ContactShadows + optional ground disk |
+| Selection | cyan Outlines + label chip |
+| Performance | Adaptive dpr/segments; demote tier on FPS decline |
+
+Open-source path — no proprietary CAD. Optional AI beauty remains underlay only.  
 
 ## Templates (FormSpec → builder)
 

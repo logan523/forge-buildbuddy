@@ -46,6 +46,35 @@ import {
   beautyGenerationConfigured,
 } from "./beauty-mesh";
 
+describe("product-3d materials + quality", () => {
+  it("resolves bamboo and brass presets", async () => {
+    const { resolvePhysicalMaterial, inferMaterialPreset } = await import("./materials");
+    assert.equal(inferMaterialPreset("bamboo_base", { color: "#c9a66b" }, "base"), "bamboo");
+    assert.equal(inferMaterialPreset("brass_frame", { color: "#c9a227" }, "frame"), "brass");
+    const m = resolvePhysicalMaterial("oled_module", { color: "#0a1628" }, "face", 1);
+    assert.ok((m.clearcoat ?? 0) > 0.5);
+    assert.ok((m.metalness ?? 0) < 0.5);
+  });
+
+  it("quality tiers lower dpr on low", async () => {
+    const { qualitySettings } = await import("./quality");
+    const hi = qualitySettings("high");
+    const lo = qualitySettings("low");
+    assert.ok(hi.dpr[1] >= lo.dpr[1]);
+    assert.ok(hi.segments > lo.segments);
+  });
+
+  it("sat_clock uses composite geom kinds", () => {
+    const scene = buildSatClockScene3D(
+      applyTrustPipeline(demo as unknown as BuildPlan)
+    );
+    const kinds = new Set(scene.nodes.map((n) => n.geom.kind));
+    assert.ok(kinds.has("bamboo_base") || kinds.has("disk"));
+    assert.ok(kinds.has("oled_module") || kinds.has("oled_panel"));
+    assert.ok(kinds.has("solar_module") || kinds.has("solar_panel"));
+  });
+});
+
 describe("product-3d beauty mesh (display only)", () => {
   const plan = applyTrustPipeline(demo as unknown as BuildPlan);
 

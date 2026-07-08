@@ -90,10 +90,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     partId: base?.id,
     ref: refOf(base),
     label: base?.name || "Bamboo base",
-    geom: { kind: "disk", params: { radius: 55, height: 8 } },
+    geom: { kind: "bamboo_base", params: { radius: 58, height: 10, rings: 5 } },
     position: [0, 0, 0],
-    rotation: [-Math.PI / 2, 0, 0],
-    material: { color: "#c4a574", roughness: 0.85, metalness: 0.05 },
+    rotation: [0, 0, 0],
+    material: { color: "#c9a66b", preset: "bamboo" },
     explodeDir: [0, -1, 0],
   });
 
@@ -102,10 +102,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     layer: "frame",
     partId: tube?.id,
     label: "Copper tube L",
-    geom: { kind: "tube", params: { radius: 2.2, height: 95 } },
-    position: [-32, 48, 0],
+    geom: { kind: "tube", params: { radius: 2.4, height: 98 } },
+    position: [-34, 50, 0],
     rotation: [0, 0, 0],
-    material: { color: "#b87333", metalness: 0.85, roughness: 0.35 },
+    material: { color: "#b87333", preset: "copper" },
     explodeDir: [-1, 0.2, 0],
   });
   nodes.push({
@@ -113,10 +113,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     layer: "frame",
     partId: tube?.id,
     label: "Copper tube R",
-    geom: { kind: "tube", params: { radius: 2.2, height: 95 } },
-    position: [32, 48, 0],
+    geom: { kind: "tube", params: { radius: 2.4, height: 98 } },
+    position: [34, 50, 0],
     rotation: [0, 0, 0],
-    material: { color: "#b87333", metalness: 0.85, roughness: 0.35 },
+    material: { color: "#b87333", preset: "copper" },
     explodeDir: [1, 0.2, 0],
   });
 
@@ -126,10 +126,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     partId: frame?.id,
     ref: refOf(frame),
     label: frame?.name || "Brass frame",
-    geom: { kind: "wire_frame", params: { width: 70, height: 48, depth: 4, bar: 1.6 } },
-    position: [0, 88, 0],
+    geom: { kind: "brass_frame", params: { width: 72, height: 50, depth: 5, bar: 2.2 } },
+    position: [0, 92, 0],
     rotation: [0, 0, 0],
-    material: { color: "#d4a017", metalness: 0.9, roughness: 0.28 },
+    material: { color: "#c9a227", preset: "brass" },
     explodeDir: [0, 1, 0],
   });
 
@@ -139,16 +139,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     partId: oled?.id,
     ref: refOf(oled),
     label: oled?.name || "OLED display",
-    geom: { kind: "oled_panel", params: { width: 52, height: 30, depth: 3 } },
-    position: [0, 88, 3],
+    geom: { kind: "oled_module", params: { width: 54, height: 32, depth: 4, bezel: 2.5 } },
+    position: [0, 92, 4],
     rotation: [0, 0, 0],
-    material: {
-      color: "#0b1220",
-      roughness: 0.4,
-      metalness: 0.2,
-      emissive: "#0e7490",
-      emissiveIntensity: 0.35,
-    },
+    material: { color: "#0a1628", preset: "oled_glass", emissive: "#0e7490", emissiveIntensity: 0.45 },
     explodeDir: [0, 0, 1],
   });
 
@@ -158,10 +152,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     partId: solar?.id,
     ref: refOf(solar),
     label: "Solar panel L",
-    geom: { kind: "solar_panel", params: { width: 42, height: 28, depth: 2 } },
-    position: [-58, 90, 0],
-    rotation: [0, 0, 0.35],
-    material: { color: "#0f172a", metalness: 0.4, roughness: 0.5 },
+    geom: { kind: "solar_module", params: { width: 44, height: 30, depth: 2.5, cells: 4 } },
+    position: [-62, 94, 0],
+    rotation: [0, 0, 0.32],
+    material: { color: "#0c1222", preset: "solar_cell" },
     explodeDir: [-1.2, 0.3, 0],
   });
   nodes.push({
@@ -169,10 +163,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     layer: "wings",
     partId: solar?.id,
     label: "Solar panel R",
-    geom: { kind: "solar_panel", params: { width: 42, height: 28, depth: 2 } },
-    position: [58, 90, 0],
-    rotation: [0, 0, -0.35],
-    material: { color: "#0f172a", metalness: 0.4, roughness: 0.5 },
+    geom: { kind: "solar_module", params: { width: 44, height: 30, depth: 2.5, cells: 4 } },
+    position: [62, 94, 0],
+    rotation: [0, 0, -0.32],
+    material: { color: "#0c1222", preset: "solar_cell" },
     explodeDir: [1.2, 0.3, 0],
   });
 
@@ -182,10 +176,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     partId: mcu?.id,
     ref: refOf(mcu),
     label: mcu?.name || "ESP32-C3",
-    geom: { kind: "board", params: { width: 28, height: 18, depth: 2.5 } },
-    position: [-8, 58, 8],
-    rotation: [-0.4, 0, 0],
-    material: { color: "#14532d", metalness: 0.15, roughness: 0.6 },
+    geom: { kind: "pcb_module", params: { width: 30, height: 20, depth: 2.2, chips: 2 } },
+    position: [-10, 60, 10],
+    rotation: [-0.35, 0, 0],
+    material: { color: "#14532d", preset: "pcb_green" },
     explodeDir: [0, 0, 1.1],
   });
 
@@ -195,10 +189,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     partId: sensor?.id,
     ref: refOf(sensor),
     label: sensor?.name || "Sensor",
-    geom: { kind: "box", params: { width: 12, height: 10, depth: 6 } },
-    position: [18, 60, 8],
+    geom: { kind: "box", params: { width: 14, height: 11, depth: 7 } },
+    position: [18, 62, 10],
     rotation: [0, 0, 0],
-    material: { color: "#bbf7d0", metalness: 0.1, roughness: 0.5 },
+    material: { color: "#d1fae5", preset: "sensor_body" },
     explodeDir: [0.5, 0, 1],
   });
 
@@ -208,10 +202,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     partId: touch?.id,
     ref: refOf(touch),
     label: touch?.name || "Touch switch",
-    geom: { kind: "touch_pad", params: { radius: 7, height: 3 } },
-    position: [0, 118, 2],
+    geom: { kind: "touch_pad", params: { radius: 8, height: 3.5 } },
+    position: [0, 122, 3],
     rotation: [0, 0, 0],
-    material: { color: "#c4b5fd", metalness: 0.2, roughness: 0.45 },
+    material: { color: "#a78bfa", preset: "touch_pad" },
     explodeDir: [0, 1.2, 0],
   });
 
@@ -221,10 +215,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     partId: battery?.id,
     ref: refOf(battery),
     label: battery?.name || "Li-ion cell",
-    geom: { kind: "cell_16340", params: { radius: 8, height: 34 } },
-    position: [-14, 12, 18],
+    geom: { kind: "cell_16340", params: { radius: 8.5, height: 36 } },
+    position: [-16, 14, 20],
     rotation: [0, 0, Math.PI / 2],
-    material: { color: "#334155", metalness: 0.5, roughness: 0.4 },
+    material: { color: "#1e293b", preset: "battery_body" },
     explodeDir: [0, 0, 1],
   });
   nodes.push({
@@ -233,10 +227,10 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     partId: charger?.id,
     ref: refOf(charger),
     label: charger?.name || "TP4056",
-    geom: { kind: "board", params: { width: 22, height: 14, depth: 2 } },
-    position: [16, 10, 16],
+    geom: { kind: "pcb_module", params: { width: 24, height: 15, depth: 2, chips: 1 } },
+    position: [18, 12, 18],
     rotation: [-Math.PI / 2, 0, 0],
-    material: { color: "#fde68a", metalness: 0.2, roughness: 0.55 },
+    material: { color: "#14532d", preset: "pcb_green" },
     explodeDir: [0.4, 0, 1],
   });
 
@@ -244,20 +238,20 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     id: "antenna",
     layer: "frame",
     label: "Antenna",
-    geom: { kind: "tube", params: { radius: 1, height: 16 } },
-    position: [0, 120, 0],
+    geom: { kind: "tube", params: { radius: 1.1, height: 18 } },
+    position: [0, 124, 0],
     rotation: [0, 0, 0],
-    material: { color: "#d4a017", metalness: 0.9, roughness: 0.3 },
+    material: { color: "#c9a227", preset: "brass" },
     explodeDir: [0, 1.5, 0],
   });
 
   return {
     units: "mm",
-    rootScale: 0.012,
+    rootScale: 0.011,
     nodes,
     cameraHint: {
-      position: [0.9, 0.85, 1.15],
-      target: [0, 0.55, 0],
+      position: [1.05, 0.95, 1.25],
+      target: [0, 0.58, 0],
     },
     source: plan.id === "sat-line-smart-clock" ? "demo_golden" : "parametric",
     grade: plan.id === "sat-line-smart-clock" ? "high" : "medium",

@@ -10,7 +10,13 @@ export type GeomKind =
   | "solar_panel"
   | "wire_frame"
   | "touch_pad"
-  | "tube";
+  | "tube"
+  /** Composite high-fidelity kinds (multi-mesh) */
+  | "bamboo_base"
+  | "oled_module"
+  | "solar_module"
+  | "pcb_module"
+  | "brass_frame";
 
 export interface GeomSpec {
   kind: GeomKind;
@@ -24,6 +30,8 @@ export interface SceneMaterial {
   roughness?: number;
   emissive?: string;
   emissiveIntensity?: number;
+  /** Optional PBR preset id (bamboo, brass, …) — see materials.ts */
+  preset?: string;
 }
 
 export interface SceneNode3D {

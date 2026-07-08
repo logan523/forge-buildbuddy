@@ -7,17 +7,16 @@ import {
   useEffect,
   useCallback,
   useRef,
-  forwardRef,
 } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import {
   OrbitControls,
   ContactShadows,
   Environment,
-  Html,
-  RoundedBox,
+  Lightformer,
   TransformControls,
   useGLTF,
+  PerformanceMonitor,
 } from "@react-three/drei";
 import type { Object3D, Material, Mesh } from "three";
 import type { BuildPlan } from "@/lib/types";
@@ -25,26 +24,28 @@ import {
   buildProductScene3D,
   uniqueLayers,
   defaultLayerView,
-  computeNodeWorldPosition,
-  nodeOpacity,
-  nodeVisible,
   focusLayerForStep,
   applyPoseLayout,
   resolveBeautyMesh,
   beautyUnderlayAllowed,
   beautyDisplayOpacity,
   type ProductScene3D,
-  type SceneNode3D,
   type LayerViewState,
   type PoseLayout3D,
   type BeautyMeshSpec,
 } from "@/lib/product-3d";
+import {
+  detectQualityTier,
+  qualitySettings,
+  type QualityTier,
+} from "@/lib/product-3d/quality";
 import {
   loadPoseLayout,
   savePoseLayout,
   clearPoseLayout,
   upsertNodePose,
 } from "@/lib/product-3d/pose-storage";
+import { NodeMesh, SelectableNode } from "@/components/product-node-mesh";
 
 /** Optional GLB underlay — never clickable / never layer authority. */
 function BeautyUnderlay({
@@ -85,203 +86,6 @@ function BeautyUnderlay({
   );
 }
 
-function NodeMesh({
-  node,
-  view,
-  rootScale,
-  onSelect,
-  meshRef,
-  suppressExplode = false,
-}: {
-  node: SceneNode3D;
-  view: LayerViewState;
-  rootScale: number;
-  onSelect: (id: string) => void;
-  meshRef?: React.Ref<Object3D>;
-  /** When posing, don't bake explode into world position */
-  suppressExplode?: boolean;
-}) {
-  const viewForPos = suppressExplode ? { ...view, explode: 0 } : view;
-  const posMm = computeNodeWorldPosition(node, viewForPos);
-  const pos: [number, number, number] = [
-    posMm[0] * rootScale,
-    posMm[1] * rootScale,
-    posMm[2] * rootScale,
-  ];
-  const opacity = nodeOpacity(node, view);
-  const visible = nodeVisible(node, view);
-  const selected = view.selectedNodeId === node.id;
-  const scale = rootScale; // mm → world (geom params are mm)
-
-  if (!visible) return null;
-
-  const mat = {
-    color: node.material.color,
-    metalness: node.material.metalness ?? 0.2,
-    roughness: node.material.roughness ?? 0.5,
-    emissive: node.material.emissive || "#000000",
-    emissiveIntensity: node.material.emissiveIntensity ?? 0,
-    transparent: opacity < 0.99,
-    opacity,
-  };
-
-  const p = node.geom.params;
-  const onClick = (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    onSelect(node.id);
-  };
-
-  let inner: React.ReactNode = null;
-  switch (node.geom.kind) {
-    case "disk":
-      inner = (
-        <mesh onClick={onClick}>
-          <cylinderGeometry
-            args={[
-              (p.radius || 50) * scale,
-              (p.radius || 50) * scale,
-              (p.height || 8) * scale,
-              48,
-            ]}
-          />
-          <meshStandardMaterial {...mat} />
-        </mesh>
-      );
-      break;
-    case "tube":
-      inner = (
-        <mesh onClick={onClick}>
-          <cylinderGeometry
-            args={[
-              (p.radius || 2) * scale,
-              (p.radius || 2) * scale,
-              (p.height || 40) * scale,
-              16,
-            ]}
-          />
-          <meshStandardMaterial {...mat} />
-        </mesh>
-      );
-      break;
-    case "cell_16340":
-      inner = (
-        <mesh onClick={onClick}>
-          <cylinderGeometry
-            args={[
-              (p.radius || 8) * scale,
-              (p.radius || 8) * scale,
-              (p.height || 34) * scale,
-              24,
-            ]}
-          />
-          <meshStandardMaterial {...mat} />
-        </mesh>
-      );
-      break;
-    case "touch_pad":
-      inner = (
-        <mesh onClick={onClick}>
-          <cylinderGeometry
-            args={[
-              (p.radius || 7) * scale,
-              (p.radius || 7) * scale,
-              (p.height || 3) * scale,
-              24,
-            ]}
-          />
-          <meshStandardMaterial {...mat} />
-        </mesh>
-      );
-      break;
-    case "wire_frame": {
-      const w = (p.width || 70) * scale;
-      const h = (p.height || 48) * scale;
-      const d = (p.depth || 4) * scale;
-      const t = (p.bar || 1.6) * scale;
-      inner = (
-        <group onClick={onClick}>
-          <mesh position={[0, h / 2, 0]}>
-            <boxGeometry args={[w, t, d]} />
-            <meshStandardMaterial {...mat} />
-          </mesh>
-          <mesh position={[0, -h / 2, 0]}>
-            <boxGeometry args={[w, t, d]} />
-            <meshStandardMaterial {...mat} />
-          </mesh>
-          <mesh position={[-w / 2, 0, 0]}>
-            <boxGeometry args={[t, h, d]} />
-            <meshStandardMaterial {...mat} />
-          </mesh>
-          <mesh position={[w / 2, 0, 0]}>
-            <boxGeometry args={[t, h, d]} />
-            <meshStandardMaterial {...mat} />
-          </mesh>
-        </group>
-      );
-      break;
-    }
-    case "oled_panel":
-    case "solar_panel":
-    case "board":
-    case "box":
-    default: {
-      const w = (p.width || 20) * scale;
-      const h = (p.height || 15) * scale;
-      const d = (p.depth || 3) * scale;
-      inner = (
-        <RoundedBox
-          onClick={onClick}
-          args={[w, h, d]}
-          radius={Math.min(0.002, Math.max(w, 0.01) * 0.05)}
-          smoothness={2}
-        >
-          <meshStandardMaterial {...mat} />
-        </RoundedBox>
-      );
-      break;
-    }
-  }
-
-  // Outer group owns pose (ref for TransformControls) so all geom kinds share Object3D API
-  return (
-    <group
-      ref={meshRef}
-      position={pos}
-      rotation={node.rotation as [number, number, number]}
-    >
-      {inner}
-      {selected && (
-        <Html position={[0, 0.12, 0]} center distanceFactor={4}>
-          <div className="px-2 py-0.5 rounded bg-black/75 text-white text-[10px] whitespace-nowrap pointer-events-none">
-            {node.ref ? `${node.ref} · ${node.label}` : node.label}
-          </div>
-        </Html>
-      )}
-    </group>
-  );
-}
-
-/** Hold ref for selected node so TransformControls can attach. */
-const SelectableNode = forwardRef<
-  Object3D,
-  {
-    node: SceneNode3D;
-    view: LayerViewState;
-    rootScale: number;
-    onSelect: (id: string) => void;
-  }
->(function SelectableNode({ node, view, rootScale, onSelect }, ref) {
-  return (
-    <NodeMesh
-      node={node}
-      view={view}
-      rootScale={rootScale}
-      onSelect={onSelect}
-      meshRef={ref}
-      suppressExplode
-    />
-  );
-});
 
 function GizmoControls({
   object,
@@ -340,6 +144,8 @@ function SceneContent({
   onPoseCommit,
   beautySpec,
   showBeauty,
+  quality,
+  onQualityDrop,
 }: {
   scene: ProductScene3D;
   view: LayerViewState;
@@ -349,18 +155,18 @@ function SceneContent({
   onPoseCommit: (nodeId: string, position: [number, number, number], rotation: [number, number, number]) => void;
   beautySpec: BeautyMeshSpec | null;
   showBeauty: boolean;
+  quality: ReturnType<typeof qualitySettings>;
+  onQualityDrop: () => void;
 }) {
   const selectedRef = useRef<Object3D | null>(null);
   const [gizmoTarget, setGizmoTarget] = useState<Object3D | null>(null);
   const orbitRef = useRef<{ enabled: boolean } | null>(null);
 
-  // Attach gizmo after selected mesh mounts
   useEffect(() => {
     if (!editMode || !view.selectedNodeId) {
       setGizmoTarget(null);
       return;
     }
-    // slight delay so ref is populated
     const t = requestAnimationFrame(() => {
       setGizmoTarget(selectedRef.current);
     });
@@ -368,13 +174,21 @@ function SceneContent({
   }, [editMode, view.selectedNodeId, scene.nodes]);
 
   const beautyOpacity = beautySpec ? beautyDisplayOpacity(beautySpec) : 0;
+  const segs = quality.segments;
 
   return (
     <>
-      <ambientLight intensity={0.55} />
-      <directionalLight position={[3, 5, 2]} intensity={1.1} castShadow />
-      <directionalLight position={[-2, 2, -1]} intensity={0.35} />
-      {/* Beauty underlay first (behind parametric) — never authority */}
+      <PerformanceMonitor onDecline={onQualityDrop} />
+      {/* Studio lighting — Palantir dark product viz */}
+      <ambientLight intensity={0.28} />
+      <directionalLight position={[2.5, 4.5, 2]} intensity={1.25} castShadow color="#fff7ed" />
+      <directionalLight position={[-2.5, 2.5, -1.5]} intensity={0.45} color="#bfdbfe" />
+      <directionalLight position={[0, 1.5, 3]} intensity={0.35} color="#fde68a" />
+      <Environment preset="studio" environmentIntensity={quality.envIntensity}>
+        <Lightformer intensity={1.2} position={[0, 4, 2]} scale={[8, 1.5, 1]} form="rect" />
+        <Lightformer intensity={0.6} position={[-3, 2, -2]} scale={[3, 3, 1]} form="ring" color="#93c5fd" />
+      </Environment>
+
       {showBeauty && beautySpec && (
         <Suspense fallback={null}>
           <BeautyUnderlay spec={beautySpec} opacity={beautyOpacity} />
@@ -394,6 +208,7 @@ function SceneContent({
                 view={view}
                 rootScale={scene.rootScale}
                 onSelect={onSelect}
+                segments={segs}
               />
             );
           }
@@ -404,6 +219,7 @@ function SceneContent({
               view={view}
               rootScale={scene.rootScale}
               onSelect={onSelect}
+              segments={segs}
             />
           );
         })}
@@ -418,17 +234,38 @@ function SceneContent({
           onPoseCommit={onPoseCommit}
         />
       )}
-      <ContactShadows position={[0, -0.02, 0]} opacity={0.45} scale={2.5} blur={2.5} far={2} />
+      {/* Soft ground contact */}
+      <ContactShadows
+        position={[0, -0.005, 0]}
+        opacity={quality.shadowOpacity}
+        scale={3.2}
+        blur={quality.shadowBlur}
+        far={2.5}
+        color="#000000"
+      />
+      {quality.showGround && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.008, 0]} receiveShadow>
+          <circleGeometry args={[1.4, 64]} />
+          <meshPhysicalMaterial
+            color="#0c1016"
+            metalness={0.2}
+            roughness={0.85}
+            transparent
+            opacity={0.55}
+          />
+        </mesh>
+      )}
       <OrbitControls
         ref={orbitRef as never}
         makeDefault
         target={scene.cameraHint.target}
-        minDistance={0.4}
+        minDistance={0.35}
         maxDistance={4}
         enablePan
+        enableDamping
+        dampingFactor={0.06}
         enabled={!editMode || !view.selectedNodeId}
       />
-      <Environment preset="city" />
     </>
   );
 }
@@ -482,6 +319,13 @@ export function ProductViewer3D({
   const [genBusy, setGenBusy] = useState(false);
   const [genProgress, setGenProgress] = useState<number | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
+  const [qualityTier, setQualityTier] = useState<QualityTier>(() =>
+    typeof window !== "undefined" ? detectQualityTier() : "medium"
+  );
+  const quality = useMemo(() => qualitySettings(qualityTier), [qualityTier]);
+  const dropQuality = useCallback(() => {
+    setQualityTier((t) => (t === "high" ? "medium" : t === "medium" ? "low" : "low"));
+  }, []);
 
   const planForBeauty = useMemo(
     () => ({ ...plan, beautyMesh: beautyOverride || plan.beautyMesh }),
@@ -645,6 +489,9 @@ export function ProductViewer3D({
         <div className="min-w-0">
           <p className="text-[10px] font-semibold text-cyan-400/90 uppercase tracking-wider">
             3D product model
+            <span className="ml-2 font-mono text-white/30 normal-case tracking-normal">
+              {quality.tier}
+            </span>
           </p>
           <p className="text-[11px] text-white/60 truncate">
             {editMode
@@ -744,17 +591,19 @@ export function ProductViewer3D({
           <Canvas
             camera={{
               position: scene.cameraHint.position,
-              fov: 40,
+              fov: 38,
               near: 0.01,
               far: 50,
             }}
-            dpr={[1, 1.75]}
-            gl={{ antialias: true, alpha: true }}
+            dpr={quality.dpr}
+            shadows
+            gl={{ antialias: quality.antialias, alpha: true, powerPreference: "high-performance" }}
             onPointerMissed={() => {
               if (!editMode) setView((v) => ({ ...v, selectedNodeId: null }));
             }}
           >
-            <color attach="background" args={["#0f1419"]} />
+            <color attach="background" args={["#0a0e14"]} />
+            <fog attach="fog" args={["#0a0e14", 3.5, 8]} />
             <Suspense fallback={null}>
               <SceneContent
                 scene={scene}
@@ -765,6 +614,8 @@ export function ProductViewer3D({
                 onPoseCommit={onPoseCommit}
                 beautySpec={beautySpec}
                 showBeauty={showBeauty}
+                quality={quality}
+                onQualityDrop={dropQuality}
               />
             </Suspense>
           </Canvas>

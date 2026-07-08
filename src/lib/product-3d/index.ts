@@ -44,6 +44,15 @@ export {
   applyEnrichmentToScene,
   mergePoseLayouts,
 } from "./enrich-poses";
+export type { MaterialPresetId } from "./materials";
+export {
+  getMaterialPreset,
+  inferMaterialPreset,
+  resolvePhysicalMaterial,
+  MATERIAL_PRESET_IDS,
+} from "./materials";
+export type { QualityTier, QualitySettings } from "./quality";
+export { qualitySettings, detectQualityTier } from "./quality";
 export type { BeautyMeshSpec, BeautyProvider, BeautyResolveResult } from "./beauty-mesh";
 export {
   isAllowedBeautyUrl,
