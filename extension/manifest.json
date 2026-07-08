@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Forge — Buy Parts",
+  "version": "1.0",
+  "description": "One-click multi-vendor cart filling for Forge build plans",
+  "permissions": ["tabs", "storage"],
+  "host_permissions": [
+    "https://www.digikey.com/*",
+    "https://www.mouser.com/*",
+    "https://www.lcsc.com/*",
+    "https://wmsc.lcsc.com/*",
+    "https://www.amazon.com/*",
+    "https://www.aliexpress.com/*"
+  ],
+  "content_scripts": [{
+    "matches": ["http://localhost:3000/*", "http://localhost:3001/*"],
+    "js": ["content.js"]
+  }],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Forge — Buy Parts"
+  }
+}

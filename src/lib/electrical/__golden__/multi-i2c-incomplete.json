@@ -1,0 +1,63 @@
+{
+  "components": [
+    {
+      "ref": "U1",
+      "catalogId": "esp32-c3",
+      "pinoutGrade": "verified",
+      "mpn": "ESP32-C3-WROOM-02"
+    },
+    {
+      "ref": "U2",
+      "catalogId": "ssd1306-i2c",
+      "pinoutGrade": "verified",
+      "mpn": "SSD1306"
+    },
+    {
+      "ref": "U3",
+      "catalogId": "sht31d",
+      "pinoutGrade": "derived",
+      "mpn": "SHT31-DIS-B"
+    }
+  ],
+  "nets": [
+    {
+      "name": "3V3",
+      "netClass": "power",
+      "grade": "derived",
+      "members": [
+        "U1.3V3",
+        "U2.VCC",
+        "U3.VCC"
+      ]
+    },
+    {
+      "name": "GND",
+      "netClass": "gnd",
+      "grade": "derived",
+      "members": [
+        "U1.GND",
+        "U2.GND",
+        "U3.GND"
+      ]
+    },
+    {
+      "name": "SDA",
+      "netClass": "i2c",
+      "grade": "derived",
+      "members": [
+        "U1.GPIO4",
+        "U2.SDA",
+        "U3.SDA"
+      ]
+    }
+  ],
+  "erc": {
+    "clean": true,
+    "errorRules": [],
+    "warningRules": [
+      "I2C_BUS"
+    ],
+    "canExportPcb": true
+  },
+  "structuredNetCount": 3
+}

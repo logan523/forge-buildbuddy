@@ -1,0 +1,145 @@
+{
+  "components": [
+    {
+      "ref": "BT1",
+      "catalogId": "battery-16340",
+      "pinoutGrade": "verified",
+      "mpn": "ICR16340"
+    },
+    {
+      "ref": "U1",
+      "catalogId": "ssd1306-i2c",
+      "pinoutGrade": "verified",
+      "mpn": "SSD1306"
+    },
+    {
+      "ref": "U2",
+      "catalogId": "esp32-c3",
+      "pinoutGrade": "verified",
+      "mpn": "ESP32-C3-WROOM-02"
+    },
+    {
+      "ref": "U3",
+      "catalogId": "solar-panel-5v",
+      "pinoutGrade": "verified",
+      "mpn": null
+    },
+    {
+      "ref": "U4",
+      "catalogId": "solar-charger",
+      "pinoutGrade": "verified",
+      "mpn": null
+    },
+    {
+      "ref": "U5",
+      "catalogId": "battery-level-led",
+      "pinoutGrade": "verified",
+      "mpn": null
+    },
+    {
+      "ref": "U6",
+      "catalogId": "touch-switch",
+      "pinoutGrade": "verified",
+      "mpn": "TTP223"
+    },
+    {
+      "ref": "U7",
+      "catalogId": "sht31d",
+      "pinoutGrade": "verified",
+      "mpn": "SHT31-DIS-B"
+    },
+    {
+      "ref": "U8",
+      "catalogId": "tp4056-protected",
+      "pinoutGrade": "verified",
+      "mpn": "TP4056"
+    }
+  ],
+  "nets": [
+    {
+      "name": "3V3",
+      "netClass": "power",
+      "grade": "verified",
+      "members": [
+        "U1.VCC",
+        "U2.3V3",
+        "U6.VCC",
+        "U7.VCC"
+      ]
+    },
+    {
+      "name": "BAT+",
+      "netClass": "power",
+      "grade": "verified",
+      "members": [
+        "BT1.+",
+        "U2.VIN",
+        "U4.OUT+",
+        "U5.+",
+        "U8.BAT+"
+      ]
+    },
+    {
+      "name": "GND",
+      "netClass": "gnd",
+      "grade": "verified",
+      "members": [
+        "BT1.-",
+        "U1.GND",
+        "U2.GND",
+        "U3.-",
+        "U4.IN-",
+        "U4.OUT-",
+        "U5.-",
+        "U6.GND",
+        "U7.GND",
+        "U8.BAT-"
+      ]
+    },
+    {
+      "name": "SCL",
+      "netClass": "i2c",
+      "grade": "verified",
+      "members": [
+        "U1.SCL",
+        "U2.GPIO5",
+        "U7.SCL"
+      ]
+    },
+    {
+      "name": "SDA",
+      "netClass": "i2c",
+      "grade": "verified",
+      "members": [
+        "U1.SDA",
+        "U2.GPIO4",
+        "U7.SDA"
+      ]
+    },
+    {
+      "name": "SOLAR+",
+      "netClass": "power",
+      "grade": "verified",
+      "members": [
+        "U3.+",
+        "U4.IN+"
+      ]
+    },
+    {
+      "name": "TOUCH",
+      "netClass": "signal",
+      "grade": "verified",
+      "members": [
+        "U2.GPIO0",
+        "U6.SIG"
+      ]
+    }
+  ],
+  "erc": {
+    "clean": true,
+    "errorRules": [],
+    "warningRules": [],
+    "canExportPcb": true
+  },
+  "structuredNetCount": 7
+}

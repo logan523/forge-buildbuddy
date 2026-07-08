@@ -1,0 +1,20 @@
+{
+  "components": [
+    {
+      "ref": "BT1",
+      "catalogId": "battery-16340",
+      "pinoutGrade": "verified",
+      "mpn": "ICR16340"
+    }
+  ],
+  "nets": [],
+  "erc": {
+    "clean": false,
+    "errorRules": [
+      "LIPO_PROTECTION"
+    ],
+    "warningRules": [],
+    "canExportPcb": false
+  },
+  "structuredNetCount": 0
+}

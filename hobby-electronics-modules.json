@@ -1,0 +1,434 @@
+[
+  {
+    "name": "Arduino Nano V3 (ATmega328P, CH340G)",
+    "category": "Microcontroller",
+    "searchQuery": "Arduino Nano V3 ATmega328P CH340G",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=Arduino+Nano+V3+ATmega328P+CH340G",
+    "estimatedPrice": "$3-8 per unit (multi-packs); $15-25 for genuine",
+    "keySpecs": "ATmega328P 16MHz, 32KB flash, 2KB SRAM, 5V logic, CH340G USB-serial, 45x18mm, 30-pin DIP"
+  },
+  {
+    "name": "Arduino Uno R3 (ATmega328P)",
+    "category": "Microcontroller",
+    "searchQuery": "Arduino Uno R3 Rev3 ATmega328P",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=Arduino+Uno+R3+ATmega328P",
+    "estimatedPrice": "$10-15 clone; $25-30 genuine Arduino",
+    "keySpecs": "ATmega328P 16MHz, 32KB flash, 14 digital I/O (6 PWM), 6 analog in, 5V, 68x53mm, USB-B"
+  },
+  {
+    "name": "ESP32 DevKit V1 (ESP-WROOM-32)",
+    "category": "Microcontroller",
+    "searchQuery": "ESP32 DevKit V1 WROOM-32 development board",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=ESP32+DevKit+V1+WROOM-32",
+    "estimatedPrice": "$5-8 per board (multi-packs); $8-12 single",
+    "keySpecs": "ESP32 dual-core 240MHz, WiFi b/g/n, BT 4.2 BLE, 520KB SRAM, 4MB flash, 3.3V, 55x28mm, 30-pin"
+  },
+  {
+    "name": "ESP32-C3 Super Mini (RISC-V)",
+    "category": "Microcontroller",
+    "searchQuery": "ESP32-C3 Super Mini development board",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=ESP32-C3+Super+Mini+development+board",
+    "estimatedPrice": "$3-6 per board (multi-packs)",
+    "keySpecs": "ESP32-C3 RISC-V 160MHz, WiFi 4 + BLE 5.0, 400KB SRAM, 4MB flash, USB-C, 3.3V, 23x18mm tiny form factor"
+  },
+  {
+    "name": "ESP8266 NodeMCU V3 (CP2102/CH340G)",
+    "category": "Microcontroller",
+    "searchQuery": "ESP8266 NodeMCU V3 CP2102 development board",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=ESP8266+NodeMCU+V3+CP2102",
+    "estimatedPrice": "$3-6 per board (multi-packs); $5-9 single",
+    "keySpecs": "ESP8266 80/160MHz, WiFi b/g/n, 4MB flash, 3.3V, CP2102 USB-serial, 49x26mm, 30-pin"
+  },
+  {
+    "name": "Raspberry Pi Pico (RP2040)",
+    "category": "Microcontroller",
+    "searchQuery": "Raspberry Pi Pico RP2040 microcontroller",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=Raspberry+Pi+Pico+RP2040",
+    "estimatedPrice": "$4-5 genuine; $8-10 Pico W (WiFi)",
+    "keySpecs": "RP2040 dual Cortex-M0+ 133MHz, 264KB SRAM, 2MB flash, 3.3V, Micro USB, 51x21mm, 40-pin (26 GPIO)"
+  },
+  {
+    "name": "STM32F103C8T6 Blue Pill",
+    "category": "Microcontroller",
+    "searchQuery": "STM32F103C8T6 Blue Pill development board",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=STM32F103C8T6+Blue+Pill",
+    "estimatedPrice": "$4-7 per board (multi-packs)",
+    "keySpecs": "STM32F103C8T6 Cortex-M3 72MHz, 64KB flash, 20KB SRAM, 3.3V, 53x22mm, 40-pin, micro USB"
+  },
+  {
+    "name": "Teensy 4.0 (PJRC)",
+    "category": "Microcontroller",
+    "searchQuery": "Teensy 4.0 PJRC ARM Cortex-M7",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=Teensy+4.0+PJRC",
+    "estimatedPrice": "$20-24 genuine; few clones available",
+    "keySpecs": "NXP i.MX RT1062 Cortex-M7 600MHz, 1024KB SRAM, 2MB flash, 3.3V, 35x18mm, 40-pin DIP"
+  },
+  {
+    "name": "SSD1306 0.96-inch OLED Display (I2C, 128x64, White/Blue)",
+    "category": "Display",
+    "searchQuery": "SSD1306 0.96 OLED I2C 128x64 display module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=SSD1306+0.96+OLED+I2C+128x64",
+    "estimatedPrice": "$3-5 single; $9-11 for 3-pack (ELEGOO)",
+    "keySpecs": "SSD1306 driver, 128x64 pixels, I2C (addr 0x3C), 3.3-5V, white or blue/yellow, 27x27mm, 4-pin (VCC GND SCL SDA)"
+  },
+  {
+    "name": "SSD1306 0.91-inch OLED Display (I2C, 128x32)",
+    "category": "Display",
+    "searchQuery": "SSD1306 0.91 OLED I2C 128x32 display module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=SSD1306+0.91+OLED+I2C+128x32",
+    "estimatedPrice": "$4-6 per unit",
+    "keySpecs": "SSD1306 driver, 128x32 pixels, I2C (addr 0x3C), 3.3-5V, white, ~25x11mm active area, 4-pin (VCC GND SCL SDA)"
+  },
+  {
+    "name": "SH1106 1.3-inch OLED Display (I2C, 128x64, White)",
+    "category": "Display",
+    "searchQuery": "SH1106 1.3 OLED I2C 128x64 display module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=SH1106+1.3+OLED+I2C+128x64",
+    "estimatedPrice": "$5-7 single; $10-18 multi-pack (MakerFocus 2pk $10, Hosyond 5pk $18)",
+    "keySpecs": "SH1106 driver, 128x64 pixels, I2C (addr 0x3C), 3.3-5V, white, ~35x34mm, 4-pin (VCC GND SCL SDA)"
+  },
+  {
+    "name": "16x2 LCD with I2C Backpack (HD44780 + PCF8574)",
+    "category": "Display",
+    "searchQuery": "16x2 LCD 1602 I2C module blue backlight HD44780",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=16x2+LCD+I2C+1602+module+blue",
+    "estimatedPrice": "$5-6 per unit in 2-pack (GeeekPi $11/2pk); $2-3 each in bulk",
+    "keySpecs": "HD44780 compatible, 16x2 characters, blue backlight, I2C (addr 0x27 or 0x3F), 5V, 80x36x12mm, 4-pin (VCC GND SDA SCL)"
+  },
+  {
+    "name": "ILI9341 2.8-inch TFT LCD (SPI, 240x320, Touch)",
+    "category": "Display",
+    "searchQuery": "ILI9341 2.8 TFT SPI 240x320 touch display module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=ILI9341+2.8+TFT+SPI+240x320",
+    "estimatedPrice": "$7-15 (with touch); $6-11 (no touch)",
+    "keySpecs": "ILI9341 driver, 240x320 pixels, SPI 4-wire, 3.3/5V, resistive touch (XPT2046), SD card slot, ~52x78mm"
+  },
+  {
+    "name": "ST7735 1.8-inch TFT LCD (SPI, 128x160)",
+    "category": "Display",
+    "searchQuery": "ST7735 1.8 TFT SPI 128x160 display module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=ST7735+1.8+TFT+SPI+128x160",
+    "estimatedPrice": "$5-10 per unit",
+    "keySpecs": "ST7735 driver, 128x160 pixels, SPI, 3.3V, SD card slot on PCB, ~35x56mm, 8-pin header"
+  },
+  {
+    "name": "Waveshare 2.9-inch e-Paper / E-Ink Display Module",
+    "category": "Display",
+    "searchQuery": "Waveshare 2.9 e-Paper E-Ink display module SPI",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=Waveshare+2.9+e-Paper+display+SPI",
+    "estimatedPrice": "$23-30 B/W; $26-44 three-color (red/black/white)",
+    "keySpecs": "296x128 pixels, SPI interface, ultra-low power (image retained w/o power), partial refresh 0.3s, 3.3/5V, ~79x37mm"
+  },
+  {
+    "name": "DHT22 / AM2302 Temperature and Humidity Sensor Module",
+    "category": "Sensor",
+    "searchQuery": "DHT22 AM2302 temperature humidity sensor module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=DHT22+AM2302+digital+temperature+humidity+sensor",
+    "estimatedPrice": "$7-9 per module (HiLetgo 2pk $14); $3-4 in bulk (6pk $20)",
+    "keySpecs": "AM2302/DHT22, -40 to +80C +/-0.5C, 0-100% RH +/-2%, 3.3-5.5V, 1-wire digital, 25x15mm module, 3-pin"
+  },
+  {
+    "name": "BME280 Temperature, Humidity, and Pressure Sensor Module (GY-BME280)",
+    "category": "Sensor",
+    "searchQuery": "BME280 GY-BME280 5V temperature humidity pressure sensor module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=BME280+GY-BME280+5V+sensor+module",
+    "estimatedPrice": "$4-7 per module in multi-packs; $12 for 2-pack (Starry)",
+    "keySpecs": "BME280, -40 to +85C +/-0.5C, 0-100% RH +/-3%, 300-1100 hPa +/-1 hPa, I2C/SPI, 3.3/5V, 15x12mm board, 4-pin/6-pin"
+  },
+  {
+    "name": "SHT31-D Temperature and Humidity Sensor Module (I2C)",
+    "category": "Sensor",
+    "searchQuery": "SHT31-D SHT31 temperature humidity sensor I2C module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=SHT31-D+temperature+humidity+sensor+I2C",
+    "estimatedPrice": "$4-8 per module in multi-packs (Teyleten 3pk $13)",
+    "keySpecs": "SHT31-D, -40 to +125C +/-0.3C, 0-100% RH +/-2%, I2C (addr 0x44), 2.4-5.5V, 16x12mm board, 4-pin"
+  },
+  {
+    "name": "MPU-6050 GY-521 3-Axis Gyroscope + Accelerometer Module",
+    "category": "Sensor",
+    "searchQuery": "MPU6050 GY-521 3 axis gyro accelerometer module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=MPU6050+GY-521+accelerometer+gyroscope",
+    "estimatedPrice": "$5-9 per module; $15 for 3-pack (AOICRIE)",
+    "keySpecs": "MPU-6050, 3-axis gyro +/-2000dps, 3-axis accel +/-16g, 16-bit ADC, I2C (addr 0x68), 3.3-5V, 20x16mm board, 8-pin"
+  },
+  {
+    "name": "HC-SR04 Ultrasonic Distance Sensor Module",
+    "category": "Sensor",
+    "searchQuery": "HC-SR04 ultrasonic sensor distance module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=HC-SR04+ultrasonic+distance+sensor",
+    "estimatedPrice": "$1.50-3 per unit in multi-packs; $8-15 for 5-pack",
+    "keySpecs": "2cm-400cm range, 3mm resolution, 15 degree angle, 5V, 40kHz, 45x20x15mm, 4-pin (VCC Trig Echo GND)"
+  },
+  {
+    "name": "HC-SR501 PIR Motion Sensor Module",
+    "category": "Sensor",
+    "searchQuery": "HC-SR501 PIR infrared motion sensor module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=HC-SR501+PIR+motion+sensor+module",
+    "estimatedPrice": "$1.90-2.50 per module in multi-packs (Stemedu 5pk $9.50)",
+    "keySpecs": "PIR pyroelectric, 4.5-20V, <50uA quiescent, 0.5-200s delay adj., 100 degree cone, up to ~7m range, 32x24mm, 3-pin"
+  },
+  {
+    "name": "DS18B20 Waterproof Digital Temperature Sensor (with adapter module)",
+    "category": "Sensor",
+    "searchQuery": "DS18B20 waterproof digital temperature sensor 1M probe module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=DS18B20+waterproof+temperature+sensor+module",
+    "estimatedPrice": "$6-9 per single kit; $16-17 for 3-pack (Gikfun)",
+    "keySpecs": "DS18B20 1-wire, -55 to +125C +/-0.5C, 9-12 bit, 3.0-5.5V, 6mm dia x 50mm stainless probe, 1M cable, 3-pin adapter module"
+  },
+  {
+    "name": "MAX4466 Electret Microphone Amplifier Module (Adjustable Gain)",
+    "category": "Sensor",
+    "searchQuery": "MAX4466 electret microphone amplifier module adjustable gain",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=MAX4466+microphone+amplifier+module+adjustable+gain",
+    "estimatedPrice": "$1.50-3 per module in multi-packs; 6pk $9; Adafruit genuine $8",
+    "keySpecs": "MAX4466 op-amp, adjustable gain 25-125x, 2.4-5.5V, electret mic onboard, analog output, 20x14mm board, 3-pin (VCC GND OUT)"
+  },
+  {
+    "name": "MAX9814 Microphone Amplifier Module with AGC (Auto Gain Control)",
+    "category": "Sensor",
+    "searchQuery": "MAX9814 microphone amplifier AGC auto gain control module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=MAX9814+microphone+AGC+amplifier+module",
+    "estimatedPrice": "$3-5 per module in multi-packs (Ferwooh 3pk $9.57); Adafruit genuine $9",
+    "keySpecs": "MAX9814 with AGC, 40/50/60dB gain settings, 2.7-5.5V, electret mic, analog output, low noise, 18x14mm board, 3-pin or 4-pin"
+  },
+  {
+    "name": "VL53L0X Time-of-Flight (ToF) Laser Ranging Sensor Module",
+    "category": "Sensor",
+    "searchQuery": "VL53L0X time-of-flight ToF laser distance sensor module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=VL53L0X+time-of-flight+laser+distance+sensor",
+    "estimatedPrice": "$4-7 per module; HiLetgo single $7; ACEIRMC 5pk $14 ($2.80 each)",
+    "keySpecs": "VL53L0X ToF, up to 2m range, 940nm VCSEL laser, I2C (addr 0x29), 2.6-3.5V, 25 degree FoV, 13x18mm board, 6-pin"
+  },
+  {
+    "name": "BMP280 Barometric Pressure and Temperature Sensor Module (3.3V)",
+    "category": "Sensor",
+    "searchQuery": "BMP280 3.3V barometric pressure sensor module I2C SPI",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=BMP280+3.3V+barometric+pressure+sensor+module+I2C",
+    "estimatedPrice": "$3-5 per module in multi-packs; 5-pack ~$13",
+    "keySpecs": "BMP280, 300-1100 hPa +/-1 hPa, -40 to +85C +/-1C, I2C/SPI, 1.8-3.6V (3.3V module), 15x11mm board, 4-pin/6-pin"
+  },
+  {
+    "name": "CCS811 Air Quality / CO2 / TVOC Gas Sensor Module (CJMCU-811)",
+    "category": "Sensor",
+    "searchQuery": "CCS811 CO2 eCO2 TVOC air quality gas sensor module CJMCU-811",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=CCS811+CO2+TVOC+air+quality+sensor+module",
+    "estimatedPrice": "$8-15 per module",
+    "keySpecs": "CCS811, eCO2 400-8192 ppm, TVOC 0-1187 ppb, I2C (addr 0x5A/0x5B), 3.3V, requires burn-in/conditioning, 18x15mm board, 7-pin"
+  },
+  {
+    "name": "BH1750 Digital Light Intensity Sensor Module (GY-302)",
+    "category": "Sensor",
+    "searchQuery": "BH1750 GY-302 light intensity lux sensor module I2C",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=BH1750+GY-302+light+intensity+sensor+module",
+    "estimatedPrice": "$2.50-4 per module in multi-packs (HiLetgo 3pk $7.49)",
+    "keySpecs": "BH1750FVI, 1-65535 lux, I2C (addr 0x23/0x5C), 3-5V, 50/60Hz rejection, 21x16mm board, 5-pin"
+  },
+  {
+    "name": "MLX90614 GY-906 Non-Contact IR Infrared Temperature Sensor Module",
+    "category": "Sensor",
+    "searchQuery": "MLX90614 GY-906 non-contact infrared temperature sensor module",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=MLX90614+GY-906+infrared+temperature+sensor",
+    "estimatedPrice": "$14-17 per module (EC Buying $14, SHILLEHTEK $17)",
+    "keySpecs": "MLX90614ESF-BAA, -70 to +380C +/-0.5C, I2C (addr 0x5A), 3.3-5V, 90 degree FoV, 16x10mm board, 4-pin"
+  },
+  {
+    "name": "TP4056 USB-C Lithium Battery Charging Module (with Protection)",
+    "category": "Power",
+    "searchQuery": "TP4056 Type-C USB lithium battery charger module protection",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=TP4056+Type-C+USB+lithium+battery+charger+module",
+    "estimatedPrice": "$0.75-1.00 per module in bulk (ALAMSCN 12pk $9; AITRIP 10pk $8)",
+    "keySpecs": "TP4056 + DW01 protection, USB-C input, 5V 1A max charge, 4.2V cutoff, overcharge/overdischarge protection, 25x17mm board"
+  },
+  {
+    "name": "TP4056 Micro-USB Lithium Battery Charging Module (with Protection)",
+    "category": "Power",
+    "searchQuery": "TP4056 micro USB lithium battery charger module protection",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=TP4056+micro+USB+lithium+battery+charger+module",
+    "estimatedPrice": "$0.50-0.80 per module in bulk",
+    "keySpecs": "TP4056 + DW01 protection, micro-USB input, 5V 1A max charge, 4.2V cutoff, overcharge/overdischarge/overcurrent protection, 25x17mm board"
+  },
+  {
+    "name": "MT3608 DC-DC Step-Up Boost Converter Module (2A)",
+    "category": "Power",
+    "searchQuery": "MT3608 DC-DC boost step up converter module 2A adjustable",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=MT3608+DC-DC+boost+step+up+converter+2A",
+    "estimatedPrice": "$0.60-1.00 per module in bulk (Dorhea 10pk $7; WWZMDiB 10pk $6)",
+    "keySpecs": "MT3608 chip, input 2-24V, output 5-28V adj., 2A max, 93% efficiency, 1.2MHz switching, 36x17mm board, 4-pin"
+  },
+  {
+    "name": "LM2596 DC-DC Step-Down Buck Converter Module (3A)",
+    "category": "Power",
+    "searchQuery": "LM2596 DC-DC buck step down converter module adjustable",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=LM2596+DC-DC+buck+step+down+converter+module",
+    "estimatedPrice": "$1.30-2.00 per module in bulk (Seloky 5pk $8; 10pk $13)",
+    "keySpecs": "LM2596 chip, input 3-40V, output 1.25-35V adj., 3A max (2A continuous), 150kHz, up to 92% efficiency, 43x21mm board, 4-pin"
+  },
+  {
+    "name": "AMS1117-3.3V Voltage Regulator Step-Down Module",
+    "category": "Power",
+    "searchQuery": "AMS1117-3.3V voltage regulator step down module 800mA",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=AMS1117-3.3V+voltage+regulator+module",
+    "estimatedPrice": "$0.50-2.00 per module in multi-packs (15pk $8)",
+    "keySpecs": "AMS1117-3.3, input 4.75-12V, fixed 3.3V output, 800mA-1A max, SOT-223, 25x11mm module, 3-pin (VIN GND VOUT)"
+  },
+  {
+    "name": "XL6009 DC-DC Step-Up Boost Converter Module (4A)",
+    "category": "Power",
+    "searchQuery": "XL6009 DC-DC boost step up converter module 4A adjustable",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=XL6009+DC-DC+boost+converter+module+4A",
+    "estimatedPrice": "$1.50-3.00 per module in multi-packs (AITRIP 10pk ~$15; 6pk ~$9)",
+    "keySpecs": "XL6009 chip, input 3-32V, output 5-35V adj., 4A max switch, 400kHz, up to 94% efficiency, 43x21mm board, 4-pin"
+  },
+  {
+    "name": "L298N Dual H-Bridge DC Stepper Motor Driver Module",
+    "category": "Motor/Actuator",
+    "searchQuery": "L298N motor driver module dual H bridge DC stepper",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=L298N+motor+driver+module+dual+H+bridge",
+    "estimatedPrice": "$2-7 per module (Qunqi single $7, 6pk $13)",
+    "keySpecs": "L298N dual H-bridge, 5-35V motor supply, 2A per channel max, 5V logic, onboard 5V regulator, 43x43mm, screw terminals"
+  },
+  {
+    "name": "A4988 Stepper Motor Driver Module (StepStick)",
+    "category": "Motor/Actuator",
+    "searchQuery": "A4988 stepper motor driver module StepStick with heatsink",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=A4988+stepper+motor+driver+module+heatsink",
+    "estimatedPrice": "$2-4 per module in multi-packs",
+    "keySpecs": "A4988, 8-35V motor supply, 1A max (2A peak), 1/16 microstepping, adjustable current limit, 15x20mm StepStick, 16-pin"
+  },
+  {
+    "name": "DRV8825 Stepper Motor Driver Module (StepStick)",
+    "category": "Motor/Actuator",
+    "searchQuery": "DRV8825 stepper motor driver module StepStick with heatsink",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=DRV8825+stepper+motor+driver+module+heatsink",
+    "estimatedPrice": "$2.50-5.00 per module in multi-packs (8pk $20)",
+    "keySpecs": "DRV8825, 8.2-45V motor supply, 2.2A max, 1/32 microstepping, adjustable current limit, 15x20mm StepStick, 16-pin"
+  },
+  {
+    "name": "SG90 9g Micro Servo Motor (Analog, Plastic Gear)",
+    "category": "Motor/Actuator",
+    "searchQuery": "SG90 9g micro servo motor analog plastic gear",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=SG90+9g+micro+servo+motor",
+    "estimatedPrice": "$1.50-2.50 per servo in multi-packs (4pk $8, 10pk $16)",
+    "keySpecs": "9g, 1.0-1.8 kg/cm torque, 0.1s/60deg, 4.8-6V, plastic gears, analog, 120deg range, 23x12x29mm, 3-wire (Brown Red Orange)"
+  },
+  {
+    "name": "MG996R Digital Metal Gear Servo Motor (55g)",
+    "category": "Motor/Actuator",
+    "searchQuery": "MG996R digital metal gear servo motor high torque",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=MG996R+digital+metal+gear+servo+motor",
+    "estimatedPrice": "$3.50-5.00 per servo in multi-packs (Deegoo 4pk $14)",
+    "keySpecs": "55g, 10-13 kg/cm torque, 0.17s/60deg, 4.8-7.2V, metal gears, digital, 180deg range, 41x20x38mm, 3-wire (Brown Red Orange)"
+  },
+  {
+    "name": "28BYJ-48 5V Stepper Motor + ULN2003 Driver Module Set",
+    "category": "Motor/Actuator",
+    "searchQuery": "28BYJ-48 5V stepper motor ULN2003 driver module set",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=28BYJ-48+5V+stepper+motor+ULN2003+driver",
+    "estimatedPrice": "$2.50-3.00 per set in multi-packs (VKLSVAN 3-set $8; ELEGOO 5-set $15)",
+    "keySpecs": "28BYJ-48 5V 4-phase stepper, 5.625 deg/step, 1/64 reduction, ULN2003 driver board with LEDs, 28mm dia motor, 5-wire"
+  },
+  {
+    "name": "NRF24L01+PA+LNA 2.4GHz Wireless Transceiver Module (with Antenna)",
+    "category": "Wireless",
+    "searchQuery": "NRF24L01+PA+LNA wireless transceiver module 2.4G SMA antenna",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=NRF24L01+PA+LNA+wireless+transceiver+module+antenna",
+    "estimatedPrice": "$4-5 per module in 2-pack (HiLetgo 2pk $8.49); single ~$9",
+    "keySpecs": "nRF24L01+ with PA+LNA, 2.4GHz ISM, ~1100m range, SPI, 3.3V (5V-tolerant inputs), 250kbps-2Mbps, SMA antenna, 15x29mm, 8-pin"
+  },
+  {
+    "name": "HC-05 Bluetooth Serial Module (Master/Slave, 6-pin)",
+    "category": "Wireless",
+    "searchQuery": "HC-05 bluetooth serial module master slave 6-pin wireless",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=HC-05+bluetooth+serial+module+master+slave",
+    "estimatedPrice": "$4-10 per module (HiLetgo ~$7, ACEIRMC 3pk $13, DSD TECH $10)",
+    "keySpecs": "HC-05 (CSR BC417), Bluetooth 2.0+EDR, 3.6-6V, 9600 default baud, AT command configurable, 28x15mm, 6-pin, classic BT (not BLE)"
+  },
+  {
+    "name": "HC-06 Bluetooth Serial Module (Slave Only, 4-pin)",
+    "category": "Wireless",
+    "searchQuery": "HC-06 bluetooth serial module slave 4-pin wireless",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=HC-06+bluetooth+serial+module+slave",
+    "estimatedPrice": "$4-8 per module",
+    "keySpecs": "HC-06 (CSR BC417), Bluetooth 2.0+EDR, slave only, 3.6-6V, 9600 default baud, no AT cmd (fixed), 27x13mm, 4-pin, classic BT"
+  },
+  {
+    "name": "SX1278 LoRa Ra-02 433MHz Wireless Transceiver Module",
+    "category": "Wireless",
+    "searchQuery": "SX1278 LoRa Ra-02 433MHz wireless module SPI",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=SX1278+LoRa+Ra-02+433MHz+wireless+module",
+    "estimatedPrice": "$5-8 per module in multi-packs (JESSINIE 2pk $15; 4pk $20)",
+    "keySpecs": "SX1278 Semtech, 410-525 MHz, +20dBm, LoRa spread spectrum, SPI, 3.3V, ~3-10km range (LOS), 17x16mm Ra-02 module, 8-pin"
+  },
+  {
+    "name": "ESP32-CAM WiFi Bluetooth Camera Development Board (OV2640)",
+    "category": "Wireless",
+    "searchQuery": "ESP32-CAM WiFi Bluetooth camera module OV2640 development board",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=ESP32-CAM+OV2640+camera+development+board",
+    "estimatedPrice": "$8-10 per board in multi-packs (2pk $16-18 HiLetgo); $10-15 single with programmer",
+    "keySpecs": "ESP32-S with OV2640 2MP camera, WiFi b/g/n, BT, TF card slot, 9 GPIO, requires external USB-serial programmer, 5V, 27x40mm"
+  },
+  {
+    "name": "5V 1A USB Power Supply Module (Breadboard Friendly)",
+    "category": "Other",
+    "searchQuery": "5V 1A USB power supply module breadboard DC jack",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=5V+1A+USB+power+supply+module+breadboard",
+    "estimatedPrice": "$2-4 per module; $5-7 for dual-output (3.3V + 5V)",
+    "keySpecs": "5V 1A output, USB input (Mini/Micro/C), onboard AMS1117 or similar, breadboard friendly, ~30x20mm board"
+  },
+  {
+    "name": "JST-XH 2.54mm Connector Kit (Male + Female, 2-8 pin)",
+    "category": "Other",
+    "searchQuery": "JST-XH 2.54mm connector kit male female 2-8 pin crimp",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=JST-XH+2.54mm+connector+kit+male+female",
+    "estimatedPrice": "$8-15 for a 300-600 piece assortment kit",
+    "keySpecs": "2.54mm (0.1 inch) pitch, 2/3/4/5/6/7/8-pin housings, male+female pins, crimp terminals, nylon housings"
+  },
+  {
+    "name": "DuPont Jumper Wire Kit (Male-Male, Male-Female, Female-Female)",
+    "category": "Other",
+    "searchQuery": "Dupont jumper wire kit male male female female 40 pin breadboard",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=Dupont+jumper+wire+kit+male+female+40+pin",
+    "estimatedPrice": "$5-8 for a 120-piece combo kit (40 each M-M, M-F, F-F)",
+    "keySpecs": "2.54mm pitch, 20cm length typical, 40-pin ribbon each, M-M, M-F, F-F all included, 24 AWG, various colors"
+  },
+  {
+    "name": "Solderless Breadboard 830 Tie Points (MB-102 style)",
+    "category": "Other",
+    "searchQuery": "breadboard 830 point solderless MB-102 prototype board",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=breadboard+830+point+solderless+MB-102",
+    "estimatedPrice": "$3-5 for a single 830-point board; $8-12 with jumper wire kit",
+    "keySpecs": "830 tie points, 2 power rails (+/-), ABS plastic, 0.1 inch (2.54mm) pitch, self-adhesive back, 165x55x8mm, fits DIP ICs"
+  },
+  {
+    "name": "18650 Battery Holder (Single / Dual Slot with Leads)",
+    "category": "Other",
+    "searchQuery": "18650 battery holder single dual slot with wire leads",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=18650+battery+holder+with+wire+leads",
+    "estimatedPrice": "$3-6 for 2-4 pack of single holders",
+    "keySpecs": "Fits standard 18650 (18x65mm) cells, spring contacts, pre-wired leads, ABS plastic, single/dual/triple slot options"
+  },
+  {
+    "name": "16340 Lithium-ion Battery (CR123A size, 3.7V Rechargeable)",
+    "category": "Other",
+    "searchQuery": "16340 3.7V rechargeable lithium ion battery CR123A size",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=16340+3.7V+rechargeable+lithium+ion+battery",
+    "estimatedPrice": "$6-12 for 2-4 pack with charger bundle",
+    "keySpecs": "16340 (CR123A size), 3.7V nominal, 700-880mAh typical, 16x34mm, Li-ion, rechargeable (needs Li-ion charger)"
+  },
+  {
+    "name": "3.7V LiPo Battery 500mAh (with JST connector)",
+    "category": "Other",
+    "searchQuery": "3.7V LiPo battery 500mAh JST connector rechargeable",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=3.7V+LiPo+battery+500mAh+JST+connector",
+    "estimatedPrice": "$6-12 for 1-3 pack",
+    "keySpecs": "3.7V nominal, 500mAh, JST-PH 2-pin connector (1.25mm or 2.0mm pitch), ~40x20x5mm typical, LiPo chemistry"
+  },
+  {
+    "name": "5V 60x60mm Solar Panel (Small Hobby)",
+    "category": "Other",
+    "searchQuery": "5V 60mm 60x60mm solar panel mini hobby polycrystalline",
+    "amazonSearchUrl": "https://www.amazon.com/s?k=5V+60x60mm+solar+panel+mini+hobby",
+    "estimatedPrice": "$3-6 per panel; $8-15 for multi-pack",
+    "keySpecs": "5V nominal, 60x60mm, 0.5-1W typical, polycrystalline/monocrystalline, 2-wire leads, indoor/outdoor use"
+  }
+]

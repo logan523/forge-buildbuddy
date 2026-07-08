@@ -1,0 +1,18 @@
+{
+  "components": [
+    {
+      "ref": "U1",
+      "catalogId": null,
+      "pinoutGrade": "assumed",
+      "mpn": null
+    }
+  ],
+  "nets": [],
+  "erc": {
+    "clean": true,
+    "errorRules": [],
+    "warningRules": [],
+    "canExportPcb": true
+  },
+  "structuredNetCount": 0
+}

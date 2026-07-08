@@ -1,0 +1,17 @@
+{
+  "templateId": "sat_clock",
+  "params": {
+    "heightScale": 1.05,
+    "wingSpan": 1.1,
+    "baseScale": 1.0
+  },
+  "materials": {
+    "base": "bamboo",
+    "frame": "brass",
+    "face": "oled"
+  },
+  "layers": {},
+  "productCaption": "Solar satellite-style desk clock on a bamboo base.",
+  "source": "demo_golden",
+  "grade": "high"
+}

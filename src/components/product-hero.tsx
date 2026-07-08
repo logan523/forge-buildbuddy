@@ -1,0 +1,122 @@
+"use client";
+
+import { useMemo, useState, useCallback, useEffect } from "react";
+import type { BuildPlan } from "@/lib/types";
+import { buildProductVisual, type ProductVisual } from "@/lib/product-visual";
+import { ProductViewer3D } from "@/components/product-viewer-3d";
+import type { BeautyMeshSpec } from "@/lib/product-3d";
+
+export function useProductVisual(plan: BuildPlan): ProductVisual {
+  return useMemo(() => buildProductVisual(plan), [plan]);
+}
+
+export function ProductHero({
+  plan,
+  visual,
+  stepIndex = "prep",
+  compact = false,
+  showKeyframes = true,
+  onPlanPatch,
+}: {
+  plan: BuildPlan;
+  visual?: ProductVisual;
+  /** prep or 0-based step index */
+  stepIndex?: number | "prep";
+  compact?: boolean;
+  showKeyframes?: boolean;
+  /** Persist beauty mesh / other plan patches from the 3D viewer */
+  onPlanPatch?: (patch: Partial<BuildPlan>) => void;
+}) {
+  const fallback = useProductVisual(plan);
+  const pv = visual ?? fallback;
+  const [show2d, setShow2d] = useState(false);
+  const [livePlan, setLivePlan] = useState(plan);
+  const stage = pv.stageForStep(stepIndex);
+  const svg = pv.svgForStep(stepIndex, false);
+  const form = livePlan.formSpec || pv.formSpec;
+  const caption =
+    (stepIndex === "prep" && form?.productCaption) || stage.caption;
+
+  useEffect(() => {
+    setLivePlan(plan);
+  }, [plan]);
+
+  const onBeauty = useCallback(
+    (mesh: BeautyMeshSpec) => {
+      setLivePlan((p) => {
+        const next = { ...p, beautyMesh: mesh };
+        onPlanPatch?.({ beautyMesh: mesh });
+        return next;
+      });
+    },
+    [onPlanPatch]
+  );
+
+  return (
+    <div
+      className={`rounded-xl border border-border-subtle bg-surface shadow-card overflow-hidden ${
+        compact ? "" : "mb-6"
+      }`}
+    >
+      <div className="px-4 pt-4 pb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+              {stepIndex === "prep" ? "What you’re building" : "Assembly"}
+            </p>
+            {form?.templateId && (
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-surface-overlay text-text-muted">
+                {form.templateId}
+              </span>
+            )}
+            {form?.grade && (
+              <span className="text-[9px] uppercase tracking-wider text-accent/80">
+                {form.grade} form
+              </span>
+            )}
+          </div>
+          {!compact && (
+            <h3 className="text-base font-semibold text-text font-serif mt-0.5 truncate">
+              {plan.title}
+            </h3>
+          )}
+          <p className="text-xs text-text-secondary mt-1 leading-relaxed">{caption}</p>
+          {stepIndex === "prep" && !compact && (
+            <p className="text-[11px] text-text-muted mt-1.5 leading-snug">
+              Orbit the 3D model · Solo layers to peel the build · Pose to drag parts ·
+              Beauty is optional polish only
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShow2d((v) => !v)}
+            className="text-[10px] px-2 py-1 rounded-md border border-border-subtle text-text-muted cursor-pointer"
+          >
+            {show2d ? "Show 3D" : "2D fallback"}
+          </button>
+          <p className="text-[10px] text-text-muted tabular-nums">
+            {plan.estimatedTime || ""}
+          </p>
+        </div>
+      </div>
+
+      <div className="px-3 pb-3">
+        {show2d ? (
+          <div
+            className="w-full rounded-lg border border-border-subtle overflow-hidden bg-[#f7f5f2]"
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
+        ) : (
+          <ProductViewer3D
+            plan={livePlan}
+            height={compact ? 260 : 360}
+            showLayerPanel
+            onBeautyMeshChange={onBeauty}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

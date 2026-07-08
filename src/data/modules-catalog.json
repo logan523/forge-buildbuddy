@@ -1,0 +1,1126 @@
+{
+  "version": 1,
+  "modules": [
+    {
+      "id": "esp32-c3",
+      "name": "ESP32-C3 Development Board",
+      "aliases": [
+        "esp32-c3",
+        "esp32c3",
+        "esp32 c3",
+        "c3 supermini",
+        "c3 mini"
+      ],
+      "category": "mcu",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 3.3,
+      "interface": [
+        "gpio",
+        "i2c",
+        "spi",
+        "uart",
+        "wifi",
+        "ble"
+      ],
+      "pins": [
+        "3V3",
+        "GND",
+        "VIN",
+        "GPIO0",
+        "GPIO1",
+        "GPIO2",
+        "GPIO3",
+        "GPIO4",
+        "GPIO5",
+        "GPIO6",
+        "GPIO7",
+        "GPIO8",
+        "GPIO9",
+        "GPIO10",
+        "GPIO20",
+        "GPIO21"
+      ],
+      "defaultI2c": {
+        "sda": "GPIO4",
+        "scl": "GPIO5"
+      },
+      "hazards": [
+        "ESD_SENSITIVE"
+      ],
+      "footguns": [
+        "3.3V logic only \u2014 never drive pins from 5V without a level shifter",
+        "Pinout varies by Super Mini clone \u2014 always trust silkscreen labels",
+        "GPIO8/GPIO9 are often strapping pins \u2014 avoid for critical sensors at boot"
+      ],
+      "searchQuery": "ESP32-C3 supermini development board WiFi BLE USB-C",
+      "typicalPrice": "$3-7",
+      "specs": "RISC-V 160MHz, WiFi 4, BLE 5.0, 3.3V, USB-C",
+      "preferredVendor": "amazon",
+      "mpn": "ESP32-C3-WROOM-02",
+      "priceMin": 3.0,
+      "priceMax": 7.0,
+      "amazonQuery": "ESP32-C3 Super Mini development board USB-C WiFi BLE",
+      "lcscQuery": "ESP32-C3",
+      "digikeyQuery": "ESP32-C3",
+      "substituteIds": [
+        "esp32-devkit"
+      ],
+      "manufacturer": "Espressif",
+      "lcscPart": "C2934560",
+      "mpnNote": "Module; Super Mini boards vary \u2014 verify silkscreen",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "esp32-devkit",
+      "name": "ESP32 DevKit V1",
+      "aliases": [
+        "esp32",
+        "esp-wroom-32",
+        "esp32 devkit",
+        "esp32 wroom"
+      ],
+      "category": "mcu",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 3.3,
+      "interface": [
+        "gpio",
+        "i2c",
+        "spi",
+        "uart",
+        "wifi",
+        "ble"
+      ],
+      "pins": [
+        "3V3",
+        "GND",
+        "VIN",
+        "GPIO21",
+        "GPIO22",
+        "GPIO0",
+        "GPIO2",
+        "GPIO4",
+        "GPIO5",
+        "GPIO18",
+        "GPIO19",
+        "GPIO23"
+      ],
+      "defaultI2c": {
+        "sda": "GPIO21",
+        "scl": "GPIO22"
+      },
+      "hazards": [
+        "ESD_SENSITIVE"
+      ],
+      "footguns": [
+        "3.3V GPIO \u2014 5V signals can damage the chip",
+        "Some pins are input-only (e.g. GPIO34-39 on classic ESP32)"
+      ],
+      "searchQuery": "ESP32 DevKit V1 WROOM-32 38-pin development board",
+      "typicalPrice": "$4-8",
+      "specs": "Dual-core 240MHz, WiFi, BT, 3.3V",
+      "preferredVendor": "amazon",
+      "mpn": "ESP-WROOM-32",
+      "priceMin": 4.0,
+      "priceMax": 10.0,
+      "amazonQuery": "ESP32 DevKit V1 WROOM-32 30 pin development board",
+      "lcscQuery": "ESP-WROOM-32",
+      "digikeyQuery": "ESP32-WROOM-32",
+      "substituteIds": [
+        "esp32-c3"
+      ],
+      "manufacturer": "Espressif",
+      "lcscPart": "C70134",
+      "mpnNote": "DevKit footprint varies by vendor",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "arduino-nano",
+      "name": "Arduino Nano V3",
+      "aliases": [
+        "arduino nano",
+        "nano v3",
+        "atmega328"
+      ],
+      "category": "mcu",
+      "logicVoltage": 5.0,
+      "maxIOVoltage": 5.0,
+      "interface": [
+        "gpio",
+        "i2c",
+        "spi",
+        "uart"
+      ],
+      "pins": [
+        "5V",
+        "3V3",
+        "GND",
+        "VIN",
+        "A4",
+        "A5",
+        "D2",
+        "D3",
+        "D10",
+        "D11",
+        "D12",
+        "D13"
+      ],
+      "defaultI2c": {
+        "sda": "A4",
+        "scl": "A5"
+      },
+      "hazards": [
+        "ESD_SENSITIVE"
+      ],
+      "footguns": [
+        "5V logic \u2014 pair carefully with 3.3V-only sensors (SSD1306 often wants 3.3V VCC)",
+        "Clone CH340 boards need drivers on some OS versions"
+      ],
+      "searchQuery": "Arduino Nano V3 ATmega328P CH340",
+      "typicalPrice": "$3-5",
+      "specs": "ATmega328P 16MHz, 5V, CH340 USB",
+      "preferredVendor": "amazon",
+      "mpn": "ATMEGA328P-AU",
+      "priceMin": 3.0,
+      "priceMax": 8.0,
+      "amazonQuery": "Arduino Nano V3 ATmega328P CH340 USB-C compatible",
+      "lcscQuery": "ATmega328P Nano",
+      "digikeyQuery": "ATmega328P-PU",
+      "substituteIds": [],
+      "manufacturer": "Microchip",
+      "lcscPart": "C14877",
+      "mpnNote": "MCU only; board is clone-compatible Nano form factor",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "raspberry-pi-pico",
+      "name": "Raspberry Pi Pico",
+      "aliases": [
+        "pico",
+        "rp2040",
+        "pi pico"
+      ],
+      "category": "mcu",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 3.3,
+      "interface": [
+        "gpio",
+        "i2c",
+        "spi",
+        "uart"
+      ],
+      "pins": [
+        "3V3",
+        "GND",
+        "VBUS",
+        "GP0",
+        "GP1",
+        "GP2",
+        "GP3",
+        "GP4",
+        "GP5"
+      ],
+      "defaultI2c": {
+        "sda": "GP4",
+        "scl": "GP5"
+      },
+      "hazards": [
+        "ESD_SENSITIVE"
+      ],
+      "footguns": [
+        "3.3V only \u2014 not 5V tolerant on most GPIO"
+      ],
+      "searchQuery": "Raspberry Pi Pico RP2040",
+      "typicalPrice": "$4-6",
+      "specs": "RP2040 133MHz, 3.3V",
+      "preferredVendor": "amazon",
+      "mpn": "SC0915",
+      "priceMin": 4.0,
+      "priceMax": 7.0,
+      "amazonQuery": "Raspberry Pi Pico RP2040 official",
+      "lcscQuery": "Raspberry Pi Pico",
+      "digikeyQuery": "SC0915",
+      "substituteIds": [],
+      "manufacturer": "Raspberry Pi",
+      "lcscPart": "C2040",
+      "mpnNote": "Pico H/W variants exist",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "ssd1306-i2c",
+      "name": "SSD1306 0.96 inch OLED (I2C)",
+      "aliases": [
+        "ssd1306",
+        "oled",
+        "0.96 oled",
+        "oled i2c",
+        "128x64 oled"
+      ],
+      "category": "display",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 3.3,
+      "interface": [
+        "i2c"
+      ],
+      "pins": [
+        "VCC",
+        "GND",
+        "SCL",
+        "SDA"
+      ],
+      "i2cAddress": "0x3C",
+      "i2cAddressAlt": "0x3D",
+      "requiresPullups": true,
+      "hazards": [
+        "ESD_SENSITIVE"
+      ],
+      "footguns": [
+        "Many modules are NOT 5V tolerant \u2014 power VCC from 3.3V",
+        "Default I2C address is often 0x3C (sometimes printed as 0x78 8-bit)",
+        "Do not buy 7-pin SPI OLEDs when the plan expects 4-pin I2C"
+      ],
+      "searchQuery": "SSD1306 0.96 inch 128x64 I2C OLED display module",
+      "typicalPrice": "$3-6",
+      "specs": "128x64, I2C, 3.3V, 4-pin",
+      "preferredVendor": "amazon",
+      "mpn": "SSD1306",
+      "priceMin": 2.5,
+      "priceMax": 6.0,
+      "amazonQuery": "0.96 inch OLED SSD1306 I2C 128x64 4 pin display module 3.3V",
+      "lcscQuery": "SSD1306 0.96 OLED I2C",
+      "digikeyQuery": "SSD1306",
+      "substituteIds": [],
+      "manufacturer": "Solomon Systech",
+      "lcscPart": "C8734",
+      "mpnNote": "Controller IC; module PCB varies \u2014 require 4-pin I2C",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "sht31d",
+      "name": "SHT31D Temperature Humidity Sensor",
+      "aliases": [
+        "sht31",
+        "sht31d",
+        "sht3x"
+      ],
+      "category": "sensor",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 5.5,
+      "interface": [
+        "i2c"
+      ],
+      "pins": [
+        "VCC",
+        "GND",
+        "SDA",
+        "SCL"
+      ],
+      "i2cAddress": "0x44",
+      "i2cAddressAlt": "0x45",
+      "requiresPullups": true,
+      "hazards": [],
+      "footguns": [
+        "Shares I2C bus with OLED \u2014 different address required"
+      ],
+      "searchQuery": "SHT31D I2C temperature humidity sensor module",
+      "typicalPrice": "$3-6",
+      "specs": "\u00b12% RH, \u00b10.3\u00b0C, I2C",
+      "preferredVendor": "amazon",
+      "mpn": "SHT31-DIS-B",
+      "priceMin": 4.0,
+      "priceMax": 12.0,
+      "amazonQuery": "SHT31 temperature humidity sensor module I2C",
+      "lcscQuery": "SHT31",
+      "digikeyQuery": "SHT31-DIS-B",
+      "substituteIds": [
+        "bme280",
+        "dht22"
+      ],
+      "manufacturer": "Sensirion",
+      "lcscPart": "C128787",
+      "mpnNote": "Prefer genuine Sensirion breakout",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "dht22",
+      "name": "DHT22 Temperature Humidity Sensor",
+      "aliases": [
+        "dht22",
+        "am2302",
+        "dht11"
+      ],
+      "category": "sensor",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 5.5,
+      "interface": [
+        "1wire"
+      ],
+      "pins": [
+        "VCC",
+        "DATA",
+        "GND"
+      ],
+      "hazards": [],
+      "footguns": [
+        "Needs pull-up on DATA (~4.7k\u201310k) on many boards"
+      ],
+      "searchQuery": "DHT22 AM2302 temperature humidity sensor",
+      "typicalPrice": "$2-4",
+      "specs": "Single-wire digital humidity/temp",
+      "preferredVendor": "amazon",
+      "mpn": "AM2302",
+      "priceMin": 2.0,
+      "priceMax": 5.0,
+      "amazonQuery": "DHT22 AM2302 temperature humidity sensor module",
+      "lcscQuery": "DHT22",
+      "digikeyQuery": "DHT22",
+      "substituteIds": [
+        "sht31d"
+      ],
+      "manufacturer": "Aosong",
+      "lcscPart": "C132561",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "bme280",
+      "name": "BME280 Pressure Temperature Humidity",
+      "aliases": [
+        "bme280",
+        "bmp280"
+      ],
+      "category": "sensor",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 3.6,
+      "interface": [
+        "i2c",
+        "spi"
+      ],
+      "pins": [
+        "VCC",
+        "GND",
+        "SCL",
+        "SDA"
+      ],
+      "i2cAddress": "0x76",
+      "i2cAddressAlt": "0x77",
+      "requiresPullups": true,
+      "hazards": [
+        "ESD_SENSITIVE"
+      ],
+      "footguns": [
+        "Many cheap modules labeled BME280 are actually BMP280 (no humidity)"
+      ],
+      "searchQuery": "BME280 I2C temperature humidity pressure sensor module",
+      "typicalPrice": "$2-5",
+      "specs": "I2C/SPI environmental sensor, 3.3V preferred",
+      "preferredVendor": "amazon",
+      "mpn": "BME280",
+      "priceMin": 2.5,
+      "priceMax": 8.0,
+      "amazonQuery": "BME280 I2C temperature humidity pressure sensor module 3.3V",
+      "lcscQuery": "BME280",
+      "digikeyQuery": "BME280",
+      "substituteIds": [
+        "sht31d"
+      ],
+      "manufacturer": "Bosch",
+      "lcscPart": "C71376",
+      "mpnNote": "Many fakes labeled BME are BMP280",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "hc-sr04",
+      "name": "HC-SR04 Ultrasonic Distance Sensor",
+      "aliases": [
+        "hc-sr04",
+        "hcsr04",
+        "ultrasonic",
+        "sonar"
+      ],
+      "category": "sensor",
+      "logicVoltage": 5.0,
+      "maxIOVoltage": 5.0,
+      "interface": [
+        "gpio"
+      ],
+      "pins": [
+        "VCC",
+        "TRIG",
+        "ECHO",
+        "GND"
+      ],
+      "hazards": [],
+      "footguns": [
+        "ECHO outputs 5V \u2014 can damage 3.3V MCUs (ESP32, Pico, ESP32-C3) without a voltage divider or level shifter",
+        "TRIG can often accept 3.3V logic high"
+      ],
+      "searchQuery": "HC-SR04 ultrasonic distance sensor module",
+      "typicalPrice": "$1-3",
+      "specs": "5V ultrasonic rangefinder",
+      "preferredVendor": "amazon",
+      "mpn": "HC-SR04",
+      "priceMin": 1.0,
+      "priceMax": 3.0,
+      "amazonQuery": "HC-SR04 ultrasonic distance sensor module",
+      "lcscQuery": "HC-SR04",
+      "digikeyQuery": "ultrasonic distance sensor",
+      "substituteIds": [],
+      "manufacturer": "Generic",
+      "lcscPart": "C8680",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "tp4056-protected",
+      "name": "TP4056 Li-ion Charger with Protection",
+      "aliases": [
+        "tp4056",
+        "tp4056 type-c",
+        "tp4056 micro",
+        "lithium charger",
+        "battery charging board"
+      ],
+      "category": "power",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "IN+",
+        "IN-",
+        "B+",
+        "B-",
+        "OUT+",
+        "OUT-"
+      ],
+      "hazards": [
+        "LIPO"
+      ],
+      "providesProtection": true,
+      "footguns": [
+        "Buy the board with DW01A + FS8205A protection ICs (6 pads on output side) \u2014 bare TP4056 has no over-discharge protection",
+        "Never charge Li-ion unattended on flammable surfaces"
+      ],
+      "searchQuery": "TP4056 Type-C lithium battery charging board with protection DW01",
+      "typicalPrice": "$1-3",
+      "specs": "1S Li-ion charger, USB-C/micro, prefer protected boards",
+      "preferredVendor": "amazon",
+      "mpn": "TP4056",
+      "priceMin": 1.0,
+      "priceMax": 3.5,
+      "amazonQuery": "TP4056 Type-C lithium charger board with protection DW01 dual MOSFET",
+      "lcscQuery": "TP4056",
+      "digikeyQuery": "TP4056",
+      "substituteIds": [],
+      "manufacturer": "NanJing Top Power",
+      "lcscPart": "C16581",
+      "mpnNote": "Require board with DW01A+FS8205A protection",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "battery-16340",
+      "name": "16340 3.7V Li-ion Cell",
+      "aliases": [
+        "16340",
+        "rcr123a",
+        "3.7v 16340"
+      ],
+      "category": "battery",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "+",
+        "-"
+      ],
+      "hazards": [
+        "LIPO"
+      ],
+      "isLithiumCell": true,
+      "footguns": [
+        "Never short + and \u2212",
+        "Never solder casually to bare cells without experience \u2014 use a holder",
+        "Must charge through a protected charger path"
+      ],
+      "searchQuery": "3.7V 16340 li-ion rechargeable battery protected",
+      "typicalPrice": "$3-8",
+      "specs": "3.7V nominal, 16\u00d734mm",
+      "preferredVendor": "amazon",
+      "priceMin": 3.0,
+      "priceMax": 9.0,
+      "amazonQuery": "16340 3.7V protected rechargeable Li-ion battery RCR123A",
+      "substituteIds": [
+        "battery-18650"
+      ],
+      "manufacturer": "Generic",
+      "mpn": "ICR16340",
+      "mpnNote": "Prefer protected cells",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "battery-18650",
+      "name": "18650 3.7V Li-ion Cell",
+      "aliases": [
+        "18650",
+        "3.7v 18650"
+      ],
+      "category": "battery",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "+",
+        "-"
+      ],
+      "hazards": [
+        "LIPO"
+      ],
+      "isLithiumCell": true,
+      "footguns": [
+        "Prefer protected cells or a holder + BMS",
+        "High energy density \u2014 shorts can cause fire"
+      ],
+      "searchQuery": "3.7V 18650 li-ion rechargeable battery protected",
+      "typicalPrice": "$4-10",
+      "specs": "3.7V nominal, 18\u00d765mm",
+      "preferredVendor": "amazon",
+      "priceMin": 4.0,
+      "priceMax": 12.0,
+      "amazonQuery": "18650 3.7V protected rechargeable Li-ion battery",
+      "substituteIds": [
+        "battery-16340"
+      ],
+      "manufacturer": "Generic",
+      "mpn": "ICR18650",
+      "mpnNote": "Prefer protected cells",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "solar-panel-5v",
+      "name": "5V Small Solar Panel",
+      "aliases": [
+        "solar panel",
+        "5v solar",
+        "solar cell"
+      ],
+      "category": "power",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "+",
+        "-"
+      ],
+      "hazards": [],
+      "footguns": [
+        "Do not wire panel output directly across a Li-ion cell \u2014 use a charge controller"
+      ],
+      "searchQuery": "5V small solar panel DIY 60x60",
+      "typicalPrice": "$2-6",
+      "specs": "5V class hobby solar panel",
+      "preferredVendor": "amazon",
+      "priceMin": 2.0,
+      "priceMax": 8.0,
+      "amazonQuery": "5V 160mA mini solar panel DIY 60x90mm epoxy",
+      "substituteIds": []
+    },
+    {
+      "id": "solar-charger",
+      "name": "Solar Li-ion Charge Controller",
+      "aliases": [
+        "solar charging controller",
+        "solar charger",
+        "cn3791",
+        "solar lithium"
+      ],
+      "category": "power",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "IN+",
+        "IN-",
+        "BAT+",
+        "BAT-"
+      ],
+      "hazards": [
+        "LIPO"
+      ],
+      "providesProtection": true,
+      "footguns": [
+        "Confirm your board is rated for 1S (3.7V) Li-ion, not 12V SLA"
+      ],
+      "searchQuery": "solar lithium battery charging controller board 3.7V",
+      "typicalPrice": "$3-8",
+      "specs": "Solar input to 1S Li-ion charge path",
+      "preferredVendor": "amazon",
+      "priceMin": 3.0,
+      "priceMax": 10.0,
+      "amazonQuery": "CN3791 solar lithium battery charger module 3.7V 1S",
+      "lcscQuery": "CN3791",
+      "digikeyQuery": "solar charge controller 3.7V",
+      "substituteIds": [
+        "tp4056-protected"
+      ]
+    },
+    {
+      "id": "touch-switch",
+      "name": "Capacitive Touch Switch Module",
+      "aliases": [
+        "touch switch",
+        "capacitive touch",
+        "ttp223"
+      ],
+      "category": "input",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 5.5,
+      "interface": [
+        "gpio"
+      ],
+      "pins": [
+        "VCC",
+        "GND",
+        "SIG",
+        "OUT"
+      ],
+      "hazards": [],
+      "footguns": [
+        "Needs common GND with the MCU; SIG floating reads as noise"
+      ],
+      "searchQuery": "capacitive touch switch module TTP223",
+      "typicalPrice": "$1-3",
+      "specs": "Digital touch output module",
+      "preferredVendor": "amazon",
+      "mpn": "TTP223",
+      "priceMin": 1.0,
+      "priceMax": 3.0,
+      "amazonQuery": "TTP223 capacitive touch switch module digital",
+      "lcscQuery": "TTP223",
+      "digikeyQuery": "TTP223",
+      "substituteIds": [],
+      "manufacturer": "Tontek",
+      "lcscPart": "C26900",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "sg90",
+      "name": "SG90 Micro Servo",
+      "aliases": [
+        "sg90",
+        "servo",
+        "9g servo"
+      ],
+      "category": "actuator",
+      "logicVoltage": 5.0,
+      "maxIOVoltage": 6.0,
+      "interface": [
+        "pwm"
+      ],
+      "pins": [
+        "VCC",
+        "GND",
+        "SIG"
+      ],
+      "hazards": [
+        "MOVING"
+      ],
+      "footguns": [
+        "Power from a supply that can handle stall current; weak USB power browns out MCUs"
+      ],
+      "searchQuery": "SG90 9g micro servo motor",
+      "typicalPrice": "$2-4",
+      "specs": "5V hobby servo",
+      "preferredVendor": "amazon",
+      "mpn": "SG90",
+      "priceMin": 2.0,
+      "priceMax": 5.0,
+      "amazonQuery": "SG90 9g micro servo motor Arduino",
+      "lcscQuery": "SG90",
+      "digikeyQuery": "micro servo 9g",
+      "substituteIds": [],
+      "manufacturer": "Tower Pro",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "nrf24l01",
+      "name": "nRF24L01+ Wireless Module",
+      "aliases": [
+        "nrf24",
+        "nrf24l01",
+        "2.4ghz"
+      ],
+      "category": "wireless",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 3.6,
+      "interface": [
+        "spi"
+      ],
+      "pins": [
+        "VCC",
+        "GND",
+        "CE",
+        "CSN",
+        "SCK",
+        "MOSI",
+        "MISO",
+        "IRQ"
+      ],
+      "hazards": [
+        "ESD_SENSITIVE"
+      ],
+      "footguns": [
+        "Strictly 3.3V VCC \u2014 5V destroys the module",
+        "Needs solid 3.3V and decoupling"
+      ],
+      "searchQuery": "nRF24L01+ 2.4GHz wireless transceiver module",
+      "typicalPrice": "$1-3",
+      "specs": "2.4GHz SPI radio, 3.3V only",
+      "preferredVendor": "amazon",
+      "mpn": "nRF24L01+",
+      "priceMin": 1.0,
+      "priceMax": 4.0,
+      "amazonQuery": "nRF24L01+ 2.4GHz wireless transceiver module 3.3V",
+      "lcscQuery": "nRF24L01",
+      "digikeyQuery": "nRF24L01+",
+      "substituteIds": [],
+      "manufacturer": "Nordic",
+      "lcscPart": "C5117",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "l298n",
+      "name": "L298N Motor Driver",
+      "aliases": [
+        "l298n",
+        "l298",
+        "motor driver"
+      ],
+      "category": "actuator",
+      "logicVoltage": 5.0,
+      "maxIOVoltage": 5.0,
+      "interface": [
+        "gpio"
+      ],
+      "pins": [
+        "IN1",
+        "IN2",
+        "IN3",
+        "IN4",
+        "ENA",
+        "ENB",
+        "12V",
+        "5V",
+        "GND"
+      ],
+      "hazards": [
+        "HIGH_CURRENT",
+        "HEAT"
+      ],
+      "footguns": [
+        "Remove 5V regulator jumper when motor supply >12V",
+        "Share GND with MCU"
+      ],
+      "searchQuery": "L298N dual H-bridge motor driver module",
+      "typicalPrice": "$2-5",
+      "specs": "Dual H-bridge DC motor driver",
+      "preferredVendor": "amazon",
+      "mpn": "L298N",
+      "priceMin": 2.0,
+      "priceMax": 6.0,
+      "amazonQuery": "L298N dual H-bridge motor driver module",
+      "lcscQuery": "L298N",
+      "digikeyQuery": "L298N",
+      "substituteIds": [],
+      "manufacturer": "ST",
+      "lcscPart": "C13685",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "mt3608",
+      "name": "MT3608 Boost Converter",
+      "aliases": [
+        "mt3608",
+        "boost converter",
+        "step up"
+      ],
+      "category": "power",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "IN+",
+        "IN-",
+        "OUT+",
+        "OUT-"
+      ],
+      "hazards": [],
+      "footguns": [
+        "Set output voltage with a multimeter BEFORE connecting the load"
+      ],
+      "searchQuery": "MT3608 DC-DC boost converter module",
+      "typicalPrice": "$1-3",
+      "specs": "Adjustable boost converter",
+      "preferredVendor": "amazon",
+      "mpn": "MT3608",
+      "priceMin": 1.0,
+      "priceMax": 3.0,
+      "amazonQuery": "MT3608 DC-DC boost converter module adjustable",
+      "lcscQuery": "MT3608",
+      "digikeyQuery": "MT3608",
+      "substituteIds": [],
+      "manufacturer": "Aerosemi",
+      "lcscPart": "C84817",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "lm2596",
+      "name": "LM2596 Buck Converter",
+      "aliases": [
+        "lm2596",
+        "buck converter",
+        "step down"
+      ],
+      "category": "power",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "IN+",
+        "IN-",
+        "OUT+",
+        "OUT-"
+      ],
+      "hazards": [],
+      "footguns": [
+        "Set output voltage with a multimeter BEFORE connecting the load"
+      ],
+      "searchQuery": "LM2596 DC-DC buck converter adjustable",
+      "typicalPrice": "$1-3",
+      "specs": "Adjustable buck converter",
+      "preferredVendor": "amazon",
+      "mpn": "LM2596S-ADJ",
+      "priceMin": 1.0,
+      "priceMax": 4.0,
+      "amazonQuery": "LM2596 DC-DC buck converter adjustable module",
+      "lcscQuery": "LM2596",
+      "digikeyQuery": "LM2596",
+      "substituteIds": [],
+      "manufacturer": "TI",
+      "lcscPart": "C83088",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "a4988",
+      "name": "A4988 Stepper Driver",
+      "aliases": [
+        "a4988",
+        "stepper driver"
+      ],
+      "category": "actuator",
+      "logicVoltage": 3.3,
+      "maxIOVoltage": 5.0,
+      "interface": [
+        "gpio"
+      ],
+      "pins": [
+        "VMOT",
+        "GND",
+        "1A",
+        "1B",
+        "2A",
+        "2B",
+        "DIR",
+        "STEP",
+        "ENABLE"
+      ],
+      "hazards": [
+        "HEAT",
+        "HIGH_CURRENT"
+      ],
+      "footguns": [
+        "Set current limit pot correctly or motor/driver overheat",
+        "Always connect motor before powering VMOT"
+      ],
+      "searchQuery": "A4988 stepper motor driver module",
+      "typicalPrice": "$2-4",
+      "specs": "Microstepping stepper driver",
+      "preferredVendor": "amazon",
+      "mpn": "A4988SETTR-T",
+      "priceMin": 1.5,
+      "priceMax": 5.0,
+      "amazonQuery": "A4988 stepper motor driver module with heatsink",
+      "lcscQuery": "A4988",
+      "digikeyQuery": "A4988",
+      "substituteIds": [],
+      "manufacturer": "Allegro",
+      "lcscPart": "C167158",
+      "mpnVerifiedAt": "2026-07-01"
+    },
+    {
+      "id": "jumper-wires",
+      "name": "Dupont Jumper Wires",
+      "aliases": [
+        "jumper",
+        "dupont",
+        "jumper wires"
+      ],
+      "category": "passive",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [],
+      "pins": [],
+      "hazards": [],
+      "footguns": [],
+      "searchQuery": "Dupont jumper wire male female assortment",
+      "typicalPrice": "$3-8",
+      "specs": "M-M / M-F / F-F jumpers",
+      "preferredVendor": "amazon",
+      "priceMin": 3.0,
+      "priceMax": 9.0,
+      "amazonQuery": "Dupont jumper wire kit male female 120pcs",
+      "substituteIds": []
+    },
+    {
+      "id": "breadboard",
+      "name": "Solderless Breadboard",
+      "aliases": [
+        "breadboard",
+        "protoboard"
+      ],
+      "category": "passive",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [],
+      "pins": [],
+      "hazards": [],
+      "footguns": [],
+      "searchQuery": "MB-102 solderless breadboard 830 tie points",
+      "typicalPrice": "$3-8",
+      "specs": "Solderless prototyping board",
+      "preferredVendor": "amazon",
+      "priceMin": 3.0,
+      "priceMax": 8.0,
+      "amazonQuery": "MB-102 830 point solderless breadboard",
+      "substituteIds": []
+    },
+    {
+      "id": "brass-wire-1mm",
+      "name": "1mm Brass Wire",
+      "aliases": [
+        "brass wire",
+        "1mm brass"
+      ],
+      "category": "mechanical",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [],
+      "pins": [],
+      "hazards": [],
+      "footguns": [
+        "Conductive \u2014 insulate where it could short PCB pads"
+      ],
+      "searchQuery": "1mm brass wire hobby craft",
+      "typicalPrice": "$4-10",
+      "specs": "1mm hobby brass wire",
+      "preferredVendor": "amazon",
+      "priceMin": 4.0,
+      "priceMax": 12.0,
+      "amazonQuery": "1mm solid brass wire spool hobby craft",
+      "substituteIds": []
+    },
+    {
+      "id": "copper-tube-3mm",
+      "name": "3mm Copper Tube",
+      "aliases": [
+        "copper tube",
+        "3mm copper"
+      ],
+      "category": "mechanical",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [],
+      "pins": [],
+      "hazards": [],
+      "footguns": [
+        "Conductive structure \u2014 isolate from bare battery terminals"
+      ],
+      "searchQuery": "3mm copper tube hobby",
+      "typicalPrice": "$5-12",
+      "specs": "3mm OD hobby copper tube",
+      "preferredVendor": "amazon",
+      "priceMin": 5.0,
+      "priceMax": 15.0,
+      "amazonQuery": "3mm outer diameter copper tube soft hobby",
+      "substituteIds": []
+    },
+    {
+      "id": "bamboo-coaster",
+      "name": "Round Bamboo Coaster",
+      "aliases": [
+        "bamboo",
+        "bamboo coaster",
+        "bamboo base"
+      ],
+      "category": "mechanical",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [],
+      "pins": [],
+      "hazards": [],
+      "footguns": [],
+      "searchQuery": "round bamboo coaster",
+      "typicalPrice": "$5-12",
+      "specs": "Round bamboo base ~100mm",
+      "preferredVendor": "amazon",
+      "priceMin": 5.0,
+      "priceMax": 15.0,
+      "amazonQuery": "round bamboo coaster set natural",
+      "substituteIds": []
+    },
+    {
+      "id": "battery-level-led",
+      "name": "1S Li-ion Battery Level Indicator",
+      "aliases": [
+        "battery level",
+        "battery indicator",
+        "led battery bar"
+      ],
+      "category": "power",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "+",
+        "-"
+      ],
+      "hazards": [
+        "LIPO"
+      ],
+      "footguns": [
+        "Use a 1S (3.7V) indicator \u2014 3S/4S modules will not read correctly"
+      ],
+      "searchQuery": "1S 3.7V Li-ion battery capacity indicator LED bar module 4-segment",
+      "typicalPrice": "$1-3",
+      "specs": "1S Li-ion LED capacity indicator",
+      "preferredVendor": "amazon",
+      "priceMin": 1.0,
+      "priceMax": 4.0,
+      "amazonQuery": "1S 3.7V Li-ion battery capacity indicator LED 4 segment module",
+      "lcscQuery": "battery capacity indicator 1S",
+      "substituteIds": []
+    }
+  ]
+}

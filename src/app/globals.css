@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Blueprint palette */
+  --color-bg: #f5f0e8;
+  --color-surface: #ffffff;
+  --color-surface-raised: #fafaf8;
+  --color-surface-overlay: #f0ede6;
+  --color-surface-hover: #ebe7df;
+  --color-border-subtle: #e5e0d8;
+  --color-border: #d4cfc5;
+  --color-border-strong: #b8b2a6;
+  --color-accent: #0891b2;
+  --color-accent-soft: #0e7490;
+  --color-text: #1a2744;
+  --color-text-secondary: #4a5568;
+  --color-text-muted: #8896a8;
+  --color-success: #0d9488;
+  --color-success-soft: #ccfbf1;
+  --color-danger: #e53e3e;
+  --color-danger-soft: #fed7d7;
+  --color-info: #0891b2;
+  --color-info-soft: #cffafe;
+  --color-warning: #d97706;
+  --color-warning-soft: #fef3c7;
+
+  --shadow-card: 0 1px 2px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-raised: 0 2px 4px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Blueprint grid background */
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  background-color: var(--color-bg);
+  background-image:
+    linear-gradient(rgba(8, 145, 178, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(8, 145, 178, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--color-info-soft); color: var(--color-text); }
+*:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 2px; }
+
+/* Headings get serif via Tailwind font-serif or custom class */
+.font-serif { font-family: Georgia, "Times New Roman", serif; }
+
+/* Physical interaction */
+.card-lift {
+  transition: transform 200ms var(--ease-out-quart), box-shadow 200ms var(--ease-out-quart);
+}
+.card-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-raised); }
+.card-lift:active { transform: translateY(0); transition: transform 80ms ease; }
+
+.btn-spring {
+  transition: transform 150ms var(--ease-out-quart), box-shadow 150ms var(--ease-out-quart);
+}
+.btn-spring:hover { transform: scale(1.02); }
+.btn-spring:active { transform: scale(0.98); transition: transform 60ms ease; }
+
+/* Animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--color-surface-overlay) 25%, var(--color-surface-hover) 50%, var(--color-surface-overlay) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stagger-entry { opacity: 0; animation: slideUp 350ms var(--ease-out-expo) forwards; }
+.stagger-1 { animation-delay: 0ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 200ms; }
+.stagger-4 { animation-delay: 300ms; }
+
+@keyframes completePop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+.complete-pop { animation: completePop 300ms var(--ease-out-quart); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .card-lift:hover { transform: none; }
+  .btn-spring:hover, .btn-spring:active { transform: none; }
+}

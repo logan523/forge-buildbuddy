@@ -1,0 +1,284 @@
+{
+  "parts": {
+    "ssd1306": {
+      "name": "SSD1306 0.96 inch OLED Display",
+      "keywords": ["SSD1306", "0.96", "OLED", "I2C", "128x64"],
+      "searchQuery": "SSD1306 0.96 inch 128x64 I2C OLED display module white",
+      "amazonUrl": "https://www.amazon.com/s?k=SSD1306+0.96+inch+128x64+I2C+OLED+display+module+white",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=SSD1306+0.96+inch+OLED+I2C+128x64+white",
+      "lcscQuery": "SSD1306 0.96 OLED",
+      "typicalPrice": "$3-6",
+      "specs": "128x64 pixels, I2C, 3.3V, white or blue, 27x27mm"
+    },
+    "esp32-c3": {
+      "name": "ESP32-C3 Development Board",
+      "keywords": ["ESP32-C3", "WiFi", "BLE", "RISC-V"],
+      "searchQuery": "ESP32-C3 supermini development board WiFi BLE RISC-V",
+      "amazonUrl": "https://www.amazon.com/s?k=ESP32-C3+supermini+development+board+WiFi+BLE",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=ESP32-C3+supermini+development+board",
+      "lcscQuery": "ESP32-C3",
+      "typicalPrice": "$3-7",
+      "specs": "RISC-V 160MHz, WiFi 4, BLE 5.0, USB-C, 22x18mm"
+    },
+    "esp32-devkit": {
+      "name": "ESP32 DevKit V1",
+      "keywords": ["ESP32", "WiFi", "Bluetooth", "38-pin"],
+      "searchQuery": "ESP32 DevKit V1 38-pin WiFi Bluetooth development board",
+      "amazonUrl": "https://www.amazon.com/s?k=ESP32+DevKit+V1+38-pin+development+board",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=ESP32+38+pin+development+board",
+      "lcscQuery": "ESP32 DevKit",
+      "typicalPrice": "$4-8",
+      "specs": "Xtensa 240MHz, WiFi, BT, 38-pin, USB micro"
+    },
+    "arduino-nano": {
+      "name": "Arduino Nano V3",
+      "keywords": ["Arduino", "Nano", "ATmega328P", "CH340"],
+      "searchQuery": "Arduino Nano V3 ATmega328P CH340 USB-C",
+      "amazonUrl": "https://www.amazon.com/s?k=Arduino+Nano+V3+ATmega328P+CH340+USB-C",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=Arduino+Nano+V3+CH340+USB-C",
+      "lcscQuery": "Arduino Nano",
+      "typicalPrice": "$3-5",
+      "specs": "ATmega328P 16MHz, CH340 USB, 5V, 30-pin"
+    },
+    "raspberry-pi-pico": {
+      "name": "Raspberry Pi Pico",
+      "keywords": ["RP2040", "Pico", "MicroPython"],
+      "searchQuery": "Raspberry Pi Pico RP2040 microcontroller board",
+      "amazonUrl": "https://www.amazon.com/s?k=Raspberry+Pi+Pico+RP2040+microcontroller",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=Raspberry+Pi+Pico+RP2040",
+      "lcscQuery": "Raspberry Pi Pico",
+      "typicalPrice": "$4-6",
+      "specs": "RP2040 133MHz, 264KB RAM, MicroPython/C++, 26 GPIO"
+    },
+    "sht31d": {
+      "name": "SHT31D Temperature Humidity Sensor",
+      "keywords": ["SHT31D", "I2C", "temperature", "humidity"],
+      "searchQuery": "SHT31D I2C temperature humidity sensor module",
+      "amazonUrl": "https://www.amazon.com/s?k=SHT31D+I2C+temperature+humidity+sensor+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=SHT31D+GY-SHT31D+I2C+sensor+module",
+      "lcscQuery": "SHT31D",
+      "typicalPrice": "$3-6",
+      "specs": "±2% RH, ±0.3°C, I2C, 2.4-5.5V, 15x12mm module"
+    },
+    "dht22": {
+      "name": "DHT22 Temperature Humidity Sensor",
+      "keywords": ["DHT22", "AM2302", "temperature", "humidity"],
+      "searchQuery": "DHT22 AM2302 temperature humidity sensor module",
+      "amazonUrl": "https://www.amazon.com/s?k=DHT22+AM2302+temperature+humidity+sensor+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=DHT22+AM2302+sensor+module",
+      "lcscQuery": "DHT22",
+      "typicalPrice": "$2-4",
+      "specs": "0-100% RH, -40-80°C, 3.3-5V, single-wire"
+    },
+    "bme280": {
+      "name": "BME280 Pressure Temperature Humidity Sensor",
+      "keywords": ["BME280", "I2C", "pressure", "temperature", "humidity"],
+      "searchQuery": "BME280 I2C SPI temperature humidity pressure sensor module",
+      "amazonUrl": "https://www.amazon.com/s?k=BME280+I2C+temperature+humidity+pressure+sensor+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=BME280+sensor+module+I2C",
+      "lcscQuery": "BME280 sensor",
+      "typicalPrice": "$2-5",
+      "specs": "300-1100hPa, I2C/SPI, 3.3V, 11x15mm module"
+    },
+    "tp4056-usbc": {
+      "name": "TP4056 USB-C Battery Charging Module",
+      "keywords": ["TP4056", "USB-C", "Li-ion", "charger"],
+      "searchQuery": "TP4056 USB-C Type-C lithium battery charging module 1A",
+      "amazonUrl": "https://www.amazon.com/s?k=TP4056+USB-C+Type-C+lithium+battery+charger+module+1A",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=TP4056+USB-C+charger+module",
+      "lcscQuery": "TP4056 USB C",
+      "typicalPrice": "$1-3",
+      "specs": "1A charge, USB-C, DW01 protection, 4.2V, 25x19mm"
+    },
+    "tp4056-micro": {
+      "name": "TP4056 Micro-USB Battery Charging Module",
+      "keywords": ["TP4056", "micro-USB", "Li-ion", "charger"],
+      "searchQuery": "TP4056 micro USB lithium battery charging module 1A DW01",
+      "amazonUrl": "https://www.amazon.com/s?k=TP4056+micro+USB+lithium+battery+charger+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=TP4056+micro+USB+charger+module",
+      "lcscQuery": "TP4056 micro USB",
+      "typicalPrice": "$0.50-2",
+      "specs": "1A charge, micro-USB, DW01 protection, 4.2V, 25x19mm"
+    },
+    "hc-sr04": {
+      "name": "HC-SR04 Ultrasonic Distance Sensor",
+      "keywords": ["HC-SR04", "ultrasonic", "distance"],
+      "searchQuery": "HC-SR04 ultrasonic distance sensor module",
+      "amazonUrl": "https://www.amazon.com/s?k=HC-SR04+ultrasonic+distance+sensor+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=HC-SR04+ultrasonic+sensor+module",
+      "lcscQuery": "HC-SR04 ultrasonic",
+      "typicalPrice": "$1-3",
+      "specs": "2-400cm, 5V, NOT 3.3V tolerant, 45x20x15mm"
+    },
+    "sg90": {
+      "name": "SG90 Micro Servo Motor",
+      "keywords": ["SG90", "servo", "9g"],
+      "searchQuery": "SG90 9g micro servo motor 180 degree",
+      "amazonUrl": "https://www.amazon.com/s?k=SG90+9g+micro+servo+motor+180+degree",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=SG90+micro+servo+9g",
+      "lcscQuery": "SG90 servo",
+      "typicalPrice": "$1-3",
+      "specs": "9g, 180°, 4.8V, 1.2kg·cm, 23x12x29mm"
+    },
+    "mt3608": {
+      "name": "MT3608 Boost Converter Module",
+      "keywords": ["MT3608", "boost", "step-up", "2A"],
+      "searchQuery": "MT3608 DC-DC boost converter step-up module 2A",
+      "amazonUrl": "https://www.amazon.com/s?k=MT3608+DC-DC+boost+converter+step-up+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=MT3608+boost+converter+module",
+      "lcscQuery": "MT3608 boost",
+      "typicalPrice": "$1-2",
+      "specs": "2-24V input, 5-28V output, 2A max, 36x17mm"
+    },
+    "lm2596": {
+      "name": "LM2596 Buck Converter Module",
+      "keywords": ["LM2596", "buck", "step-down", "3A"],
+      "searchQuery": "LM2596 DC-DC buck converter step-down module 3A",
+      "amazonUrl": "https://www.amazon.com/s?k=LM2596+DC-DC+buck+converter+step-down+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=LM2596+buck+converter+module",
+      "lcscQuery": "LM2596 buck",
+      "typicalPrice": "$1-3",
+      "specs": "4.5-40V input, 1.5-35V output, 3A, 43x21mm"
+    },
+    "solar-panel-5v": {
+      "name": "5V Mini Solar Panel",
+      "keywords": ["solar", "panel", "5V", "mini", "60x60"],
+      "searchQuery": "5V 1W 60x60mm polycrystalline mini solar panel",
+      "amazonUrl": "https://www.amazon.com/s?k=5V+mini+solar+panel+60x60mm+polycrystalline",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=5V+mini+solar+panel+60x60mm",
+      "lcscQuery": "5V solar panel",
+      "typicalPrice": "$2-5",
+      "specs": "5V, 160mA, 0.8W, 60×60mm, polycrystalline"
+    },
+    "battery-16340": {
+      "name": "16340 Li-ion Battery",
+      "keywords": ["16340", "Li-ion", "3.7V", "rechargeable"],
+      "searchQuery": "16340 3.7V Li-ion rechargeable battery 800mAh",
+      "amazonUrl": "https://www.amazon.com/s?k=16340+3.7V+Li-ion+rechargeable+battery",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=16340+3.7V+Li-ion+battery",
+      "lcscQuery": "16340",
+      "typicalPrice": "$2-5",
+      "specs": "3.7V nominal, 4.2V full, 800mAh, 16mm × 34mm"
+    },
+    "battery-18650": {
+      "name": "18650 Li-ion Battery",
+      "keywords": ["18650", "Li-ion", "3.7V", "rechargeable"],
+      "searchQuery": "18650 3.7V Li-ion rechargeable battery 2500mAh",
+      "amazonUrl": "https://www.amazon.com/s?k=18650+3.7V+Li-ion+rechargeable+battery",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=18650+3.7V+Li-ion+battery+2500mAh",
+      "lcscQuery": "18650",
+      "typicalPrice": "$3-8",
+      "specs": "3.7V nominal, 2500mAh, 18mm × 65mm"
+    },
+    "copper-tube-3mm": {
+      "name": "3mm OD Copper Tube",
+      "keywords": ["copper", "tube", "3mm", "OD"],
+      "searchQuery": "3mm OD x 250mm copper tube round pipe hobby",
+      "amazonUrl": "https://www.amazon.com/s?k=3mm+copper+tube+round+pipe+hobby",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=3mm+copper+tube+pipe+250mm",
+      "lcscQuery": null,
+      "typicalPrice": "$3-8",
+      "specs": "3mm outer diameter, 250mm length, copper"
+    },
+    "brass-wire-1mm": {
+      "name": "1mm Brass Wire",
+      "keywords": ["brass", "wire", "1mm", "craft"],
+      "searchQuery": "1mm diameter brass wire hobby craft 50cm",
+      "amazonUrl": "https://www.amazon.com/s?k=1mm+brass+wire+hobby+craft+50cm",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=1mm+brass+wire+craft+50cm",
+      "lcscQuery": null,
+      "typicalPrice": "$2-5",
+      "specs": "1.0mm diameter, ~50cm length, brass"
+    },
+    "bamboo-coaster": {
+      "name": "Round Bamboo Coaster",
+      "keywords": ["bamboo", "coaster", "round", "10cm"],
+      "searchQuery": "round bamboo coaster 10cm wood drink coaster",
+      "amazonUrl": "https://www.amazon.com/s?k=round+bamboo+coaster+10cm+wood",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=bamboo+coaster+round+wood",
+      "lcscQuery": null,
+      "typicalPrice": "$1-4",
+      "specs": "~100mm diameter, bamboo, used as project base"
+    },
+    "touch-switch": {
+      "name": "Capacitive Touch Switch Module",
+      "keywords": ["touch", "switch", "TTP223", "capacitive"],
+      "searchQuery": "TTP223 capacitive touch switch sensor module",
+      "amazonUrl": "https://www.amazon.com/s?k=TTP223+capacitive+touch+switch+sensor+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=TTP223+touch+sensor+module",
+      "lcscQuery": "TTP223 touch",
+      "typicalPrice": "$0.50-2",
+      "specs": "TTP223, 2.5-5V, 15x11mm module"
+    },
+    "soldering-iron-kit": {
+      "name": "Soldering Iron Kit with Multimeter",
+      "keywords": ["soldering", "iron", "kit", "multimeter"],
+      "searchQuery": "soldering iron kit with digital multimeter 60W adjustable",
+      "amazonUrl": "https://www.amazon.com/s?k=soldering+iron+kit+digital+multimeter+adjustable+temperature",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=soldering+iron+kit+multimeter",
+      "lcscQuery": null,
+      "typicalPrice": "$15-30",
+      "specs": "60W adjustable, includes stand, solder, multimeter, basic tools"
+    },
+    "multimeter": {
+      "name": "Digital Multimeter",
+      "keywords": ["multimeter", "digital", "voltage"],
+      "searchQuery": "digital multimeter voltage current resistance continuity tester",
+      "amazonUrl": "https://www.amazon.com/s?k=digital+multimeter+voltage+current+resistance+continuity",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=digital+multimeter+tester",
+      "lcscQuery": null,
+      "typicalPrice": "$5-15",
+      "specs": "AC/DC voltage, current, resistance, continuity, diode test"
+    },
+    "jumper-wires": {
+      "name": "Dupont Jumper Wire Kit",
+      "keywords": ["Dupont", "jumper", "wire", "M-M", "M-F", "F-F"],
+      "searchQuery": "Dupont jumper wire kit M-M M-F F-F breadboard 120pcs",
+      "amazonUrl": "https://www.amazon.com/s?k=Dupont+jumper+wire+kit+120pcs+breadboard",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=Dupont+jumper+wire+kit+120pcs",
+      "lcscQuery": null,
+      "typicalPrice": "$3-7",
+      "specs": "120pcs, M-M M-F F-F, 20cm, 2.54mm pitch"
+    },
+    "breadboard": {
+      "name": "Breadboard 830 Point",
+      "keywords": ["breadboard", "830", "solderless"],
+      "searchQuery": "830 point solderless breadboard MB-102",
+      "amazonUrl": "https://www.amazon.com/s?k=830+point+solderless+breadboard+MB-102",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=830+point+breadboard+solderless",
+      "lcscQuery": null,
+      "typicalPrice": "$3-6",
+      "specs": "830 tie points, 166x56mm, MB-102, self-adhesive back"
+    },
+    "l298n": {
+      "name": "L298N Motor Driver Module",
+      "keywords": ["L298N", "motor", "driver", "H-bridge"],
+      "searchQuery": "L298N dual H-bridge motor driver module",
+      "amazonUrl": "https://www.amazon.com/s?k=L298N+dual+H-bridge+motor+driver+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=L298N+motor+driver+module",
+      "lcscQuery": "L298N motor driver",
+      "typicalPrice": "$2-5",
+      "specs": "Dual H-bridge, 5-35V, 2A per channel, 43x43mm"
+    },
+    "a4988": {
+      "name": "A4988 Stepper Motor Driver",
+      "keywords": ["A4988", "stepper", "driver", "microstep"],
+      "searchQuery": "A4988 stepper motor driver module with heatsink",
+      "amazonUrl": "https://www.amazon.com/s?k=A4988+stepper+motor+driver+module+with+heatsink",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=A4988+stepper+driver+module",
+      "lcscQuery": "A4988 stepper",
+      "typicalPrice": "$1-3",
+      "specs": "8-35V, 2A, 16 microstep, with heatsink, 20x15mm"
+    },
+    "nrf24l01": {
+      "name": "NRF24L01 Wireless Module",
+      "keywords": ["NRF24L01", "2.4GHz", "wireless", "PA", "LNA"],
+      "searchQuery": "NRF24L01+PA+LNA 2.4GHz wireless transceiver module",
+      "amazonUrl": "https://www.amazon.com/s?k=NRF24L01+PA+LNA+2.4GHz+wireless+module",
+      "aliexpressUrl": "https://www.aliexpress.com/wholesale?SearchText=NRF24L01+PA+LNA+wireless+module",
+      "lcscQuery": "NRF24L01",
+      "typicalPrice": "$2-5",
+      "specs": "2.4GHz, SPI, 3.3V, PA+LNA for 1km range"
+    }
+  }
+}
