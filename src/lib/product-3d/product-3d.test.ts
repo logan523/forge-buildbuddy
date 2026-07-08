@@ -46,6 +46,44 @@ import {
   beautyGenerationConfigured,
 } from "./beauty-mesh";
 
+describe("product-3d connection spars + sun + catalog", () => {
+  const plan = applyTrustPipeline(demo as unknown as BuildPlan);
+
+  it("builds edges from electrical or structural fallback", async () => {
+    const { buildConnectionEdges } = await import("./connection-spars");
+    const scene = buildProductScene3D(plan);
+    const { edges, notes } = buildConnectionEdges(scene, plan, plan.electrical);
+    assert.ok(edges.length >= 2);
+    assert.ok(edges.every((e) => e.fromNodeId && e.toNodeId && e.color));
+    assert.ok(notes.some((n) => n.id === "conn_spars"));
+  });
+
+  it("attachConnectionSpars adds edges to scene", () => {
+    const scene = buildProductScene3D(plan);
+    assert.ok(scene.edges && scene.edges.length > 0);
+  });
+
+  it("sun direction and solar aim are finite", async () => {
+    const { sunDirection, sunLightPosition, solarRotationTowardSun, DEFAULT_SUN } = await import("./sun");
+    const d = sunDirection(DEFAULT_SUN);
+    assert.ok(d.every(Number.isFinite));
+    assert.ok(Math.hypot(...d) > 0.9);
+    const p = sunLightPosition(DEFAULT_SUN);
+    assert.ok(p[1] > 0);
+    const r = solarRotationTowardSun(DEFAULT_SUN, "left");
+    assert.equal(r.length, 3);
+  });
+
+  it("catalog tags brain as esp32", async () => {
+    const { applyCatalogHints, inferCatalogId } = await import("./catalog");
+    const scene = buildSatClockScene3D(plan);
+    const tagged = applyCatalogHints(scene.nodes);
+    const brain = tagged.find((n) => n.id === "brain")!;
+    assert.equal(inferCatalogId(brain), "esp32_c3");
+    assert.equal(brain.catalogId, "esp32_c3");
+  });
+});
+
 describe("product-3d spatial reasoning", () => {
   const plan = applyTrustPipeline(demo as unknown as BuildPlan);
 

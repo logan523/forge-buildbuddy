@@ -17,6 +17,7 @@ import {
   TransformControls,
   useGLTF,
   PerformanceMonitor,
+  Line,
 } from "@react-three/drei";
 import type { Object3D, Material, Mesh } from "three";
 import type { BuildPlan } from "@/lib/types";
@@ -29,10 +30,18 @@ import {
   resolveBeautyMesh,
   beautyUnderlayAllowed,
   beautyDisplayOpacity,
+  computeNodeWorldPosition,
+  DEFAULT_SUN,
+  sunLightPosition,
+  solarRotationTowardSun,
+  sunLabel,
   type ProductScene3D,
   type LayerViewState,
   type PoseLayout3D,
   type BeautyMeshSpec,
+  type SunState,
+  type SceneEdge3D,
+  type SceneNode3D,
 } from "@/lib/product-3d";
 import {
   detectQualityTier,
@@ -135,6 +144,57 @@ function GizmoControls({
   );
 }
 
+function WireSpars({
+  edges,
+  nodes,
+  view,
+  rootScale,
+  visible,
+}: {
+  edges: SceneEdge3D[];
+  nodes: SceneNode3D[];
+  view: LayerViewState;
+  rootScale: number;
+  visible: boolean;
+}) {
+  if (!visible || !edges.length) return null;
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  return (
+    <group>
+      {edges.map((e) => {
+        const a = byId.get(e.fromNodeId);
+        const b = byId.get(e.toNodeId);
+        if (!a || !b) return null;
+        if (!nodeLayerVisible(a, view) || !nodeLayerVisible(b, view)) return null;
+        const pa = computeNodeWorldPosition(a, view);
+        const pb = computeNodeWorldPosition(b, view);
+        const s = rootScale;
+        const points: [number, number, number][] = [
+          [pa[0] * s, pa[1] * s, pa[2] * s],
+          [pb[0] * s, pb[1] * s, pb[2] * s],
+        ];
+        return (
+          <Line
+            key={e.id}
+            points={points}
+            color={e.color}
+            lineWidth={1.6}
+            transparent
+            opacity={0.75}
+            depthWrite={false}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+function nodeLayerVisible(node: SceneNode3D, view: LayerViewState): boolean {
+  if (view.visible[node.layer] === false) return false;
+  if (view.soloLayerId && view.soloLayerId !== node.layer) return false;
+  return true;
+}
+
 function SceneContent({
   scene,
   view,
@@ -146,6 +206,8 @@ function SceneContent({
   showBeauty,
   quality,
   onQualityDrop,
+  sun,
+  showWires,
 }: {
   scene: ProductScene3D;
   view: LayerViewState;
@@ -157,6 +219,8 @@ function SceneContent({
   showBeauty: boolean;
   quality: ReturnType<typeof qualitySettings>;
   onQualityDrop: () => void;
+  sun: SunState;
+  showWires: boolean;
 }) {
   const selectedRef = useRef<Object3D | null>(null);
   const [gizmoTarget, setGizmoTarget] = useState<Object3D | null>(null);
@@ -175,18 +239,30 @@ function SceneContent({
 
   const beautyOpacity = beautySpec ? beautyDisplayOpacity(beautySpec) : 0;
   const segs = quality.segments;
+  const sunPos = sunLightPosition(sun, 5.5);
 
   return (
     <>
       <PerformanceMonitor onDecline={onQualityDrop} />
-      {/* Studio lighting — Palantir dark product viz */}
-      <ambientLight intensity={0.28} />
-      <directionalLight position={[2.5, 4.5, 2]} intensity={1.25} castShadow color="#fff7ed" />
-      <directionalLight position={[-2.5, 2.5, -1.5]} intensity={0.45} color="#bfdbfe" />
-      <directionalLight position={[0, 1.5, 3]} intensity={0.35} color="#fde68a" />
-      <Environment preset="studio" environmentIntensity={quality.envIntensity}>
-        <Lightformer intensity={1.2} position={[0, 4, 2]} scale={[8, 1.5, 1]} form="rect" />
-        <Lightformer intensity={0.6} position={[-3, 2, -2]} scale={[3, 3, 1]} form="ring" color="#93c5fd" />
+      <ambientLight intensity={0.22} />
+      {/* Interactive sun key */}
+      <directionalLight
+        position={sunPos}
+        intensity={sun.intensity}
+        castShadow
+        color="#fff4e0"
+        shadow-mapSize={[1024, 1024]}
+      />
+      <directionalLight position={[-2.2, 2.2, -1.8]} intensity={0.38} color="#93c5fd" />
+      <directionalLight position={[0, 1.2, 2.8]} intensity={0.28} color="#fde68a" />
+      {/* Tiny sun disc for orientation */}
+      <mesh position={sunPos}>
+        <sphereGeometry args={[0.08, 16, 16]} />
+        <meshBasicMaterial color="#fde68a" />
+      </mesh>
+      <Environment preset="studio" environmentIntensity={quality.envIntensity * 0.9}>
+        <Lightformer intensity={1.1} position={[0, 4, 2]} scale={[8, 1.5, 1]} form="rect" />
+        <Lightformer intensity={0.55} position={[-3, 2, -2]} scale={[3, 3, 1]} form="ring" color="#93c5fd" />
       </Environment>
 
       {showBeauty && beautySpec && (
@@ -194,6 +270,13 @@ function SceneContent({
           <BeautyUnderlay spec={beautySpec} opacity={beautyOpacity} />
         </Suspense>
       )}
+      <WireSpars
+        edges={scene.edges || []}
+        nodes={scene.nodes}
+        view={view}
+        rootScale={scene.rootScale}
+        visible={showWires}
+      />
       <group>
         {scene.nodes.map((n) => {
           const isSelected = view.selectedNodeId === n.id;
@@ -326,6 +409,9 @@ export function ProductViewer3D({
   const dropQuality = useCallback(() => {
     setQualityTier((t) => (t === "high" ? "medium" : t === "medium" ? "low" : "low"));
   }, []);
+  const [sun, setSun] = useState<SunState>(DEFAULT_SUN);
+  const [aimSolar, setAimSolar] = useState(true);
+  const [showWires, setShowWires] = useState(true);
 
   const planForBeauty = useMemo(
     () => ({ ...plan, beautyMesh: beautyOverride || plan.beautyMesh }),
@@ -333,7 +419,35 @@ export function ProductViewer3D({
   );
 
   const baseScene = useMemo(() => buildProductScene3D(plan), [plan]);
-  const scene = useMemo(() => applyPoseLayout(baseScene, poses), [baseScene, poses]);
+  const posedScene = useMemo(() => applyPoseLayout(baseScene, poses), [baseScene, poses]);
+  /** Re-aim solar panels toward interactive sun */
+  const scene = useMemo(() => {
+    if (!aimSolar) return posedScene;
+    return {
+      ...posedScene,
+      nodes: posedScene.nodes.map((n) => {
+        if (
+          n.layer !== "wings" &&
+          n.geom.kind !== "solar_module" &&
+          n.geom.kind !== "solar_panel" &&
+          !n.id.startsWith("solar-")
+        ) {
+          return n;
+        }
+        if (n.id.startsWith("spar-")) return n;
+        const side: "left" | "right" | "center" =
+          n.id.includes("-l") || n.position[0] < -5
+            ? "left"
+            : n.id.includes("-r") || n.position[0] > 5
+              ? "right"
+              : "center";
+        return {
+          ...n,
+          rotation: solarRotationTowardSun(sun, side),
+        };
+      }),
+    };
+  }, [posedScene, sun, aimSolar]);
   const layers = useMemo(() => uniqueLayers(scene), [scene]);
   const beautyResolved = useMemo(() => resolveBeautyMesh(planForBeauty), [planForBeauty]);
   const beautySpec = beautyResolved.spec;
@@ -652,6 +766,8 @@ export function ProductViewer3D({
                 showBeauty={showBeauty}
                 quality={quality}
                 onQualityDrop={dropQuality}
+                sun={sun}
+                showWires={showWires}
               />
             </Suspense>
           </Canvas>
@@ -718,6 +834,58 @@ export function ProductViewer3D({
                 }
                 className="w-full accent-cyan-400 h-1 cursor-pointer"
               />
+            </div>
+
+            {/* Sun control */}
+            <div className="mt-3 px-0.5 space-y-1.5 border-t border-white/5 pt-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[9px] text-amber-400/70 uppercase tracking-wider">Sun</label>
+                <span className="text-[9px] font-mono text-amber-200/60">{sunLabel(sun)}</span>
+              </div>
+              <label className="text-[8px] text-white/30">Azimuth</label>
+              <input
+                type="range"
+                min={0}
+                max={360}
+                value={sun.azimuth}
+                onChange={(e) => setSun((s) => ({ ...s, azimuth: Number(e.target.value) }))}
+                className="w-full accent-amber-400 h-1 cursor-pointer"
+              />
+              <label className="text-[8px] text-white/30">Elevation</label>
+              <input
+                type="range"
+                min={8}
+                max={82}
+                value={sun.elevation}
+                onChange={(e) => setSun((s) => ({ ...s, elevation: Number(e.target.value) }))}
+                className="w-full accent-amber-400 h-1 cursor-pointer"
+              />
+              <div className="flex gap-1 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => setAimSolar((v) => !v)}
+                  className={`flex-1 text-[9px] py-1 rounded-md cursor-pointer transition-colors ${
+                    aimSolar
+                      ? "bg-amber-500/25 text-amber-100"
+                      : "bg-white/[0.05] text-white/40 hover:bg-white/10"
+                  }`}
+                  title="Tilt solar panels toward sun"
+                >
+                  Aim solar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowWires((v) => !v)}
+                  className={`flex-1 text-[9px] py-1 rounded-md cursor-pointer transition-colors ${
+                    showWires
+                      ? "bg-blue-500/25 text-blue-100"
+                      : "bg-white/[0.05] text-white/40 hover:bg-white/10"
+                  }`}
+                  title="Show electrical connection spars"
+                >
+                  Wires {(scene.edges?.length || 0) > 0 ? `(${scene.edges!.length})` : ""}
+                </button>
+              </div>
             </div>
 
             <div className="mt-2.5 flex flex-col gap-1">

@@ -257,32 +257,68 @@ export function NodeMesh({
 
     case "pcb_module":
     case "board": {
-      const w = (p.width || 28) * s;
-      const h = (p.height || 18) * s;
-      const d = (p.depth || 2.2) * s;
-      const chips = Math.min(3, Math.max(0, Math.round(p.chips || 1)));
+      const catalog = node.catalogId || "";
+      const isEsp = catalog === "esp32_c3" || node.id === "brain";
+      const isTp = catalog === "tp4056" || node.id === "charger";
+      const w = (p.width || (isEsp ? 32 : 28)) * s;
+      const h = (p.height || (isEsp ? 22 : 18)) * s;
+      const d = (p.depth || 2.8) * s;
+      const chips = Math.min(4, Math.max(1, Math.round(p.chips || (isEsp ? 3 : 1))));
       inner = (
         <group onClick={onClick}>
-          <RoundedBox args={[w, h, d]} radius={d * 0.15} smoothness={3} castShadow>
+          <RoundedBox args={[w, h, d]} radius={d * 0.12} smoothness={3} castShadow>
             {phys("pcb_module")}
             <SelectOutline selected={selected} />
           </RoundedBox>
-          {/* USB-C lip */}
-          <mesh position={[0, -h / 2 + 0.001, d * 0.2]}>
-            <boxGeometry args={[w * 0.28, h * 0.08, d * 0.5]} />
-            <meshPhysicalMaterial color="#cbd5e1" metalness={0.7} roughness={0.3} transparent opacity={opacity} />
+          {/* Silkscreen edge */}
+          <mesh position={[0, 0, d * 0.52]}>
+            <planeGeometry args={[w * 0.92, h * 0.92]} />
+            <meshPhysicalMaterial color="#166534" metalness={0.05} roughness={0.7} transparent opacity={0.35 * opacity} />
+          </mesh>
+          {/* USB-C */}
+          <mesh position={[0, -h / 2 + 0.0015, d * 0.15]}>
+            <boxGeometry args={[w * (isEsp ? 0.32 : 0.26), h * 0.1, d * 0.55]} />
+            <meshPhysicalMaterial color="#e2e8f0" metalness={0.75} roughness={0.25} transparent opacity={opacity} />
           </mesh>
           {Array.from({ length: chips }).map((_, i) => (
-            <mesh key={i} position={[-w * 0.15 + i * w * 0.22, h * 0.05, d * 0.55]}>
-              <boxGeometry args={[w * 0.18, h * 0.22, d * 0.35]} />
-              <meshPhysicalMaterial color="#0f172a" metalness={0.3} roughness={0.45} transparent opacity={opacity} />
+            <mesh key={i} position={[-w * 0.22 + i * w * 0.2, h * 0.08, d * 0.58]}>
+              <boxGeometry args={[w * 0.16, h * 0.2, d * 0.4]} />
+              <meshPhysicalMaterial color="#0f172a" metalness={0.35} roughness={0.4} transparent opacity={opacity} />
             </mesh>
           ))}
-          {/* LED */}
-          <mesh position={[w * 0.32, h * 0.28, d * 0.6]}>
-            <sphereGeometry args={[d * 0.35, 12, 12]} />
-            <meshPhysicalMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={0.8} transparent opacity={opacity} />
-          </mesh>
+          {/* Antenna meander for ESP */}
+          {isEsp && (
+            <mesh position={[w * 0.38, h * 0.32, d * 0.55]}>
+              <boxGeometry args={[w * 0.12, h * 0.28, d * 0.15]} />
+              <meshPhysicalMaterial color="#f8fafc" metalness={0.5} roughness={0.3} transparent opacity={opacity} />
+            </mesh>
+          )}
+          {/* Charge LED pair for TP4056 */}
+          {isTp && (
+            <>
+              <mesh position={[w * 0.28, h * 0.25, d * 0.65]}>
+                <sphereGeometry args={[d * 0.28, 10, 10]} />
+                <meshPhysicalMaterial color="#ef4444" emissive="#dc2626" emissiveIntensity={0.9} transparent opacity={opacity} />
+              </mesh>
+              <mesh position={[w * 0.28, -h * 0.1, d * 0.65]}>
+                <sphereGeometry args={[d * 0.28, 10, 10]} />
+                <meshPhysicalMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={0.7} transparent opacity={opacity} />
+              </mesh>
+            </>
+          )}
+          {!isTp && (
+            <mesh position={[w * 0.32, h * 0.28, d * 0.65]}>
+              <sphereGeometry args={[d * 0.32, 12, 12]} />
+              <meshPhysicalMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={0.85} transparent opacity={opacity} />
+            </mesh>
+          )}
+          {/* Header pins row */}
+          {Array.from({ length: 6 }).map((_, i) => (
+            <mesh key={`p${i}`} position={[-w * 0.35 + i * w * 0.12, -h * 0.35, -d * 0.4]}>
+              <boxGeometry args={[d * 0.25, d * 0.25, d * 0.9]} />
+              <meshPhysicalMaterial color="#cbd5e1" metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+            </mesh>
+          ))}
         </group>
       );
       break;

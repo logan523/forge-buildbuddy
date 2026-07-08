@@ -48,6 +48,10 @@ export interface SceneNode3D {
   parentId?: string | null;
   /** Direction used for explode offset */
   explodeDir?: [number, number, number];
+  /** Catalog electronics id (esp32_c3, oled_096, …) */
+  catalogId?: string;
+  /** Optional GLB URL; parametric fallback if missing/unloadable */
+  assetUrl?: string;
 }
 
 export interface ProductScene3D {
@@ -55,6 +59,8 @@ export interface ProductScene3D {
   /** Scale scene units → world (typically 0.01 so 100mm → 1 unit) */
   rootScale: number;
   nodes: SceneNode3D[];
+  /** Wiring spars from electrical nets */
+  edges?: import("./connection-spars").SceneEdge3D[];
   cameraHint: {
     position: [number, number, number];
     target: [number, number, number];

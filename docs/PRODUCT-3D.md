@@ -17,6 +17,33 @@ Orbitable **3D product model** built from the BOM — not a flat SVG stand-in, n
 - Materials: `materials.ts` (MeshPhysical PBR presets)  
 - Quality: `quality.ts` (high/medium/low + PerformanceMonitor)  
 
+## Connection spars (wiring graph)
+
+`attachConnectionSpars` maps `plan.electrical` nets → scene edges:
+
+- Ref/partId → node id (`mapRefToNodeId`)
+- Star topology per net (hub → members) to limit clutter  
+- Fallback structural pairs if no electrical model  
+- Viewer: **Wires** toggle, colored `Line` spars  
+
+## Sun control
+
+- Azimuth / elevation sliders drive key light + sun disc  
+- **Aim solar** re-tilts panels via `solarRotationTowardSun`  
+- Default: front-right ~55° elevation  
+
+## Electronics catalog
+
+| Id | Role |
+|----|------|
+| `esp32_c3` | MCU |
+| `oled_096` | Display |
+| `tp4056` | Charger |
+| `cell_16340` | Battery |
+| `sht30` / `ttp223` / `solar_cell` | … |
+
+Optional GLB: `public/models/parts/*.glb` — see README there. Parametric catalog mesh is always the fallback.
+
 ## Spatial reasoning brain
 
 After template build, `applySpatialReasoning` applies design-intent rules:

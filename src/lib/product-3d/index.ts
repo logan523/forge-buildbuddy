@@ -46,6 +46,23 @@ export {
 } from "./enrich-poses";
 export type { SpatialReasonNote, SpatialReasonResult } from "./spatial-reason";
 export { applySpatialReasoning, reasoningChips } from "./spatial-reason";
+export type { SceneEdge3D } from "./connection-spars";
+export {
+  buildConnectionEdges,
+  attachConnectionSpars,
+  mapRefToNodeId,
+  edgeTransform,
+} from "./connection-spars";
+export type { SunState } from "./sun";
+export {
+  DEFAULT_SUN,
+  sunDirection,
+  sunLightPosition,
+  solarRotationTowardSun,
+  sunLabel,
+} from "./sun";
+export type { CatalogPartId, CatalogEntry } from "./catalog";
+export { CATALOG, inferCatalogId, applyCatalogHints, catalogAssetPaths } from "./catalog";
 export type { MaterialPresetId } from "./materials";
 export {
   getMaterialPreset,

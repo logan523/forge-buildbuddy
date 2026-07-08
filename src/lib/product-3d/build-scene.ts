@@ -10,6 +10,8 @@ import type { ProductScene3D, SceneNode3D, PoseLayout3D } from "./types";
 import { applyPoseLayout } from "./types";
 import { applyEnrichmentToScene } from "./enrich-poses";
 import { applySpatialReasoning } from "./spatial-reason";
+import { attachConnectionSpars } from "./connection-spars";
+import { applyCatalogHints } from "./catalog";
 
 function findPart(parts: Part[], pred: (p: Part, role: string) => boolean): Part | undefined {
   return parts.find((p) => pred(p, classifyRole(p)));
@@ -665,6 +667,8 @@ export function buildProductScene3D(
     enrich?: boolean;
     /** Spatial design-intent brain (default true) */
     reason?: boolean;
+    /** Auto wiring spars from electrical nets (default true) */
+    spars?: boolean;
   }
 ): ProductScene3D {
   const form = resolveFormSpec(plan);
@@ -711,6 +715,15 @@ export function buildProductScene3D(
   // Design brain: solar sky-facing, power low, display forward, …
   if (opts?.reason !== false) {
     scene = applySpatialReasoning(scene).scene;
+  }
+  // Catalog electronics tags (GLB path or parametric catalog mesh)
+  scene = {
+    ...scene,
+    nodes: applyCatalogHints(scene.nodes),
+  };
+  // Wiring spars from electrical graph
+  if (opts?.spars !== false) {
+    scene = attachConnectionSpars(scene, plan);
   }
   if (opts?.poses) {
     scene = applyPoseLayout(scene, opts.poses);
