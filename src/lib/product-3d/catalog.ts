@@ -1,95 +1,56 @@
 /**
  * Electronics catalog — high-detail procedural parts + optional GLB URLs.
- * Drop real files in public/models/parts/ and register assetUrl; otherwise parametric catalog meshes render.
+ * Sizes and mesh readiness come from RealPartSpec (real-parts.ts).
+ * Drop real GLBs in public/models/parts/ and flip glbReady there.
  */
 import type { SceneNode3D } from "./types";
+import {
+  REAL_PARTS,
+  catalogDefaultSize,
+  type CatalogPartId,
+} from "./real-parts";
 
-export type CatalogPartId =
-  | "esp32_c3"
-  | "oled_096"
-  | "tp4056"
-  | "cell_16340"
-  | "sht30"
-  | "ttp223"
-  | "solar_cell"
-  | "generic_pcb";
+export type { CatalogPartId };
 
 export interface CatalogEntry {
   id: CatalogPartId;
   label: string;
-  /** Optional real GLB under public/ */
+  /** Desired path under public/ once mesh is authored (OpenSCAD/FreeCAD) */
   assetUrl?: string;
-  /** mm default footprint */
+  /**
+   * Only attach assetUrl to scene nodes when true (file must exist under public/).
+   * Prevents 404 GLB loads; flip after dropping FreeCAD/OpenSCAD exports.
+   */
+  assetReady?: boolean;
+  /** mm default footprint — from RealPartSpec */
   defaultSize: { w: number; h: number; d: number };
   /** Geom kind override for parametric path */
   geomKind: SceneNode3D["geom"]["kind"];
   materialPreset: string;
 }
 
+function entryFromReal(id: CatalogPartId, label: string): CatalogEntry {
+  const r = REAL_PARTS[id];
+  return {
+    id,
+    label,
+    assetUrl: r.mesh.glbUrl,
+    assetReady: r.mesh.glbReady,
+    defaultSize: catalogDefaultSize(r),
+    geomKind: r.geomFallback,
+    materialPreset: r.materialPreset,
+  };
+}
+
 export const CATALOG: Record<CatalogPartId, CatalogEntry> = {
-  esp32_c3: {
-    id: "esp32_c3",
-    label: "ESP32-C3",
-    assetUrl: "/models/parts/esp32_c3.glb",
-    defaultSize: { w: 32, h: 22, d: 3.5 },
-    geomKind: "pcb_module",
-    materialPreset: "pcb_green",
-  },
-  oled_096: {
-    id: "oled_096",
-    label: '0.96" OLED',
-    assetUrl: "/models/parts/oled_096.glb",
-    defaultSize: { w: 28, h: 28, d: 4 },
-    geomKind: "oled_module",
-    materialPreset: "oled_glass",
-  },
-  tp4056: {
-    id: "tp4056",
-    label: "TP4056",
-    assetUrl: "/models/parts/tp4056.glb",
-    defaultSize: { w: 26, h: 18, d: 2.5 },
-    geomKind: "pcb_module",
-    materialPreset: "pcb_green",
-  },
-  cell_16340: {
-    id: "cell_16340",
-    label: "16340 cell",
-    assetUrl: "/models/parts/cell_16340.glb",
-    defaultSize: { w: 17, h: 34, d: 17 },
-    geomKind: "cell_16340",
-    materialPreset: "battery_body",
-  },
-  sht30: {
-    id: "sht30",
-    label: "SHT30",
-    assetUrl: "/models/parts/sht30.glb",
-    defaultSize: { w: 14, h: 12, d: 6 },
-    geomKind: "box",
-    materialPreset: "sensor_body",
-  },
-  ttp223: {
-    id: "ttp223",
-    label: "TTP223",
-    assetUrl: "/models/parts/ttp223.glb",
-    defaultSize: { w: 16, h: 3, d: 16 },
-    geomKind: "touch_pad",
-    materialPreset: "touch_pad",
-  },
-  solar_cell: {
-    id: "solar_cell",
-    label: "Solar module",
-    assetUrl: "/models/parts/solar_cell.glb",
-    defaultSize: { w: 48, h: 32, d: 3 },
-    geomKind: "solar_module",
-    materialPreset: "solar_cell",
-  },
-  generic_pcb: {
-    id: "generic_pcb",
-    label: "PCB",
-    defaultSize: { w: 28, h: 18, d: 2 },
-    geomKind: "pcb_module",
-    materialPreset: "pcb_green",
-  },
+  esp32_c3: entryFromReal("esp32_c3", "ESP32-C3 SuperMini"),
+  oled_096: entryFromReal("oled_096", '0.96" OLED'),
+  tp4056: entryFromReal("tp4056", "TP4056"),
+  cell_16340: entryFromReal("cell_16340", "16340 cell"),
+  sht30: entryFromReal("sht30", "SHT30"),
+  ttp223: entryFromReal("ttp223", "TTP223"),
+  solar_cell: entryFromReal("solar_cell", "Solar module"),
+  generic_pcb: entryFromReal("generic_pcb", "PCB"),
 };
 
 /** Infer catalog id from node role / label. */
@@ -107,7 +68,14 @@ export function inferCatalogId(node: SceneNode3D): CatalogPartId | null {
   return null;
 }
 
-/** Stamp catalogId (+ optional assetUrl) onto nodes for renderer. */
+/** Resolved GLB URL only when asset is marked ready (or node already has one). */
+export function resolveCatalogAssetUrl(entry: CatalogEntry, nodeAssetUrl?: string): string | undefined {
+  if (nodeAssetUrl) return nodeAssetUrl;
+  if (entry.assetReady && entry.assetUrl) return entry.assetUrl;
+  return undefined;
+}
+
+/** Stamp catalogId (+ optional ready assetUrl) onto nodes for renderer. */
 export function applyCatalogHints(nodes: SceneNode3D[]): SceneNode3D[] {
   return nodes.map((n) => {
     const id = inferCatalogId(n);
@@ -116,7 +84,7 @@ export function applyCatalogHints(nodes: SceneNode3D[]): SceneNode3D[] {
     return {
       ...n,
       catalogId: id,
-      assetUrl: n.assetUrl || entry.assetUrl,
+      assetUrl: resolveCatalogAssetUrl(entry, n.assetUrl),
       material: {
         ...n.material,
         preset: n.material.preset || entry.materialPreset,
@@ -126,11 +94,17 @@ export function applyCatalogHints(nodes: SceneNode3D[]): SceneNode3D[] {
 }
 
 /**
- * Known missing GLBs — renderer uses parametric catalog mesh.
- * Real files: drop under public/models/parts/ matching assetUrl.
+ * Desired GLB paths (may not exist yet). See assets/scad/README.md for OpenSCAD/FreeCAD pipeline.
  */
 export function catalogAssetPaths(): string[] {
   return Object.values(CATALOG)
     .map((e) => e.assetUrl)
     .filter((u): u is string => !!u);
+}
+
+/** Paths that are ready to load in the viewer. */
+export function readyCatalogAssetPaths(): string[] {
+  return Object.values(CATALOG)
+    .filter((e) => e.assetReady && e.assetUrl)
+    .map((e) => e.assetUrl!);
 }

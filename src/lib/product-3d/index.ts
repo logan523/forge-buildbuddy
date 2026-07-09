@@ -14,7 +14,94 @@ export {
   focusLayerForStep,
   applyPoseLayout,
   extractPoseLayout,
+  isolatedPullOffset,
+  ISOLATE_PULL_MM,
 } from "./types";
+export type {
+  AssemblyViewState,
+  AssemblyTreeNode,
+  SectionPlane,
+} from "./assembly-view";
+export {
+  defaultAssemblyView,
+  selectNode,
+  isolateNode,
+  clearIsolate,
+  toggleIsolate,
+  applyViewUpdater,
+  selectNodePreserveView,
+  toggleLayerVisible,
+  toggleNodeVisible,
+  soloLayer,
+  setExplode,
+  setSection,
+  toggleSection,
+  resetAssemblyView,
+  assemblyNodeOpacity,
+  assemblyNodeVisible,
+  buildAssemblyTree,
+  presentForStep,
+  inspectNode,
+  toLayerView,
+} from "./assembly-view";
+export type {
+  AssemblyRecipe,
+  AssemblyFrame,
+  PartDef,
+  JointDef,
+  PhaseDef,
+  PartAnchorDef,
+} from "./assembly-recipe";
+export {
+  resolveAssemblyFrame,
+  applyFrameToNodes,
+  partPresent,
+  nodePresent,
+  phaseIndexForStep,
+} from "./assembly-recipe";
+export { SAT_CLOCK_RECIPE, getRecipeForTemplate } from "./sat-clock-recipe";
+export {
+  SAT_PIN_LOCALS,
+  SAT_PIN_NODE_IDS,
+  pinAnchorsForNode,
+  meshPinStubsForNode,
+  pinLocal,
+} from "./sat-pins";
+export type { PinLocal } from "./sat-pins";
+export type { WireRoute3D, WireInsulation } from "./harness";
+export {
+  buildHarnesses,
+  routePath,
+  pathLength,
+  chordLength,
+  pickAnchor,
+  anchorWorldPosition,
+  rotateLocalOffset,
+  hugCageEdge,
+  harnessToEdgePoints,
+  wiresForPart,
+  wireLegend,
+  wireDisplayLabel,
+} from "./harness";
+export {
+  wireCubeRods,
+  cubeCorners,
+  cylinderEulerFromDirection,
+  applyEulerToUp,
+  directionError,
+  rodEndpointError,
+  assertSatFidelityParams,
+  lerpVec3,
+  SAT_FIDELITY,
+} from "./geom-math";
+export type { RodSegment } from "./geom-math";
+export {
+  cadCameraForNodes,
+  frameForNodeIds,
+  sceneWorldBounds,
+  CAD_LAYER_COLORS,
+} from "./cad-frame";
+export type { CadFrame } from "./cad-frame";
 export {
   buildProductScene3D,
   buildSatClockScene3D,
@@ -34,6 +121,19 @@ export {
   clearPoseLayout,
   upsertNodePose,
 } from "./pose-storage";
+export {
+  REAL_PARTS,
+  LIFE_LAYOUT,
+  getRealPart,
+  deriveCageEdgeMm,
+  boardGeomParams,
+  cellGeomParams,
+  solarGeomParams,
+  realPartForNodeId,
+  cellRadiusMm,
+  cellLengthMm,
+} from "./real-parts";
+export type { RealPartSpec, RealPin, CatalogPartId, Vec3Mm } from "./real-parts";
 export type { PoseHint, PoseHintMap, EnrichPosesResult } from "./enrich-poses";
 export {
   sanitizePoseHints,
@@ -61,8 +161,15 @@ export {
   solarRotationTowardSun,
   sunLabel,
 } from "./sun";
-export type { CatalogPartId, CatalogEntry } from "./catalog";
-export { CATALOG, inferCatalogId, applyCatalogHints, catalogAssetPaths } from "./catalog";
+export type { CatalogEntry } from "./catalog";
+export {
+  CATALOG,
+  inferCatalogId,
+  applyCatalogHints,
+  catalogAssetPaths,
+  readyCatalogAssetPaths,
+  resolveCatalogAssetUrl,
+} from "./catalog";
 export type { MaterialPresetId } from "./materials";
 export {
   getMaterialPreset,
@@ -70,6 +177,16 @@ export {
   resolvePhysicalMaterial,
   MATERIAL_PRESET_IDS,
 } from "./materials";
+export type { MapKind } from "./procedural-maps";
+export {
+  makeBrushedMetalNormal,
+  makeFr4Roughness,
+  makePvcNormal,
+  makeCopperPadNormal,
+  getProceduralMap,
+  proceduralMapSize,
+  clearProceduralMapCache,
+} from "./procedural-maps";
 export type { QualityTier, QualitySettings } from "./quality";
 export { qualitySettings, detectQualityTier } from "./quality";
 export type { BeautyMeshSpec, BeautyProvider, BeautyResolveResult } from "./beauty-mesh";

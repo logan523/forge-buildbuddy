@@ -22,7 +22,13 @@ export type GeomKind =
   /** Thin metal stand (stem + foot) */
   | "metal_stand"
   /** Battery retention straps/rings inside cage */
-  | "battery_straps";
+  | "battery_straps"
+  /** Satellite face plate (OLED mounts on this — body presence) */
+  | "face_panel"
+  /** Satellite rear plate (charger side) */
+  | "rear_panel"
+  /** Optional frosted inner shell (peelable) */
+  | "shell_panel";
 
 export interface GeomSpec {
   kind: GeomKind;
@@ -89,6 +95,22 @@ export interface LayerViewState {
   /** 0 = assembled, 1 = fully exploded */
   explode: number;
   selectedNodeId: string | null;
+  /** Optional per-node hide (assembly app). false = hidden. */
+  nodeVisible?: Record<string, boolean>;
+  /** Progressive assembly ghost. false = not yet present. */
+  present?: Record<string, boolean>;
+  /**
+   * JARVIS isolate: one part extracted for inspect; peers ghost.
+   * Camera framing + inspect LOD react to this id.
+   */
+  isolateNodeId?: string | null;
+  /** CAD-style section cut plane (viewer applies clipping). */
+  section?: {
+    axis: "y" | "z";
+    enabled: boolean;
+    /** 0–1 along axis bounds; 0.5 ≈ mid product */
+    offset: number;
+  } | null;
 }
 
 /** Per-node pose override (template defaults + user/LLM edit). Keyed by node id. */
@@ -136,6 +158,19 @@ export function extractPoseLayout(scene: ProductScene3D): PoseLayout3D {
   return out;
 }
 
+/** Pull distance (mm) when a part is JARVIS-isolated for inspect. */
+export const ISOLATE_PULL_MM = 52;
+
+/** Offset along explodeDir for isolated inspect (pure). */
+export function isolatedPullOffset(
+  node: SceneNode3D,
+  pullMm: number = ISOLATE_PULL_MM
+): [number, number, number] {
+  const [dx, dy, dz] = node.explodeDir || [0, 1, 0];
+  const len = Math.hypot(dx, dy, dz) || 1;
+  return [(dx / len) * pullMm, (dy / len) * pullMm, (dz / len) * pullMm];
+}
+
 /** Pure helper for tests + renderer. Positions stay in mm; viewer applies rootScale. */
 export function computeNodeWorldPosition(
   node: SceneNode3D,
@@ -143,7 +178,14 @@ export function computeNodeWorldPosition(
   /** explode distance in mm when explode=1 */
   explodeDistance = 28
 ): [number, number, number] {
-  const [x, y, z] = node.position;
+  let [x, y, z] = node.position;
+  // JARVIS isolate: extract this part along its explode axis
+  if (view.isolateNodeId && view.isolateNodeId === node.id) {
+    const pull = isolatedPullOffset(node);
+    x += pull[0];
+    y += pull[1];
+    z += pull[2];
+  }
   if (view.explode <= 0 || !node.explodeDir) return [x, y, z];
   const [dx, dy, dz] = node.explodeDir;
   // explodeDir is a unit-ish direction; scale by distance
@@ -154,6 +196,14 @@ export function computeNodeWorldPosition(
 
 export function nodeOpacity(node: SceneNode3D, view: LayerViewState): number {
   if (view.visible[node.layer] === false) return 0;
+  if (view.nodeVisible?.[node.id] === false) return 0;
+  if (view.present && Object.keys(view.present).length > 0 && view.present[node.id] === false) {
+    return 0.06;
+  }
+  // Isolate peers → ghost; isolated part full
+  if (view.isolateNodeId) {
+    return view.isolateNodeId === node.id ? 1 : 0.14;
+  }
   if (view.soloLayerId && view.soloLayerId !== node.layer) return 0.08;
   if (view.selectedNodeId && view.selectedNodeId === node.id) return 1;
   return 1;

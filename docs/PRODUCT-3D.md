@@ -4,27 +4,31 @@
 
 Orbitable **3D product model** built from the BOM — not a flat SVG stand-in, not an AI mesh black box.
 
-- **Think through** → `ProductScene3D` scene graph (layers, poses, materials)  
-- **Create** → parametric primitives (disk, board, OLED panel, solar, cell…)  
-- **Look through layers** → show / hide / solo / explode  
-- **Pose** → TransformControls drag; persist per plan in `localStorage`
+**Assembly Story** (illustrative build graphic — phases + harnesses):
+
+- **Phases** → `AssemblyRecipe` / `resolveAssemblyFrame` — scrub 0…N *builds* the product  
+- **Joints** → mate axes for phase settle + explode (not only UI layers)  
+- **Harnesses** → pin-to-pin `WireRoute3D` (`harness.ts`) from electrical nets + anchors  
+- **Stage** → `ProductAssemblyApp` — Play build · phase chips · scrub · parts · inspect nets  
+- **Meshes** → parametric composites (wire cage, OLED, solar, cell…) with PBR  
+- **Authority** remains parametric scene graph — beauty underlay optional only  
 
 ## Stack
 
 - `three` + `@react-three/fiber` + `@react-three/drei`  
-- Authority: `src/lib/product-3d/`  
-- Viewer: `src/components/product-viewer-3d.tsx`  
-- Materials: `materials.ts` (MeshPhysical PBR presets)  
-- Quality: `quality.ts` (high/medium/low + PerformanceMonitor)  
+- Authority: `src/lib/product-3d/` (`assembly-recipe`, `sat-clock-recipe`, `harness`, scene builders)  
+- Viewer: `src/components/product-viewer-3d.tsx` + `product-assembly-app.tsx`  
+- Materials: `materials.ts` · Quality: `quality.ts`  
 
-## Connection spars (wiring graph)
+## Harness connectivity (wiring)
 
-`attachConnectionSpars` maps `plan.electrical` nets → scene edges:
+`buildHarnesses` maps electrical nets → multi-point routes:
 
-- Ref/partId → node id (`mapRefToNodeId`)
-- Star topology per net (hub → members) to limit clutter  
-- Fallback structural pairs if no electrical model  
-- Viewer: **Wires** toggle, colored `Line` spars  
+- Part anchors (VIN, GND, SDA…) on recipe parts  
+- Path droop between pin endpoints (not star-only lines)  
+- Phase filter: only nets whose both ends are present  
+- Selecting a part lists incident nets in the inspector  
+- Legacy `attachConnectionSpars` remains as fallback edge list  
 
 ## Sun control
 

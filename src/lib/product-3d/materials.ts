@@ -50,59 +50,62 @@ const PRESETS: Record<MaterialPresetId, PhysicalMatProps> = {
     envMapIntensity: 0.55,
   },
   brass: {
-    color: "#c9a227",
-    metalness: 0.92,
-    roughness: 0.28,
-    clearcoat: 0.35,
-    clearcoatRoughness: 0.2,
-    envMapIntensity: 1.15,
+    color: "#d4a84b",
+    metalness: 0.97,
+    roughness: 0.14,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.12,
+    envMapIntensity: 1.65,
   },
   copper: {
-    color: "#b87333",
-    metalness: 0.95,
-    roughness: 0.32,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.25,
-    envMapIntensity: 1.1,
+    color: "#c47a3a",
+    metalness: 0.96,
+    roughness: 0.2,
+    clearcoat: 0.28,
+    clearcoatRoughness: 0.18,
+    envMapIntensity: 1.45,
   },
   oled_glass: {
-    color: "#0a1628",
-    metalness: 0.15,
-    roughness: 0.12,
+    color: "#060c14",
+    metalness: 0.08,
+    roughness: 0.06,
     clearcoat: 1,
-    clearcoatRoughness: 0.05,
-    emissive: "#0e7490",
-    emissiveIntensity: 0.45,
-    envMapIntensity: 1.4,
+    clearcoatRoughness: 0.03,
+    transmission: 0.22,
+    thickness: 0.45,
+    ior: 1.5,
+    emissive: "#0a3d32",
+    emissiveIntensity: 0.55,
+    envMapIntensity: 1.7,
   },
   oled_bezel: {
-    color: "#1a1a1e",
-    metalness: 0.35,
-    roughness: 0.45,
-    clearcoat: 0.1,
-    envMapIntensity: 0.6,
+    color: "#121218",
+    metalness: 0.4,
+    roughness: 0.42,
+    clearcoat: 0.15,
+    envMapIntensity: 0.75,
   },
   pcb_green: {
-    color: "#14532d",
-    metalness: 0.12,
-    roughness: 0.55,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.4,
-    envMapIntensity: 0.7,
+    color: "#0f3d24",
+    metalness: 0.04,
+    roughness: 0.68,
+    clearcoat: 0.12,
+    clearcoatRoughness: 0.55,
+    envMapIntensity: 0.55,
   },
   solar_cell: {
-    color: "#0c1222",
-    metalness: 0.55,
-    roughness: 0.35,
-    clearcoat: 0.4,
-    clearcoatRoughness: 0.15,
-    envMapIntensity: 1.0,
+    color: "#0a101c",
+    metalness: 0.62,
+    roughness: 0.22,
+    clearcoat: 0.65,
+    clearcoatRoughness: 0.08,
+    envMapIntensity: 1.35,
   },
   solar_frame: {
-    color: "#94a3b8",
-    metalness: 0.85,
-    roughness: 0.3,
-    envMapIntensity: 1.0,
+    color: "#8b96a5",
+    metalness: 0.9,
+    roughness: 0.22,
+    envMapIntensity: 1.25,
   },
   plastic_soft: {
     color: "#c4b5fd",
@@ -170,7 +173,14 @@ export function inferMaterialPreset(
 
   if (geomKind === "oled_panel" || id === "face") return "oled_glass";
   if (geomKind === "solar_panel" || id.startsWith("solar")) return "solar_cell";
-  if (geomKind === "wire_frame" || id === "frame") return "brass";
+  if (
+    geomKind === "wire_frame" ||
+    geomKind === "wire_cube_cage" ||
+    geomKind === "brass_frame" ||
+    id === "frame"
+  )
+    return "brass";
+  if (geomKind === "pcb_module" || geomKind === "board") return "pcb_green";
   if (geomKind === "tube" || id.includes("tube")) return "copper";
   if (geomKind === "disk" || id === "base") return "bamboo";
   if (geomKind === "cell_16340" || id === "battery") return "battery_body";

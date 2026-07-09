@@ -12,6 +12,14 @@ import { applyEnrichmentToScene } from "./enrich-poses";
 import { applySpatialReasoning } from "./spatial-reason";
 import { attachConnectionSpars } from "./connection-spars";
 import { applyCatalogHints } from "./catalog";
+import {
+  REAL_PARTS,
+  LIFE_LAYOUT,
+  deriveCageEdgeMm,
+  boardGeomParams,
+  cellGeomParams,
+  solarGeomParams,
+} from "./real-parts";
 
 function findPart(parts: Part[], pred: (p: Part, role: string) => boolean): Part | undefined {
   return parts.find((p) => pred(p, classifyRole(p)));
@@ -72,9 +80,9 @@ export function applyFormLayoutToScene(scene: ProductScene3D, spec: FormSpec): P
 }
 
 /**
- * Satellite desk clock — photo-matched form (Huy Vector Lab style).
- * Wire cube cage on thin metal stand; battery inside cage; solar wings from cube sides.
- * NOT bamboo coaster + picture frame.
+ * Satellite desk clock — life-size real parts (datasheet mm).
+ * Brass wire cube on stand; 16340 inside; OLED / ESP / TP4056 / solar from RealPartSpec.
+ * Electronics are NEVER sized as cage ratios.
  */
 export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
   const parts = plan.parts || [];
@@ -88,34 +96,53 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
   const standPart = findPart(parts, (p, r) => r === "mech" && /stand|rod|pole|mast/i.test(p.name));
   const charger = findPart(parts, (p, r) => r === "power" && /tp4056|charg/i.test(p.name + p.specification));
 
-  // Proportion lock (mm) — compact cube satellite
-  const cage = 58; // cube edge
-  const rodR = 1.0;
-  const standH = 95;
-  const footR = 10;
-  const cageCy = standH + cage / 2; // cube center Y
-  const wingW = cage * 1.15;
-  const wingH = cage * 0.55;
-  const oledW = cage * 0.58;
-  const oledH = cage * 0.42;
+  // --- Real part specs (dimension authority) ---
+  const esp = REAL_PARTS.esp32_c3;
+  const oledSpec = REAL_PARTS.oled_096;
+  const tp = REAL_PARTS.tp4056;
+  const cell = REAL_PARTS.cell_16340;
+  const solarSpec = REAL_PARTS.solar_cell;
+  const sht = REAL_PARTS.sht30;
+  const ttp = REAL_PARTS.ttp223;
+
+  const espG = boardGeomParams(esp);
+  const oledG = boardGeomParams(oledSpec);
+  const tpG = boardGeomParams(tp);
+  const cellG = cellGeomParams(cell);
+  const solarG = solarGeomParams(solarSpec);
+  const shtG = boardGeomParams(sht);
+
+  // Cage fits cell + clearance (craft), not the other way around
+  const cage = deriveCageEdgeMm([cell, esp, oledSpec, tp]);
+  const rodR = LIFE_LAYOUT.rodRadiusMm;
+  const standH = LIFE_LAYOUT.standStemHeightMm;
+  const footR = LIFE_LAYOUT.standFootRadiusMm;
+  const cageCy = standH + cage / 2;
 
   const nodes: SceneNode3D[] = [];
 
-  // Thin metal stand (base layer)
   nodes.push({
     id: "base",
     layer: "base",
     partId: standPart?.id,
     ref: refOf(standPart),
     label: standPart?.name || "Metal stand",
-    geom: { kind: "metal_stand", params: { stemR: 1.6, height: standH, footR, footH: 2.5 } },
+    geom: {
+      kind: "metal_stand",
+      params: {
+        stemR: LIFE_LAYOUT.standStemRadiusMm,
+        height: standH,
+        footR,
+        footH: LIFE_LAYOUT.standFootHeightMm,
+      },
+    },
     position: [0, 0, 0],
     rotation: [0, 0, 0],
-    material: { color: "#a8b0b8", preset: "brass" },
+    material: { color: "#c5cdd4", preset: "brass" },
     explodeDir: [0, -1, 0],
+    parentId: null,
   });
 
-  // Brass wire cube cage (frame)
   nodes.push({
     id: "frame",
     layer: "frame",
@@ -125,157 +152,240 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     geom: { kind: "wire_cube_cage", params: { size: cage, rodR } },
     position: [0, cageCy, 0],
     rotation: [0, 0, 0],
-    material: { color: "#c9a227", preset: "brass" },
+    material: { color: "#d4a84b", preset: "brass" },
     explodeDir: [0, 0.6, 0],
+    parentId: "base",
   });
 
-  // OLED module on front face (+Z) of cube
+  // Face panel sized to cage; cutout matches real OLED module + margin
+  const panelMargin = 2;
+  nodes.push({
+    id: "face-panel",
+    layer: "face",
+    label: "Front face panel",
+    geom: {
+      kind: "face_panel",
+      params: {
+        width: cage - 4,
+        height: cage - 4,
+        depth: 2.0,
+        cutoutW: oledG.width + panelMargin,
+        cutoutH: oledG.height + panelMargin,
+      },
+    },
+    position: [0, cageCy, cage / 2 + 0.4],
+    rotation: [0, 0, 0],
+    material: { color: "#1e293b", metalness: 0.25, roughness: 0.45 },
+    explodeDir: [0, 0, 1.0],
+    parentId: "frame",
+  });
+
+  nodes.push({
+    id: "rear-panel",
+    layer: "power",
+    label: "Rear service panel",
+    geom: {
+      kind: "rear_panel",
+      params: { width: cage - 6, height: cage - 6, depth: 1.8 },
+    },
+    position: [0, cageCy, -(cage / 2) - 0.3],
+    rotation: [0, 0, 0],
+    material: { color: "#334155", metalness: 0.3, roughness: 0.5 },
+    explodeDir: [0, 0, -1.0],
+    parentId: "frame",
+  });
+
+  // 0.96" OLED — real module mm (not cage * 0.62)
   nodes.push({
     id: "face",
     layer: "face",
     partId: oled?.id,
     ref: refOf(oled),
-    label: oled?.name || "OLED display",
+    label: oled?.name || oledSpec.mpnOrSku,
+    catalogId: "oled_096",
     geom: {
       kind: "oled_module",
-      params: { width: oledW, height: oledH, depth: 3.5, bezel: 2.2, pcb: 1 },
+      params: {
+        width: oledG.width,
+        height: oledG.height,
+        depth: oledG.depth,
+        bezel: 2.5,
+        pcb: 1,
+      },
     },
-    position: [0, cageCy, cage / 2 + 1.5],
+    position: [0, cageCy, cage / 2 + oledG.depth / 2 + 1.2],
     rotation: [0, 0, 0],
     material: {
       color: "#0a1628",
       preset: "oled_glass",
       emissive: "#22c55e",
-      emissiveIntensity: 0.55,
+      emissiveIntensity: 0.75,
     },
     explodeDir: [0, 0, 1.2],
+    parentId: "face-panel",
   });
 
-  // Solar wings from cube left/right mid-edges — slight dihedral, not sky-tower
-  const wingY = cageCy + cage * 0.08;
-  const wingX = cage / 2 + wingW * 0.48;
+  // Craft solar panels — locked 60×45 SKU, not cage-proportional wings
+  const wingY = cageCy;
+  const sparLen = 10;
+  const wingX = cage / 2 + sparLen + solarG.width * 0.48;
   nodes.push({
     id: "solar-l",
     layer: "wings",
     partId: solar?.id,
     ref: refOf(solar),
     label: "Solar panel L",
-    geom: { kind: "solar_module", params: { width: wingW, height: wingH, depth: 1.6, cells: 6 } },
+    catalogId: "solar_cell",
+    geom: {
+      kind: "solar_module",
+      params: { width: solarG.width, height: solarG.height, depth: solarG.depth, cells: solarG.cells },
+    },
     position: [-wingX, wingY, 0],
-    rotation: [0.12, 0, 0.12], // slight pitch + dihedral
-    material: { color: "#0c1222", preset: "solar_cell" },
+    rotation: [0.12, 0, 0.12],
+    material: { color: "#0a1020", preset: "solar_cell" },
     explodeDir: [-1.3, 0.2, 0],
+    parentId: "frame",
   });
   nodes.push({
     id: "solar-r",
     layer: "wings",
     partId: solar?.id,
     label: "Solar panel R",
-    geom: { kind: "solar_module", params: { width: wingW, height: wingH, depth: 1.6, cells: 6 } },
+    catalogId: "solar_cell",
+    geom: {
+      kind: "solar_module",
+      params: { width: solarG.width, height: solarG.height, depth: solarG.depth, cells: solarG.cells },
+    },
     position: [wingX, wingY, 0],
     rotation: [0.12, 0, -0.12],
-    material: { color: "#0c1222", preset: "solar_cell" },
+    material: { color: "#0a1020", preset: "solar_cell" },
     explodeDir: [1.3, 0.2, 0],
+    parentId: "frame",
   });
-  // Short brass spars cube → wing
   nodes.push({
     id: "spar-l",
     layer: "wings",
     label: "Wing spar L",
-    geom: { kind: "tube", params: { radius: 0.9, height: 14 } },
-    position: [-(cage / 2 + 7), wingY, 0],
+    geom: { kind: "tube", params: { radius: 1.2, height: sparLen } },
+    position: [-(cage / 2 + sparLen / 2), wingY, 0],
     rotation: [0, 0, Math.PI / 2],
-    material: { color: "#c9a227", preset: "brass" },
+    material: { color: "#d4a84b", preset: "brass" },
     explodeDir: [-1, 0.1, 0],
+    parentId: "solar-l",
   });
   nodes.push({
     id: "spar-r",
     layer: "wings",
     label: "Wing spar R",
-    geom: { kind: "tube", params: { radius: 0.9, height: 14 } },
-    position: [cage / 2 + 7, wingY, 0],
+    geom: { kind: "tube", params: { radius: 1.2, height: sparLen } },
+    position: [cage / 2 + sparLen / 2, wingY, 0],
     rotation: [0, 0, Math.PI / 2],
-    material: { color: "#c9a227", preset: "brass" },
+    material: { color: "#d4a84b", preset: "brass" },
     explodeDir: [1, 0.1, 0],
+    parentId: "solar-r",
   });
 
-  // Battery horizontal INSIDE cage
+  // 16340 — Ø16.5 × 34 mm (true cell, not illustration blob)
   nodes.push({
     id: "battery",
     layer: "power",
     partId: battery?.id,
     ref: refOf(battery),
-    label: battery?.name || "Li-ion cell",
-    geom: { kind: "cell_16340", params: { radius: 8, height: cage * 0.72 } },
-    position: [0, cageCy + 2, -4],
-    rotation: [0, 0, Math.PI / 2], // horizontal along X
+    label: battery?.name || cell.mpnOrSku,
+    catalogId: "cell_16340",
+    geom: { kind: "cell_16340", params: { radius: cellG.radius, height: cellG.height } },
+    position: [0, cageCy, 0],
+    rotation: [0, 0, Math.PI / 2],
     material: { color: "#1e293b", preset: "battery_body" },
     explodeDir: [0, 0, -1],
+    parentId: "frame",
   });
   nodes.push({
     id: "straps",
     layer: "power",
     label: "Battery straps",
-    geom: { kind: "battery_straps", params: { size: cage * 0.85, rodR: 0.7 } },
-    position: [0, cageCy + 2, -4],
+    geom: {
+      kind: "battery_straps",
+      params: { size: Math.min(cage - 4, cellG.height + 6), rodR: 1.0 },
+    },
+    position: [0, cageCy, 0],
     rotation: [0, 0, 0],
-    material: { color: "#c9a227", preset: "brass" },
+    material: { color: "#d4a84b", preset: "brass" },
     explodeDir: [0, 0.4, 0],
+    parentId: "battery",
   });
-  // Charger board on back of cage
+
+  // TP4056 — real module footprint on rear panel
   nodes.push({
     id: "charger",
     layer: "power",
     partId: charger?.id,
     ref: refOf(charger),
-    label: charger?.name || "TP4056",
-    geom: { kind: "pcb_module", params: { width: 22, height: 14, depth: 2, chips: 1 } },
-    position: [0, cageCy - 8, -(cage / 2) - 1],
+    label: charger?.name || tp.mpnOrSku,
+    catalogId: "tp4056",
+    geom: {
+      kind: "pcb_module",
+      params: { width: tpG.width, height: tpG.height, depth: tpG.depth, chips: 1 },
+    },
+    position: [0, cageCy - 2, -(cage / 2) - tpG.depth / 2 - 1.0],
     rotation: [0, Math.PI, 0],
     material: { color: "#14532d", preset: "pcb_green" },
     explodeDir: [0, 0, -1.1],
+    parentId: "rear-panel",
   });
 
-  // MCU small, behind OLED / inside front
+  // ESP32-C3 SuperMini — ~22.5×18 inside front of cage
   nodes.push({
     id: "brain",
     layer: "brain",
     partId: mcu?.id,
     ref: refOf(mcu),
-    label: mcu?.name || "ESP32-C3",
-    geom: { kind: "pcb_module", params: { width: 22, height: 16, depth: 2.2, chips: 2 } },
-    position: [-12, cageCy - 6, cage / 2 - 8],
+    label: mcu?.name || esp.mpnOrSku,
+    catalogId: "esp32_c3",
+    geom: {
+      kind: "pcb_module",
+      params: { width: espG.width, height: espG.height, depth: espG.depth, chips: 3 },
+    },
+    position: [-espG.width * 0.15, cageCy - 2, cage / 2 - espG.depth - 6],
     rotation: [0, 0, 0],
     material: { color: "#14532d", preset: "pcb_green" },
     explodeDir: [0, 0, 0.8],
+    parentId: "frame",
   });
 
-  // Sensor inside / side of cage
   nodes.push({
     id: "sensor",
     layer: "sensor",
     partId: sensor?.id,
     ref: refOf(sensor),
-    label: sensor?.name || "Sensor",
-    geom: { kind: "box", params: { width: 10, height: 9, depth: 5 } },
-    position: [14, cageCy - 4, cage / 2 - 10],
+    label: sensor?.name || sht.mpnOrSku,
+    catalogId: "sht30",
+    geom: {
+      kind: "pcb_module",
+      params: { width: shtG.width, height: shtG.height, depth: shtG.depth, chips: 1 },
+    },
+    position: [cage / 2 - shtG.width / 2 - 3, cageCy - 1, cage / 2 - 8],
     rotation: [0, 0, 0],
-    material: { color: "#d1fae5", preset: "sensor_body" },
+    material: { color: "#166534", preset: "pcb_green" },
     explodeDir: [0.4, 0, 0.6],
+    parentId: "frame",
   });
 
-  // Touch pad on TOP of cube
+  // TTP223 — real board footprint as touch pad radius ≈ half diagonal of pad face
+  const touchR = Math.max(ttp.bboxMm.l, ttp.bboxMm.w) / 2;
   nodes.push({
     id: "touch",
     layer: "touch",
     partId: touch?.id,
     ref: refOf(touch),
-    label: touch?.name || "Touch switch",
-    geom: { kind: "touch_pad", params: { radius: 7, height: 2.2 } },
-    position: [0, cageCy + cage / 2 + 1.2, 0],
+    label: touch?.name || ttp.mpnOrSku,
+    catalogId: "ttp223",
+    geom: { kind: "touch_pad", params: { radius: touchR, height: ttp.bboxMm.h } },
+    position: [0, cageCy + cage / 2 + ttp.bboxMm.h / 2 + 0.4, 0],
     rotation: [0, 0, 0],
     material: { color: "#c2410c", preset: "touch_pad" },
     explodeDir: [0, 1.2, 0],
+    parentId: "frame",
   });
 
   return {
@@ -283,9 +393,8 @@ export function buildSatClockScene3D(plan: BuildPlan): ProductScene3D {
     rootScale: 0.012,
     nodes,
     cameraHint: {
-      // ¾ product shot like the reference photo
-      position: [0.95, 1.15, 1.05],
-      target: [0, 0.95, 0],
+      position: [2.4, 2.0, 2.7],
+      target: [0, 0.65, 0],
     },
     source: plan.id === "sat-line-smart-clock" ? "demo_golden" : "parametric",
     grade: plan.id === "sat-line-smart-clock" ? "high" : "medium",

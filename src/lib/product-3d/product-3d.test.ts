@@ -23,6 +23,19 @@ import {
   type PoseLayout3D,
 } from "./types";
 import {
+  assertSatFidelityParams,
+  wireCubeRods,
+  rodEndpointError,
+  SAT_FIDELITY,
+} from "./geom-math";
+import {
+  REAL_PARTS,
+  boardGeomParams,
+  cellGeomParams,
+  solarGeomParams,
+} from "./real-parts";
+import { SAT_PIN_LOCALS } from "./sat-pins";
+import {
   poseStorageKey,
   upsertNodePose,
   savePoseLayout,
@@ -74,13 +87,27 @@ describe("product-3d connection spars + sun + catalog", () => {
     assert.equal(r.length, 3);
   });
 
-  it("catalog tags brain as esp32", async () => {
-    const { applyCatalogHints, inferCatalogId } = await import("./catalog");
+  it("catalog tags brain as esp32; GLB stays off until quality-reviewed", async () => {
+    const {
+      applyCatalogHints,
+      inferCatalogId,
+      resolveCatalogAssetUrl,
+      CATALOG,
+      readyCatalogAssetPaths,
+    } = await import("./catalog");
     const scene = buildSatClockScene3D(plan);
     const tagged = applyCatalogHints(scene.nodes);
     const brain = tagged.find((n) => n.id === "brain")!;
     assert.equal(inferCatalogId(brain), "esp32_c3");
     assert.equal(brain.catalogId, "esp32_c3");
+    // Parametric life-mm default — auto-GLBs not attached (avoids crude underlay junk)
+    assert.equal(brain.assetUrl, undefined);
+    assert.equal(resolveCatalogAssetUrl(CATALOG.esp32_c3), undefined);
+    assert.equal(readyCatalogAssetPaths().length, 0);
+    assert.equal(
+      resolveCatalogAssetUrl({ ...CATALOG.esp32_c3, assetReady: true }),
+      "/models/parts/esp32_c3.glb"
+    );
   });
 });
 
@@ -122,7 +149,7 @@ describe("product-3d materials + quality", () => {
     assert.ok(hi.segments > lo.segments);
   });
 
-  it("sat_clock uses composite geom kinds", () => {
+  it("sat_clock uses composite geom kinds including body panels", () => {
     const scene = buildSatClockScene3D(
       applyTrustPipeline(demo as unknown as BuildPlan)
     );
@@ -130,6 +157,67 @@ describe("product-3d materials + quality", () => {
     assert.ok(kinds.has("wire_cube_cage") || kinds.has("metal_stand"));
     assert.ok(kinds.has("oled_module") || kinds.has("oled_panel"));
     assert.ok(kinds.has("solar_module") || kinds.has("solar_panel"));
+    assert.ok(kinds.has("face_panel"), "front body panel");
+    assert.ok(kinds.has("rear_panel"), "rear service panel");
+  });
+
+  it("viewer ships continuous TubeGeometry harness + studio lighting (structural)", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const root = path.join(process.cwd(), "src/components");
+    const viewer = fs.readFileSync(path.join(root, "product-viewer-3d.tsx"), "utf8");
+    const mesh = fs.readFileSync(path.join(root, "product-node-mesh.tsx"), "utf8");
+    const assembly = fs.readFileSync(path.join(root, "product-assembly-app.tsx"), "utf8");
+    assert.ok(viewer.includes("WireTubeRoute"), "tube render path");
+    assert.ok(viewer.includes("TubeGeometry"), "continuous TubeGeometry wires");
+    assert.ok(viewer.includes("CatmullRomCurve3"), "spline wire path");
+    assert.ok(
+      /const \[showWires,\s*setShowWires\]\s*=\s*useState\(\s*true\s*\)/.test(viewer),
+      "wires default ON"
+    );
+    assert.ok(viewer.includes("highlightNodeId"), "selection isolation hook");
+    assert.ok(viewer.includes("ContactShadows"), "studio contact shadows");
+    // Avoid PCSS SoftShadows / MeshReflectorMaterial components (GPU blackout)
+    assert.ok(
+      !/from ["']@react-three\/drei["'][\s\S]*SoftShadows|SoftShadows,/.test(viewer) &&
+        !viewer.includes("<SoftShadows"),
+      "no SoftShadows component"
+    );
+    assert.ok(!viewer.includes("<MeshReflectorMaterial"), "no MeshReflectorMaterial");
+    assert.ok(
+      viewer.includes("getProceduralMap") || viewer.includes("procedural-maps"),
+      "procedural wire maps"
+    );
+    assert.ok(
+      viewer.includes("Environment") &&
+        (viewer.includes("warehouse") || viewer.includes("studio")),
+      "Environment preset"
+    );
+    assert.ok(
+      viewer.includes("ACESFilmicToneMapping") || viewer.includes("toneMapping"),
+      "ACES tone mapping"
+    );
+    assert.ok(viewer.includes("onIsolate") || viewer.includes("isolateNodeId"), "isolate path");
+    assert.ok(mesh.includes('case "face_panel"'), "face panel mesh");
+    assert.ok(mesh.includes('case "rear_panel"'), "rear panel mesh");
+    assert.ok(mesh.includes("PinStub"), "board pin stubs");
+    assert.ok(mesh.includes("meshPinStubsForNode"), "pads from sat-pins");
+    assert.ok(
+      mesh.includes("getProceduralMap") || mesh.includes("brushed_normal"),
+      "mesh uses procedural normals"
+    );
+    assert.ok(mesh.includes("normalMap"), "normalMap on product meshes");
+    assert.ok(assembly.includes("wiresForPart"), "incident nets on select");
+    assert.ok(assembly.includes("wireLegend"), "wire legend");
+    assert.ok(
+      assembly.includes("isolateNode") || assembly.includes("Inspect"),
+      "JARVIS inspect UX"
+    );
+    assert.ok(
+      assembly.includes("Reassemble") || assembly.includes("clearIsolate"),
+      "reassemble UX"
+    );
+    assert.ok(assembly.includes("buildAssemblyTree") || assembly.includes("Parts"), "parts tree");
   });
 });
 
@@ -284,6 +372,81 @@ describe("product-3d scene builder", () => {
     assert.ok(touch.position[1] > frame.position[1], "touch on top of cube");
   });
 
+  it("sat_clock life-size: real-part mm + solid cage rods", () => {
+    const scene = buildSatClockScene3D(plan);
+    const cage = scene.nodes.find((n) => n.geom.kind === "wire_cube_cage")!;
+    const solar = scene.nodes.find((n) => n.id === "solar-l")!;
+    const battery = scene.nodes.find((n) => n.id === "battery")!;
+    const brain = scene.nodes.find((n) => n.id === "brain")!;
+    const cam = scene.cameraHint.position;
+    const tgt = scene.cameraHint.target;
+    const dist = Math.hypot(cam[0] - tgt[0], cam[1] - tgt[1], cam[2] - tgt[2]);
+    const gate = assertSatFidelityParams({
+      rodR: cage.geom.params.rodR || 0,
+      cageSize: cage.geom.params.size || 0,
+      solarDepth: solar.geom.params.depth || 0,
+      rootScale: scene.rootScale,
+      batteryRadius: battery.geom.params.radius || 0,
+      batteryHeight: battery.geom.params.height || 0,
+      espLongEdge: Math.max(brain.geom.params.width || 0, brain.geom.params.height || 0),
+      cameraDistance: dist,
+    });
+    assert.equal(gate.ok, true, gate.failures.join("; "));
+    // Cage rods are a true 3D cube (12 equal edge segments, ends on corners)
+    const size = cage.geom.params.size || 48;
+    const rods = wireCubeRods(size);
+    assert.equal(rods.length, 12);
+    assert.ok(rods.every((r) => Math.abs(r.length - size) < 1e-6));
+    for (const r of rods) {
+      const endErr = rodEndpointError(r);
+      assert.ok(
+        endErr < SAT_FIDELITY.maxRodEndpointError,
+        `shipped cage rod endpoint err ${endErr} at mid ${r.mid}`
+      );
+    }
+  });
+
+  it("sat_clock RealPartSpec dimension authority within 0.5 mm", () => {
+    const scene = buildSatClockScene3D(plan);
+    const tol = 0.5;
+
+    const face = scene.nodes.find((n) => n.id === "face")!;
+    const oled = boardGeomParams(REAL_PARTS.oled_096);
+    assert.ok(Math.abs((face.geom.params.width || 0) - oled.width) <= tol, "oled width");
+    assert.ok(Math.abs((face.geom.params.height || 0) - oled.height) <= tol, "oled height");
+    assert.ok(Math.abs((face.geom.params.depth || 0) - oled.depth) <= tol, "oled depth");
+
+    const brain = scene.nodes.find((n) => n.id === "brain")!;
+    const esp = boardGeomParams(REAL_PARTS.esp32_c3);
+    assert.ok(Math.abs((brain.geom.params.width || 0) - esp.width) <= tol, "esp width");
+    assert.ok(Math.abs((brain.geom.params.height || 0) - esp.height) <= tol, "esp height");
+    assert.ok((brain.geom.params.width || 0) <= 26, "SuperMini long edge");
+
+    const charger = scene.nodes.find((n) => n.id === "charger")!;
+    const tp = boardGeomParams(REAL_PARTS.tp4056);
+    assert.ok(Math.abs((charger.geom.params.width || 0) - tp.width) <= tol, "tp width");
+    assert.ok(Math.abs((charger.geom.params.height || 0) - tp.height) <= tol, "tp height");
+
+    const battery = scene.nodes.find((n) => n.id === "battery")!;
+    const cell = cellGeomParams(REAL_PARTS.cell_16340);
+    assert.ok(Math.abs((battery.geom.params.radius || 0) - cell.radius) <= tol, "cell r");
+    assert.ok(Math.abs((battery.geom.params.height || 0) - cell.height) <= tol, "cell h");
+    assert.ok(Math.abs((battery.geom.params.radius || 0) - 8.25) <= tol, "16340 Ø/2");
+
+    const solar = scene.nodes.find((n) => n.id === "solar-l")!;
+    const sol = solarGeomParams(REAL_PARTS.solar_cell);
+    assert.ok(Math.abs((solar.geom.params.width || 0) - sol.width) <= tol, "solar w");
+    assert.ok(Math.abs((solar.geom.params.height || 0) - sol.height) <= tol, "solar h");
+  });
+
+  it("sat_pins derive from RealPartSpec (brain/face/battery)", () => {
+    const brainPin = SAT_PIN_LOCALS.brain.find((p) => p.name === "SDA")!;
+    const real = REAL_PARTS.esp32_c3.pins.find((p) => p.name === "SDA")!;
+    assert.deepEqual(brainPin.local, real.local);
+    const batPlus = SAT_PIN_LOCALS.battery.find((p) => p.name === "+")!;
+    assert.ok(Math.abs(batPlus.local[1] - 16.8) < 0.5, "cell + near half length");
+  });
+
   it("resolveProductScene3D from plan formSpec", () => {
     const scene = buildProductScene3D(plan);
     assert.equal(scene.templateId, "sat_clock");
@@ -324,6 +487,42 @@ describe("product-3d scene builder", () => {
   it("focusLayerForStep maps OLED prep to face", () => {
     assert.equal(focusLayerForStep("Prepare the OLED display", "header pins", "oled_desolder"), "face");
     assert.equal(focusLayerForStep("Wire all", "SDA SCL", "i2c_wiring"), "brain");
+  });
+
+  it("mess-with: pose apply then clear restores template (shipped APIs)", () => {
+    const scene = buildSatClockScene3D(plan);
+    const face = scene.nodes.find((n) => n.id === "face")!;
+    const template = [...face.position] as [number, number, number];
+    const posed = applyPoseLayout(scene, {
+      face: { position: [template[0] + 12, template[1], template[2] + 8] },
+    });
+    const moved = posed.nodes.find((n) => n.id === "face")!.position;
+    assert.notDeepEqual(moved, template);
+    const restored = applyPoseLayout(posed, { face: { position: template } });
+    assert.deepEqual(restored.nodes.find((n) => n.id === "face")!.position, template);
+    // pose-storage with mock Storage (no browser localStorage in node tests)
+    const store = new Map<string, string>();
+    const mock: Storage = {
+      get length() {
+        return store.size;
+      },
+      clear: () => store.clear(),
+      getItem: (k) => store.get(k) ?? null,
+      setItem: (k, v) => {
+        store.set(k, v);
+      },
+      removeItem: (k) => {
+        store.delete(k);
+      },
+      key: (i) => [...store.keys()][i] ?? null,
+    };
+    clearPoseLayout(plan.id, mock);
+    savePoseLayout(plan.id, { face: { position: moved } }, mock);
+    const loaded = loadPoseLayout(plan.id, mock);
+    assert.ok(loaded?.face?.position);
+    assert.deepEqual(loaded!.face!.position, moved);
+    clearPoseLayout(plan.id, mock);
+    assert.equal(loadPoseLayout(plan.id, mock), null);
   });
 });
 
