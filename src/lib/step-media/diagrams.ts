@@ -1,8 +1,8 @@
-/** Hand-authored instructional SVGs — one action per diagram. */
+/** Hand-authored instructional SVGs — one action per diagram. HTML fragments (no XML prolog). */
+import { escAttr, escText, markerDefs } from "./svg-util";
 
 export function svgOledDesolder(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" width="100%" height="100%" role="img" aria-label="Remove OLED header pins">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" role="img" aria-label="Remove OLED header pins">
   <rect width="400" height="280" fill="#f8fafc"/>
   <text x="200" y="22" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Remove the black header from the OLED</text>
   <!-- OLED board -->
@@ -37,8 +37,7 @@ export function svgOledDesolder(): string {
 }
 
 export function svgWireBendFrame(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" width="100%" height="100%" role="img" aria-label="Bend brass wire frame">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" role="img" aria-label="Bend brass wire frame">
   <rect width="400" height="280" fill="#fffbeb"/>
   <text x="200" y="22" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Bend brass wire into a rectangle</text>
   <!-- straight wire with marks -->
@@ -59,8 +58,7 @@ export function svgWireBendFrame(): string {
 }
 
 export function svgCutJumpers(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" width="100%" height="100%" role="img" aria-label="Cut brass jumpers">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" role="img" aria-label="Cut brass jumpers">
   <rect width="400" height="220" fill="#f8fafc"/>
   <text x="200" y="24" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Cut four short brass pieces (~3 cm)</text>
   ${[0, 1, 2, 3]
@@ -79,16 +77,15 @@ export function svgCutJumpers(): string {
 }
 
 export function svgBatteryPoles(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="100%" height="100%" role="img" aria-label="Battery plus and minus">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" role="img" aria-label="Battery plus and minus">
   <rect width="400" height="240" fill="#fdf2f8"/>
   <text x="200" y="24" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Find + and − before you wire anything</text>
   <!-- cell -->
   <rect x="50" y="70" width="120" height="50" rx="25" fill="#334155" stroke="#0f172a" stroke-width="2"/>
-  <rect x="55" y="78" width="22" height="34" rx="4" fill="#f8fafc"/>
-  <text x="130" y="100" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="700">+</text>
-  <text x="70" y="145" text-anchor="middle" font-size="11" fill="#dc2626" font-weight="600">+ end (button)</text>
-  <text x="150" y="145" text-anchor="middle" font-size="11" fill="#0f172a" font-weight="600">− end (flat)</text>
+  <rect x="148" y="78" width="18" height="34" rx="4" fill="#f8fafc"/>
+  <text x="157" y="100" text-anchor="middle" fill="#dc2626" font-size="14" font-weight="700">+</text>
+  <text x="60" y="145" text-anchor="middle" font-size="11" fill="#0f172a" font-weight="600">− end (flat)</text>
+  <text x="160" y="145" text-anchor="middle" font-size="11" fill="#dc2626" font-weight="600">+ end (button)</text>
   <!-- TP4056 -->
   <rect x="220" y="60" width="140" height="100" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
   <text x="290" y="85" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">TP4056</text>
@@ -99,8 +96,7 @@ export function svgBatteryPoles(): string {
 }
 
 export function svgTouchMount(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="100%" height="100%" role="img" aria-label="Mount touch switch">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" role="img" aria-label="Mount touch switch">
   <rect width="400" height="240" fill="#f5f3ff"/>
   <text x="200" y="24" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Place the touch pad where you will tap</text>
   <rect x="100" y="50" width="200" height="120" rx="6" fill="none" stroke="#b8860b" stroke-width="4"/>
@@ -108,14 +104,14 @@ export function svgTouchMount(): string {
   <circle cx="200" cy="70" r="12" fill="#a78bfa" opacity="0.7"/>
   <text x="200" y="115" text-anchor="middle" font-size="12" fill="#5b21b6" font-weight="600">TOP of frame (recommended)</text>
   <text x="80" y="160" font-size="11" fill="#64748b" font-family="ui-monospace,monospace">Pads: VCC · GND · I/O</text>
-  <path d="M200 95 L200 130" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arr)"/>
+  ${markerDefs("sm-arr-touch", "#7c3aed")}
+  <path d="M200 95 L200 130" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#sm-arr-touch)"/>
   <text x="200" y="210" text-anchor="middle" font-size="12" fill="#0f172a">Tape lightly first — glue after wires fit</text>
 </svg>`;
 }
 
 export function svgI2cWiring(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 300" width="100%" height="100%" role="img" aria-label="I2C wiring">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 300" role="img" aria-label="I2C wiring">
   <rect width="420" height="300" fill="#f0f9ff"/>
   <text x="210" y="22" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Wire power + I2C (colors matter)</text>
   <!-- ESP32 -->
@@ -145,8 +141,7 @@ export function svgI2cWiring(): string {
 }
 
 export function svgUsbUpload(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" width="100%" height="100%" role="img" aria-label="USB upload">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 220" role="img" aria-label="USB upload">
   <rect width="400" height="220" fill="#f8fafc"/>
   <text x="200" y="24" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Plug in USB and upload Blink first</text>
   <rect x="40" y="50" width="120" height="80" rx="8" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
@@ -160,15 +155,15 @@ export function svgUsbUpload(): string {
 }
 
 export function svgSolarMount(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="100%" height="100%" role="img" aria-label="Solar panel mount">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" role="img" aria-label="Solar panel mount">
   <rect width="400" height="240" fill="#fffbeb"/>
   <text x="200" y="24" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Panel + goes to charger IN+</text>
   <rect x="40" y="50" width="140" height="90" rx="4" fill="#0f172a" stroke="#334155" stroke-width="2"/>
   ${[0, 1, 2].map((r) => [0, 1, 2, 3].map((c) => `<rect x="${50 + c * 30}" y="${60 + r * 25}" width="26" height="20" fill="#1e3a5f" stroke="#475569"/>`).join("")).join("")}
   <text x="110" y="160" text-anchor="middle" font-size="11" fill="#dc2626">+  red</text>
   <text x="110" y="178" text-anchor="middle" font-size="11" fill="#0f172a">−  black</text>
-  <path d="M190 95 L230 95" stroke="#64748b" stroke-width="2" marker-end="url(#a)"/>
+  ${markerDefs("sm-arr-solar", "#64748b")}
+  <path d="M190 95 L230 95" stroke="#64748b" stroke-width="2" marker-end="url(#sm-arr-solar)"/>
   <rect x="240" y="60" width="120" height="80" rx="6" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
   <text x="300" y="95" text-anchor="middle" font-size="12" font-weight="700" fill="#92400e">Charger</text>
   <text x="300" y="120" text-anchor="middle" font-size="11" fill="#dc2626">IN+</text>
@@ -178,8 +173,7 @@ export function svgSolarMount(): string {
 }
 
 export function svgBambooDrill(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="100%" height="100%" role="img" aria-label="Bamboo base">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" role="img" aria-label="Bamboo base">
   <rect width="400" height="240" fill="#faf6f0"/>
   <text x="200" y="24" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Prepare the bamboo coaster base</text>
   <ellipse cx="200" cy="130" rx="100" ry="70" fill="#d4b483" stroke="#8b6914" stroke-width="2"/>
@@ -190,8 +184,7 @@ export function svgBambooDrill(): string {
 }
 
 export function svgFinalAssembly(): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" width="100%" height="100%" role="img" aria-label="Final assembly">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" role="img" aria-label="Final assembly">
   <rect width="400" height="260" fill="#f4f1eb"/>
   <text x="200" y="22" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="700" fill="#0f172a">Seat frame on base · screen facing you</text>
   <ellipse cx="200" cy="210" rx="110" ry="25" fill="#d4b483" stroke="#8b6914"/>
@@ -203,19 +196,19 @@ export function svgFinalAssembly(): string {
 }
 
 export function svgGenericChecklist(title: string): string {
-  const t = title.slice(0, 40);
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="100%" role="img" aria-label="${t}">
+  const t = escText(title.slice(0, 40));
+  const a = escAttr(title.slice(0, 40));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" role="img" aria-label="${a}">
   <rect width="400" height="200" fill="#f8fafc"/>
-  <text x="200" y="40" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#0f172a">${t.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>
+  <text x="200" y="40" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#0f172a">${t}</text>
   <rect x="80" y="70" width="28" height="28" rx="6" fill="#0891b2"/>
   <text x="94" y="90" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">1</text>
-  <text x="130" y="90" font-size="13" fill="#334155">Gather the “You need” items</text>
+  <text x="130" y="90" font-size="13" fill="#334155">Gather the "You need" items</text>
   <rect x="80" y="115" width="28" height="28" rx="6" fill="#0891b2"/>
   <text x="94" y="135" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">2</text>
   <text x="130" y="135" font-size="13" fill="#334155">Follow each numbered action on the right</text>
   <rect x="80" y="160" width="28" height="28" rx="6" fill="#16a34a"/>
   <text x="94" y="180" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">✓</text>
-  <text x="130" y="180" font-size="13" fill="#334155">Stop when “Done when” matches your bench</text>
+  <text x="130" y="180" font-size="13" fill="#334155">Stop when "Done when" matches your bench</text>
 </svg>`;
 }

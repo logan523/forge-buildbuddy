@@ -538,7 +538,16 @@ export function ProductViewer3D({
   }, [baseScene.templateId]);
 
   useEffect(() => {
-    if (!focusLayer) return;
+    // Clear solo when no focus; only solo layers that exist in this scene
+    if (!focusLayer) {
+      setView((v) => ({ ...v, soloLayerId: null }));
+      return;
+    }
+    const hasLayer = scene.nodes.some((n) => n.layer === focusLayer);
+    if (!hasLayer) {
+      setView((v) => ({ ...v, soloLayerId: null }));
+      return;
+    }
     setView((v) => ({
       ...v,
       soloLayerId: focusLayer,
@@ -596,7 +605,7 @@ export function ProductViewer3D({
   }
 
   const poseCount = Object.keys(poses).length;
-  const notes = scene.reasoningNotes || [];
+  const notes = compact ? [] : scene.reasoningNotes || [];
   const selectedLabel = view.selectedNodeId
     ? scene.nodes.find((n) => n.id === view.selectedNodeId)?.label
     : null;
@@ -612,12 +621,14 @@ export function ProductViewer3D({
 
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1219] to-[#080b10] overflow-hidden shadow-2xl shadow-black/40 ${
-        compact ? "" : ""
-      }`}
+      className={`rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1219] to-[#080b10] overflow-hidden shadow-2xl shadow-black/40`}
     >
-      {/* Header */}
-      <div className="px-3.5 py-2.5 flex items-center justify-between gap-2 border-b border-white/[0.07] bg-black/20">
+      {/* Header — slim in compact/session mode */}
+      <div
+        className={`flex items-center justify-between gap-2 border-b border-white/[0.07] bg-black/20 ${
+          compact ? "px-2.5 py-1.5" : "px-3.5 py-2.5"
+        }`}
+      >
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
@@ -639,7 +650,7 @@ export function ProductViewer3D({
           </p>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {beautySpec?.status === "ready" && (
+          {!compact && beautySpec?.status === "ready" && (
             <button
               type="button"
               title={beautyResolved.disclaimer}
@@ -649,7 +660,7 @@ export function ProductViewer3D({
               Beauty
             </button>
           )}
-          {beautyProviderConfigured && (
+          {!compact && beautyProviderConfigured && (
             <button
               type="button"
               disabled={genBusy}
@@ -660,7 +671,7 @@ export function ProductViewer3D({
               {genBusy ? (genProgress != null ? `${genProgress}%` : "…") : "Gen"}
             </button>
           )}
-          {editable && (
+          {editable && !compact && (
             <>
               <button
                 type="button"
@@ -694,9 +705,11 @@ export function ProductViewer3D({
               )}
             </>
           )}
-          <span className="text-[9px] uppercase tracking-wider text-white/30 font-medium pl-1">
-            {scene.grade}
-          </span>
+          {!compact && (
+            <span className="text-[9px] uppercase tracking-wider text-white/30 font-medium pl-1">
+              {scene.grade}
+            </span>
+          )}
         </div>
       </div>
 
@@ -929,8 +942,18 @@ export function ProductViewer3D({
 }
 
 /** Derive focus layer from current step for session UI */
+/** Prefer the step object you already resolved (avoids Quick-mode index bugs). */
+export function stepFocusLayerFromStep(step: {
+  title?: string;
+  description?: string;
+  mediaKind?: string;
+} | null | undefined): string | null {
+  if (!step) return null;
+  return focusLayerForStep(step.title || "", step.description || "", step.mediaKind);
+}
+
+/** @deprecated Use stepFocusLayerFromStep(step) — plan.steps[index] breaks under filtered modes */
 export function stepFocusLayer(plan: BuildPlan, stepIndex: number): string | null {
   const step = plan.steps?.[stepIndex];
-  if (!step) return null;
-  return focusLayerForStep(step.title, step.description, step.mediaKind);
+  return stepFocusLayerFromStep(step);
 }

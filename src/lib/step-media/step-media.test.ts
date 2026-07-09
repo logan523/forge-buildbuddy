@@ -2,7 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import demo from "@/data/sat-line.json";
 import type { BuildStep } from "@/lib/types";
-import { inferStepMediaKind, resolveStepMedia } from "./resolve";
+import { inferStepMediaKind, resolveStepMedia, isValidMediaKind } from "./resolve";
+import { normalizeSvgForHtml } from "./svg-util";
 
 describe("step media", () => {
   it("step 2 is oled_desolder with pad labels in SVG", () => {
@@ -35,5 +36,44 @@ describe("step media", () => {
       description: "Remove header pins with iron",
     });
     assert.equal(k, "oled_desolder");
+  });
+
+  it("rejects invalid mediaKind without crashing", () => {
+    assert.equal(isValidMediaKind("not_a_real_kind"), false);
+    const m = resolveStepMedia({
+      stepNumber: 99,
+      title: "Mystery step",
+      description: "do the thing",
+      mediaKind: "garbage_kind" as never,
+    });
+    assert.ok(m.svg.includes("<svg"));
+    assert.ok(!m.svg.includes("<?xml"));
+    assert.ok(!m.svg.includes('height="100%"'));
+  });
+
+  it("normalizeSvgForHtml strips prolog and forces height auto", () => {
+    const raw = `<?xml version="1.0"?><svg viewBox="0 0 10 10" width="100%" height="100%"><rect/></svg>`;
+    const n = normalizeSvgForHtml(raw);
+    assert.ok(!n.includes("<?xml"));
+    assert.match(n, /height="auto"/);
+    assert.ok(!n.includes('height="100%"'));
+  });
+
+  it("every sat-line step resolves a non-empty diagram", () => {
+    for (const s of demo.steps as BuildStep[]) {
+      const m = resolveStepMedia(s);
+      assert.ok(m.svg.length > 200, `step ${s.stepNumber} empty`);
+      assert.ok(m.svg.includes("viewBox"), `step ${s.stepNumber} no viewBox`);
+    }
+  });
+
+  it("generic checklist escapes quotes in title", () => {
+    const m = resolveStepMedia({
+      stepNumber: 1,
+      title: 'Foo "bar" <baz>',
+      description: "nothing matching",
+    });
+    assert.ok(!m.svg.includes('aria-label="Foo "bar"'));
+    assert.ok(m.svg.includes("&quot;") || m.svg.includes("&#39;") || m.svg.includes("Foo"));
   });
 });

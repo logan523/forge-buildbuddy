@@ -13,6 +13,7 @@ import {
   svgUsbUpload,
   svgWireBendFrame,
 } from "./diagrams";
+import { normalizeSvgForHtml } from "./svg-util";
 
 const KIND_META: Record<
   StepMediaKind,
@@ -75,32 +76,46 @@ const KIND_META: Record<
   },
 };
 
+const VALID_KINDS = new Set(Object.keys(KIND_META) as StepMediaKind[]);
+
+export function isValidMediaKind(k: unknown): k is StepMediaKind {
+  return typeof k === "string" && VALID_KINDS.has(k as StepMediaKind);
+}
+
 /** Infer media kind from step fields when mediaKind not set. */
 export function inferStepMediaKind(step: BuildStep): StepMediaKind {
-  if (step.mediaKind) return step.mediaKind;
+  // Only trust known kinds — LLM/share can send garbage
+  if (isValidMediaKind(step.mediaKind)) return step.mediaKind;
+
   const t = `${step.title || ""} ${step.description || ""} ${step.goal || ""}`.toLowerCase();
 
+  // Specific multi-token rules first
   if (/oled|ssd1306|display/.test(t) && /header|desolder|pin|remove|prepare/.test(t))
     return "oled_desolder";
-  if (/brass|frame/.test(t) && /bend|mark|prepare|wire frame/.test(t)) return "wire_bend_frame";
   if (/cut|connector|jumper|3\s*cm/.test(t) && /brass|wire/.test(t)) return "cut_jumpers";
-  if (/battery|16340|tp4056|polarity|bat\+/.test(t) && !/level|indicator/.test(t))
+  if (/brass|frame/.test(t) && /bend|mark|prepare|wire frame/.test(t)) return "wire_bend_frame";
+  if (
+    /battery|16340|tp4056|polarity|bat\+/.test(t) &&
+    !/level|indicator|assembl|test|calibrat|verify/.test(t)
+  )
     return "battery_id_poles";
-  if (/touch|ttp223/.test(t)) return "touch_mount";
   if (/wire all|i2c|sda|scl|gpio4|gpio5/.test(t) || (/connect|solder/.test(t) && /esp|oled/.test(t)))
     return "i2c_wiring";
-  if (/upload|code|firmware|blink|usb/.test(t)) return "usb_upload";
-  if (/solar|panel/.test(t)) return "solar_panel_mount";
+  if (/upload|code|firmware|blink|usb/.test(t) && !/assembl|mount|bend|cut/.test(t))
+    return "usb_upload";
+  if (/solar|panel/.test(t) && !/test|verify/.test(t)) return "solar_panel_mount";
   if (/bamboo|coaster|base/.test(t) && /drill|prepare|sand/.test(t)) return "bamboo_base_drill";
-  if (/assembl|everything|final|mount.*base/.test(t)) return "final_assembly";
+  // Assemble / test before touch (touch keyword appears in verify steps)
+  if (/assembl|everything|final|mount.*base|seat frame/.test(t)) return "final_assembly";
   if (/test|calibrat|verify|power on/.test(t)) return "final_assembly";
+  if (/touch|ttp223/.test(t)) return "touch_mount";
   return "generic_checklist";
 }
 
 export function resolveStepMedia(step: BuildStep): StepMediaResult {
   const kind = inferStepMediaKind(step);
-  const meta = KIND_META[kind];
-  const svg =
+  const meta = KIND_META[kind] || KIND_META.generic_checklist;
+  const rawSvg =
     kind === "generic_checklist"
       ? svgGenericChecklist(step.goal || step.title || "This step")
       : meta.svg();
@@ -108,6 +123,6 @@ export function resolveStepMedia(step: BuildStep): StepMediaResult {
     kind,
     title: meta.title,
     caption: meta.caption,
-    svg,
+    svg: normalizeSvgForHtml(rawSvg),
   };
 }
