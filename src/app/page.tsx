@@ -16,13 +16,23 @@ const DEMO_PROJECTS = [
   },
 ];
 
+/** UI labels for the real pipeline layers (see src/lib/pipeline/run.ts). */
+const LOADING_STAGES = [
+  { layer: 1, icon: "🛡", label: "Checking for hazards" },
+  { layer: 2, icon: "🧭", label: "Framing the goal" },
+  { layer: 3, icon: "📋", label: "Finding every part" },
+  { layer: 4, icon: "📚", label: "Checking the catalog" },
+  { layer: 5, icon: "✍️", label: "Writing your steps" },
+  { layer: 6, icon: "✅", label: "Safety & trust checks" },
+];
+
 export default function Home() {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [description, setDescription] = useState("");
   const [mode, setMode] = useState<"url" | "text">("text");
   const [loading, setLoading] = useState(false);
-  const [loadingStage, setLoadingStage] = useState(0);
+  const [activeLayer, setActiveLayer] = useState(1);
   const [error, setError] = useState("");
   const [savedPlans, setSavedPlans] = useState<BuildPlan[]>([]);
 
@@ -50,67 +60,102 @@ export default function Home() {
   const handleBuild = async (input: { url?: string; description?: string }) => {
     setLoading(true);
     setError("");
-    setLoadingStage(0);
-    const stages = [
-      "L1 · Classifying hazards...",
-      "L2 · First-principles goal...",
-      "L3 · Extracting parts & facts...",
-      "L4 · Catalog gaps & footguns...",
-      "L5–L6 · Synthesizing plan + trust checks...",
-    ];
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    stages.forEach((_, i) => {
-      timers.push(setTimeout(() => setLoadingStage(i), i * 4000));
-    });
+    setActiveLayer(1);
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
+
+      // Pre-flight validation errors come back as plain JSON with a non-2xx status.
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to generate build plan");
+      }
+
+      // Success streams newline-delimited JSON: {type:"progress"|"done"|"error"}.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalPlan: BuildPlan | null = null;
+      let streamError: string | null = null;
+
+      const handleLine = (raw: string) => {
+        const line = raw.trim();
+        if (!line) return;
+        let evt: { type?: string; layer?: number; plan?: BuildPlan; error?: string };
+        try {
+          evt = JSON.parse(line);
+        } catch {
+          return;
+        }
+        if (evt.type === "progress" && typeof evt.layer === "number") {
+          const layer = evt.layer;
+          setActiveLayer((prev) => Math.max(prev, layer));
+        } else if (evt.type === "done" && evt.plan) {
+          finalPlan = evt.plan;
+        } else if (evt.type === "error") {
+          streamError = evt.error || "Something went wrong";
+        }
+      };
+
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) >= 0) {
+          handleLine(buffer.slice(0, nl));
+          buffer = buffer.slice(nl + 1);
+        }
+      }
+      handleLine(buffer); // flush a trailing line with no newline
+
+      if (streamError) throw new Error(streamError);
+      if (!finalPlan) throw new Error("No plan was returned. Please try again.");
+
       const plan = applyTrustPipeline({
-        ...data,
-        id: data.id || newPlanId(),
+        ...(finalPlan as BuildPlan),
+        id: (finalPlan as BuildPlan).id || newPlanId(),
       } as BuildPlan);
       savePlan(plan);
       touchPlan(plan.id);
       router.push(`/build/${plan.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      timers.forEach(clearTimeout);
       setLoading(false);
     }
   };
 
   if (loading) {
-    const stages = [
-      "L1 · Classifying hazards...",
-      "L2 · First-principles goal...",
-      "L3 · Extracting parts & facts...",
-      "L4 · Catalog gaps & footguns...",
-      "L5–L6 · Synthesizing plan + trust checks...",
-    ];
-    const stageIcons = ["🛡", "🧭", "📋", "📚", "✨"];
     return (
       <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center">
         <div className="text-center max-w-sm">
           <div className="w-16 h-16 mx-auto mb-6 border-4 border-accent/20 border-t-accent rounded-full animate-spin" />
           <h2 className="text-xl font-bold text-text font-serif mb-4">Building your guide</h2>
-          <div className="space-y-2">
-            {stages.map((s, i) => (
-              <p
-                key={i}
-                className={`text-sm transition-all duration-500 ${
-                  i <= loadingStage ? "text-text-secondary" : "text-text-muted/30"
-                }`}
-              >
-                <span className="mr-2">{i <= loadingStage ? stageIcons[i] : "○"}</span>
-                {s}
-              </p>
-            ))}
+          <div className="space-y-2 text-left inline-block">
+            {LOADING_STAGES.map((stage) => {
+              const state =
+                activeLayer > stage.layer ? "done" : activeLayer === stage.layer ? "active" : "pending";
+              return (
+                <p
+                  key={stage.layer}
+                  className={`text-sm flex items-center gap-2 transition-all duration-500 ${
+                    state === "done"
+                      ? "text-text-secondary"
+                      : state === "active"
+                        ? "text-text font-medium"
+                        : "text-text-muted/30"
+                  }`}
+                >
+                  <span className="w-4 shrink-0 text-center">
+                    {state === "done" ? "✓" : state === "active" ? stage.icon : "○"}
+                  </span>
+                  {stage.label}
+                </p>
+              );
+            })}
           </div>
         </div>
       </div>

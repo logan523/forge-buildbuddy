@@ -62,6 +62,7 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
   const [showFirmware, setShowFirmware] = useState(false);
   const [fwSketchId, setFwSketchId] = useState<string | null>(null);
   const [showPcb, setShowPcb] = useState(false);
+  const [showPcbBlocked, setShowPcbBlocked] = useState(false);
   const [showCase, setShowCase] = useState(false);
   const [showPublish, setShowPublish] = useState(false);
   const [authorName, setAuthorName] = useState("Maker");
@@ -371,23 +372,17 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
           )}
           {pcb && (
             <button
-              onClick={() => {
-                if (ercBlocksPcb) {
-                  setShowPrep(true);
-                  return;
-                }
-                setShowPcb(true);
-              }}
-              title={ercBlocksPcb ? "ERC must be clean before PCB export" : "PCB package"}
+              onClick={() => (ercBlocksPcb ? setShowPcbBlocked(true) : setShowPcb(true))}
+              title={ercBlocksPcb ? "See why PCB export is blocked — and how to unlock it" : "PCB package"}
               className={`text-xs px-2 py-1.5 rounded-lg cursor-pointer ${
                 ercBlocksPcb
-                  ? "text-danger/70 line-through"
+                  ? "text-warning hover:bg-warning-soft"
                   : showPcb
                     ? "bg-accent text-white"
                     : "text-text-muted hover:text-text"
               }`}
             >
-              PCB{ercBlocksPcb ? " ⛔" : ""}
+              PCB{ercBlocksPcb ? " ⚠" : ""}
             </button>
           )}
           <button
@@ -557,6 +552,16 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
         <FirmwareDrawer fw={firmware} activeId={fwSketchId} onSelect={setFwSketchId} onClose={() => setShowFirmware(false)} />
       )}
       {showPcb && pcb && <PcbDrawer pcb={pcb} onClose={() => setShowPcb(false)} />}
+      {showPcbBlocked && plan.electrical && (
+        <PcbBlockedDrawer
+          electrical={plan.electrical}
+          onClose={() => setShowPcbBlocked(false)}
+          onOpenPrep={() => {
+            setShowPcbBlocked(false);
+            setShowPrep(true);
+          }}
+        />
+      )}
       {showCase && <CaseDrawer enc={enclosure} onClose={() => setShowCase(false)} />}
       {showPublish && (
         <PublishDrawer
@@ -618,6 +623,70 @@ function downloadText(filename: string, content: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Shown instead of a dead-end when ERC blocks PCB export. Explains each blocking
+ * problem in plain language with a concrete fix — so the button teaches instead of
+ * silently refusing. PCB export re-enables itself once the wiring check clears.
+ */
+function PcbBlockedDrawer({
+  electrical,
+  onClose,
+  onOpenPrep,
+}: {
+  electrical: NonNullable<BuildPlan["electrical"]>;
+  onClose: () => void;
+  onOpenPrep: () => void;
+}) {
+  const view = presentErc(electrical.erc, electrical.components);
+  const blockers = view.errors.length ? view.errors : view.warnings;
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-surface border-l border-border shadow-raised z-50 flex flex-col">
+        <div className="shrink-0 border-b border-border-subtle px-5 py-4 flex justify-between items-center gap-3">
+          <div>
+            <h3 className="font-semibold font-serif text-text">Fix wiring to unlock PCB</h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              A PCB copies your wiring exactly, so it has to be right first. {view.summaryPlain}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-lg text-text-muted cursor-pointer shrink-0">×</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+          {blockers.length === 0 ? (
+            <p className="text-sm text-text-secondary">
+              The electrical check hasn&apos;t cleared yet. Open the full wiring check for details.
+            </p>
+          ) : (
+            blockers.map((e) => (
+              <div key={e.id} className="p-3 rounded-lg bg-danger-soft border border-danger/15">
+                <p className="text-sm font-semibold text-danger">{e.plainTitle}</p>
+                <p className="text-xs text-text-secondary mt-1">{e.plainDetail}</p>
+                <p className="text-xs text-text mt-2">
+                  <span className="font-semibold">What to do:</span> {e.plainFix}
+                </p>
+                <p className="text-[11px] text-text-muted mt-1.5">Why: {e.whyItMatters}</p>
+                {e.refLabels.length > 0 && (
+                  <p className="text-[11px] text-text-muted mt-1">Parts: {e.refLabels.join(" · ")}</p>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+        <div className="shrink-0 border-t border-border-subtle px-4 py-3 flex items-center justify-between gap-2">
+          <p className="text-[11px] text-text-muted">PCB export unlocks automatically once these clear.</p>
+          <button
+            onClick={onOpenPrep}
+            className="text-xs px-3 py-2 rounded-lg bg-accent text-white cursor-pointer shrink-0 whitespace-nowrap"
+          >
+            Open full wiring check
+          </button>
+        </div>
+      </div>
+    </>
+  );
 }
 
 function PcbDrawer({ pcb, onClose }: { pcb: PcbPackage; onClose: () => void }) {

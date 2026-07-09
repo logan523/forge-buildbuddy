@@ -208,16 +208,33 @@ async function singlePass(client: Anthropic, text: string): Promise<Partial<Buil
   })) as Partial<BuildPlan>;
 }
 
+export type PipelineProgress = {
+  layer: number;
+  name: string;
+  status: "start" | "done";
+  detail?: string;
+};
+
 export async function runPipeline(opts: {
   text: string;
   sourceUrl?: string;
   apiKey: string;
+  /** Fired at each real layer boundary so callers can show honest progress. */
+  onProgress?: (p: PipelineProgress) => void;
 }): Promise<BuildPlan> {
   const t0 = Date.now();
   const layers: LayerResult[] = [];
   const client = new Anthropic({ apiKey: opts.apiKey });
+  const emit = (layer: number, name: string, status: "start" | "done", detail?: string) => {
+    try {
+      opts.onProgress?.({ layer, name, status, detail });
+    } catch {
+      /* progress is best-effort; never fail the pipeline on a reporting error */
+    }
+  };
 
   // L1
+  emit(1, "safety", "start");
   const l1t = Date.now();
   const hazardTags = classifyInputHazards(opts.text);
   const safety = safetyPreamble(hazardTags);
@@ -225,11 +242,13 @@ export async function runPipeline(opts: {
 
   try {
     // L2
+    emit(2, "principles", "start");
     const l2t = Date.now();
     const principles = await layer2(client, opts.text, hazardTags);
     layers.push({ layer: 2, name: "principles", ok: true, durationMs: Date.now() - l2t });
 
     // L3
+    emit(3, "extract", "start");
     const l3t = Date.now();
     const extract = await layer3(client, opts.text, principles);
     layers.push({
@@ -241,6 +260,7 @@ export async function runPipeline(opts: {
     });
 
     // L4
+    emit(4, "gaps+catalog", "start");
     const l4t = Date.now();
     const gaps = analyzeGaps(extract);
     layers.push({
@@ -252,11 +272,13 @@ export async function runPipeline(opts: {
     });
 
     // L5
+    emit(5, "synthesize", "start");
     const l5t = Date.now();
     const raw = await layer5(client, opts.text, principles, extract, gaps, safety);
     layers.push({ layer: 5, name: "synthesize", ok: true, durationMs: Date.now() - l5t });
 
     // L6
+    emit(6, "trust-post", "start");
     const l6t = Date.now();
     const plan = applyTrustPipeline({
       ...raw,
@@ -297,6 +319,8 @@ export async function runPipeline(opts: {
     return { ...plan, pipelineMeta: meta };
   } catch (err) {
     console.warn("Six-layer pipeline failed, falling back to single-pass:", err);
+    // Single-pass is still a synthesis pass — keep the UI on that honest stage.
+    emit(5, "synthesize", "start");
     const lft = Date.now();
     const raw = await singlePass(client, opts.text);
     layers.push({
