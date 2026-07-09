@@ -18,8 +18,19 @@ import {
   useGLTF,
   PerformanceMonitor,
   Line,
+  Grid,
+  Html,
 } from "@react-three/drei";
-import type { Object3D, Material, Mesh } from "three";
+import {
+  type Object3D,
+  type Material,
+  type Mesh,
+  CatmullRomCurve3,
+  TubeGeometry,
+  Vector3,
+  ACESFilmicToneMapping,
+  Vector2,
+} from "three";
 import type { BuildPlan } from "@/lib/types";
 import {
   buildProductScene3D,
@@ -43,6 +54,8 @@ import {
   type SceneEdge3D,
   type SceneNode3D,
 } from "@/lib/product-3d";
+import { cadCameraForNodes, frameForNodeIds } from "@/lib/product-3d/cad-frame";
+import { getProceduralMap } from "@/lib/product-3d/procedural-maps";
 import {
   detectQualityTier,
   qualitySettings,
@@ -54,7 +67,7 @@ import {
   clearPoseLayout,
   upsertNodePose,
 } from "@/lib/product-3d/pose-storage";
-import { NodeMesh, SelectableNode } from "@/components/product-node-mesh";
+import { NodeMesh } from "@/components/product-node-mesh";
 
 /** Optional GLB underlay — never clickable / never layer authority. */
 function BeautyUnderlay({
@@ -144,20 +157,183 @@ function GizmoControls({
   );
 }
 
+/**
+ * Continuous PVC jumper — CatmullRomCurve3 + TubeGeometry (CAD harness style),
+ * not faceted cylinder segments. Solder blobs at pin landings.
+ */
+function WireTubeRoute({
+  path,
+  color,
+  gaugeMm,
+  rootScale,
+  highlight,
+  dim,
+}: {
+  path: [number, number, number][];
+  color: string;
+  gaugeMm: number;
+  rootScale: number;
+  highlight: boolean;
+  dim?: boolean;
+}) {
+  const s = rootScale;
+  const r = Math.max(0.00045, gaugeMm * s * (highlight ? 1.5 : dim ? 0.7 : 1.08));
+  const opacity = highlight ? 1 : dim ? 0.2 : 0.96;
+  const pvcNormal = useMemo(() => getProceduralMap("pvc_normal"), []);
+  const pvcNScale = useMemo(() => new Vector2(0.45, 0.45), []);
+
+  const tube = useMemo(() => {
+    if (path.length < 2) return null;
+    const pts = path.map(([x, y, z]) => new Vector3(x * s, y * s, z * s));
+    // Dedupe near-collinear points that can zero-length the curve
+    const cleaned: Vector3[] = [pts[0]!];
+    for (let i = 1; i < pts.length; i++) {
+      if (cleaned[cleaned.length - 1]!.distanceTo(pts[i]!) > 1e-6) cleaned.push(pts[i]!);
+    }
+    if (cleaned.length < 2) return null;
+    const curve = new CatmullRomCurve3(cleaned, false, "catmullrom", 0.35);
+    const tubular = Math.min(96, Math.max(28, cleaned.length * 10));
+    return new TubeGeometry(curve, tubular, r, highlight ? 12 : 10, false);
+  }, [path, s, r, highlight]);
+
+  useEffect(() => {
+    return () => {
+      tube?.dispose();
+    };
+  }, [tube]);
+
+  const ends = useMemo(() => {
+    if (path.length < 2) return null;
+    const a = path[0]!;
+    const b = path[path.length - 1]!;
+    return [
+      [a[0] * s, a[1] * s, a[2] * s] as [number, number, number],
+      [b[0] * s, b[1] * s, b[2] * s] as [number, number, number],
+    ];
+  }, [path, s]);
+
+  if (!tube || !ends) return null;
+
+  const solderR = r * 2.1;
+  return (
+    <group>
+      <mesh geometry={tube} castShadow={!dim} receiveShadow={false}>
+        <meshPhysicalMaterial
+          color={color}
+          metalness={0.02}
+          roughness={0.46}
+          clearcoat={0.18}
+          clearcoatRoughness={0.4}
+          sheen={0.35}
+          sheenRoughness={0.55}
+          sheenColor={color}
+          envMapIntensity={0.55}
+          normalMap={pvcNormal}
+          normalScale={pvcNScale}
+          transparent
+          opacity={opacity}
+          depthWrite={!dim}
+        />
+      </mesh>
+      {ends.map((pt, idx) => (
+        <group key={`solder-${idx}`} position={pt}>
+          {/* Solder fillet */}
+          <mesh>
+            <sphereGeometry args={[solderR, 12, 12]} />
+            <meshPhysicalMaterial
+              color={highlight ? "#e8edf2" : "#c0a060"}
+              metalness={0.85}
+              roughness={0.32}
+              envMapIntensity={1.1}
+              emissive={highlight ? color : "#000000"}
+              emissiveIntensity={highlight ? 0.25 : 0}
+              transparent
+              opacity={opacity}
+              depthWrite={!dim}
+            />
+          </mesh>
+          {/* Insulation tip */}
+          <mesh>
+            <sphereGeometry args={[r * 1.25, 8, 8]} />
+            <meshPhysicalMaterial
+              color={color}
+              metalness={0.05}
+              roughness={0.5}
+              transparent
+              opacity={opacity}
+              depthWrite={!dim}
+            />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function WireSpars({
   edges,
   nodes,
   view,
   rootScale,
   visible,
+  harnesses,
+  highlightNodeId,
 }: {
   edges: SceneEdge3D[];
   nodes: SceneNode3D[];
   view: LayerViewState;
   rootScale: number;
   visible: boolean;
+  /** Pin-to-pin routed harnesses (preferred over straight spars) */
+  harnesses?: import("@/lib/product-3d").WireRoute3D[];
+  highlightNodeId?: string | null;
 }) {
-  if (!visible || !edges.length) return null;
+  if (!visible) return null;
+
+  // Prefer multi-point harness routes as solid tubes (gauge + color readable)
+  if (harnesses && harnesses.length > 0) {
+    return (
+      <group>
+        {harnesses.map((w) => {
+          const hi = !!(
+            highlightNodeId &&
+            (w.fromNodeId === highlightNodeId || w.toNodeId === highlightNodeId)
+          );
+          const dim = !!(highlightNodeId && !hi);
+          return (
+            <group key={w.id}>
+              <WireTubeRoute
+                path={w.path}
+                color={w.color}
+                gaugeMm={w.gauge}
+                rootScale={rootScale}
+                highlight={hi}
+                dim={dim}
+              />
+              {hi && !dim && w.path.length >= 2 && (
+                <Html
+                  position={[
+                    ((w.path[0]![0] + w.path[w.path.length - 1]![0]) / 2) * rootScale,
+                    ((w.path[0]![1] + w.path[w.path.length - 1]![1]) / 2) * rootScale + 0.03,
+                    ((w.path[0]![2] + w.path[w.path.length - 1]![2]) / 2) * rootScale,
+                  ]}
+                  center
+                  distanceFactor={3.5}
+                  style={{ pointerEvents: "none" }}
+                >
+                  <div className="px-1.5 py-0.5 rounded bg-black/75 text-[9px] text-white/90 border border-white/15 font-mono whitespace-nowrap">
+                    {w.label} · AWG{w.awg}
+                  </div>
+                </Html>
+              )}
+            </group>
+          );
+        })}
+      </group>
+    );
+  }
+
+  if (!edges.length) return null;
   const byId = new Map(nodes.map((n) => [n.id, n]));
   return (
     <group>
@@ -177,10 +353,10 @@ function WireSpars({
           <Line
             key={e.id}
             points={points}
-            color={e.color}
-            lineWidth={1.6}
+            color={e.color || "#c87941"}
+            lineWidth={2.2}
             transparent
-            opacity={0.75}
+            opacity={0.88}
             depthWrite={false}
           />
         );
@@ -191,16 +367,22 @@ function WireSpars({
 
 function nodeLayerVisible(node: SceneNode3D, view: LayerViewState): boolean {
   if (view.visible[node.layer] === false) return false;
+  if (view.nodeVisible?.[node.id] === false) return false;
   if (view.soloLayerId && view.soloLayerId !== node.layer) return false;
   return true;
 }
 
+/**
+ * CAD modeler scene — stable lights, no Bounds.fit (that blacked out on click),
+ * pure cad-frame camera, no remount on select.
+ */
 function SceneContent({
   scene,
   view,
   editMode,
   gizmoMode,
   onSelect,
+  onIsolate,
   onPoseCommit,
   beautySpec,
   showBeauty,
@@ -208,12 +390,14 @@ function SceneContent({
   onQualityDrop,
   sun,
   showWires,
+  harnesses,
 }: {
   scene: ProductScene3D;
   view: LayerViewState;
   editMode: boolean;
   gizmoMode: "translate" | "rotate";
   onSelect: (id: string) => void;
+  onIsolate?: (id: string) => void;
   onPoseCommit: (nodeId: string, position: [number, number, number], rotation: [number, number, number]) => void;
   beautySpec: BeautyMeshSpec | null;
   showBeauty: boolean;
@@ -221,93 +405,147 @@ function SceneContent({
   onQualityDrop: () => void;
   sun: SunState;
   showWires: boolean;
+  harnesses?: import("@/lib/product-3d").WireRoute3D[];
 }) {
   const selectedRef = useRef<Object3D | null>(null);
+  const nodeRefs = useRef<Map<string, Object3D>>(new Map());
   const [gizmoTarget, setGizmoTarget] = useState<Object3D | null>(null);
-  const orbitRef = useRef<{ enabled: boolean } | null>(null);
+  const orbitRef = useRef<{ enabled: boolean; target: { set: (x: number, y: number, z: number) => void } } | null>(null);
+  const { camera, gl } = useThree();
+  const framedKey = useRef("");
+  const isolateFrameKey = useRef<string | null>(null);
+
+  // Mild ACES filmic — keep exposure high enough for warehouse env
+  useEffect(() => {
+    gl.toneMapping = ACESFilmicToneMapping;
+    gl.toneMappingExposure = 1.35;
+  }, [gl]);
+
+  // Stable CAD framing once per scene identity (not on every click)
+  useEffect(() => {
+    const key = `${scene.templateId}|${scene.nodes.map((n) => n.id).join(",")}|${scene.rootScale}`;
+    if (framedKey.current === key) return;
+    framedKey.current = key;
+    const frame = cadCameraForNodes(scene.nodes, scene.rootScale, 1.4);
+    camera.position.set(...frame.position);
+    camera.lookAt(...frame.target);
+    camera.updateProjectionMatrix();
+    const t = requestAnimationFrame(() => {
+      orbitRef.current?.target?.set(...frame.target);
+    });
+    return () => cancelAnimationFrame(t);
+  }, [scene.templateId, scene.nodes, scene.rootScale, camera]);
+
+  // JARVIS isolate: frame extracted part (no Bounds.fit / remount)
+  useEffect(() => {
+    const id = view.isolateNodeId || null;
+    if (!id) {
+      if (isolateFrameKey.current) {
+        isolateFrameKey.current = null;
+        const frame = cadCameraForNodes(scene.nodes, scene.rootScale, 1.4);
+        camera.position.set(...frame.position);
+        camera.lookAt(...frame.target);
+        camera.updateProjectionMatrix();
+        orbitRef.current?.target?.set(...frame.target);
+      }
+      return;
+    }
+    if (isolateFrameKey.current === id) return;
+    isolateFrameKey.current = id;
+    // Use node with isolate pull applied for framing center
+    const pulled = scene.nodes.map((n) => {
+      if (n.id !== id) return n;
+      const pos = computeNodeWorldPosition(n, view);
+      return { ...n, position: pos };
+    });
+    const frame = frameForNodeIds(pulled, [id], scene.rootScale, 1.12);
+    camera.position.set(...frame.position);
+    camera.lookAt(...frame.target);
+    if ("fov" in camera && typeof (camera as { fov?: number }).fov === "number") {
+      (camera as { fov: number; updateProjectionMatrix: () => void }).fov = frame.fov;
+    }
+    camera.updateProjectionMatrix();
+    orbitRef.current?.target?.set(...frame.target);
+  }, [view.isolateNodeId, view, scene.nodes, scene.rootScale, camera]);
 
   useEffect(() => {
     if (!editMode || !view.selectedNodeId) {
       setGizmoTarget(null);
       return;
     }
-    const t = requestAnimationFrame(() => {
-      setGizmoTarget(selectedRef.current);
-    });
-    return () => cancelAnimationFrame(t);
-  }, [editMode, view.selectedNodeId, scene.nodes]);
+    const obj = nodeRefs.current.get(view.selectedNodeId) || selectedRef.current;
+    setGizmoTarget(obj || null);
+  }, [editMode, view.selectedNodeId]);
 
   const beautyOpacity = beautySpec ? beautyDisplayOpacity(beautySpec) : 0;
-  const segs = quality.segments;
-  const sunPos = sunLightPosition(sun, 5.5);
+  const segs = Math.max(
+    32,
+    quality.segments + (view.isolateNodeId ? 16 : 0)
+  );
+  // Stable key light — sun only *biases* direction, never zeros lighting
+  const sunPos = sunLightPosition(
+    { ...sun, intensity: Math.max(0.85, sun.intensity) },
+    6
+  );
 
   return (
     <>
       <PerformanceMonitor onDecline={onQualityDrop} />
-      <ambientLight intensity={0.22} />
-      {/* Interactive sun key */}
+      {/* Always-on fills so the stage never reads as pure black */}
+      <ambientLight intensity={0.62} color="#eef2f6" />
+      <hemisphereLight args={["#f0f4f8", "#3a4550", 0.75]} />
       <directionalLight
         position={sunPos}
-        intensity={sun.intensity}
+        intensity={1.35}
         castShadow
-        color="#fff4e0"
+        color="#fff6ea"
         shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0002}
       />
-      <directionalLight position={[-2.2, 2.2, -1.8]} intensity={0.38} color="#93c5fd" />
-      <directionalLight position={[0, 1.2, 2.8]} intensity={0.28} color="#fde68a" />
-      {/* Tiny sun disc for orientation */}
-      <mesh position={sunPos}>
-        <sphereGeometry args={[0.08, 16, 16]} />
-        <meshBasicMaterial color="#fde68a" />
-      </mesh>
-      <Environment preset="studio" environmentIntensity={quality.envIntensity * 0.9}>
-        <Lightformer intensity={1.1} position={[0, 4, 2]} scale={[8, 1.5, 1]} form="rect" />
-        <Lightformer intensity={0.55} position={[-3, 2, -2]} scale={[3, 3, 1]} form="ring" color="#93c5fd" />
-      </Environment>
+      <directionalLight position={[-3.2, 2.8, -2.2]} intensity={0.55} color="#b8d0ea" />
+      <directionalLight position={[2.4, 1.8, 3.2]} intensity={0.45} color="#ffe4c4" />
+      <directionalLight position={[0, 5, 1]} intensity={0.4} color="#ffffff" />
+      {/* preset alone — nesting Lightformer children with preset broke env on some builds */}
+      <Environment preset="warehouse" environmentIntensity={quality.envIntensity * 0.7} />
+      <Lightformer intensity={1.1} position={[0, 4.5, 2]} scale={[10, 2.5, 1]} form="rect" />
 
       {showBeauty && beautySpec && (
         <Suspense fallback={null}>
           <BeautyUnderlay spec={beautySpec} opacity={beautyOpacity} />
         </Suspense>
       )}
+
       <WireSpars
         edges={scene.edges || []}
         nodes={scene.nodes}
         view={view}
         rootScale={scene.rootScale}
         visible={showWires}
+        harnesses={harnesses}
+        highlightNodeId={view.isolateNodeId || view.selectedNodeId}
       />
+
+      {/* Never remount on select — keeps materials/lights stable */}
       <group>
-        {scene.nodes.map((n) => {
-          const isSelected = view.selectedNodeId === n.id;
-          if (isSelected && editMode) {
-            return (
-              <SelectableNode
-                key={n.id}
-                ref={(obj) => {
-                  selectedRef.current = obj;
-                }}
-                node={n}
-                view={view}
-                rootScale={scene.rootScale}
-                onSelect={onSelect}
-                segments={segs}
-              />
-            );
-          }
-          return (
-            <NodeMesh
-              key={n.id}
-              node={n}
-              view={view}
-              rootScale={scene.rootScale}
-              onSelect={onSelect}
-              segments={segs}
-            />
-          );
-        })}
+        {scene.nodes.map((n) => (
+          <NodeMesh
+            key={n.id}
+            node={n}
+            view={view}
+            rootScale={scene.rootScale}
+            onSelect={onSelect}
+            onIsolate={onIsolate}
+            segments={segs}
+            meshRef={(obj) => {
+              if (obj) nodeRefs.current.set(n.id, obj);
+              else nodeRefs.current.delete(n.id);
+              if (view.selectedNodeId === n.id) selectedRef.current = obj;
+            }}
+          />
+        ))}
       </group>
-      {editMode && view.selectedNodeId && (
+
+      {editMode && view.selectedNodeId && gizmoTarget && (
         <GizmoControls
           object={gizmoTarget}
           mode={gizmoMode}
@@ -317,37 +555,45 @@ function SceneContent({
           onPoseCommit={onPoseCommit}
         />
       )}
-      {/* Soft ground contact */}
-      <ContactShadows
-        position={[0, -0.005, 0]}
-        opacity={quality.shadowOpacity}
-        scale={3.2}
-        blur={quality.shadowBlur}
-        far={2.5}
-        color="#000000"
+
+      {/* Matte studio floor + contact shadow (safe on all GPUs) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
+        <planeGeometry args={[16, 16]} />
+        <meshStandardMaterial color="#2a3038" metalness={0.12} roughness={0.85} />
+      </mesh>
+      <Grid
+        position={[0, -0.012, 0]}
+        args={[12, 12]}
+        cellSize={0.25}
+        cellThickness={0.5}
+        cellColor="#4a5568"
+        sectionSize={1}
+        sectionThickness={0.9}
+        sectionColor="#64748b"
+        fadeDistance={9}
+        fadeStrength={1.3}
+        infiniteGrid
       />
-      {quality.showGround && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.008, 0]} receiveShadow>
-          <circleGeometry args={[1.4, 64]} />
-          <meshPhysicalMaterial
-            color="#0c1016"
-            metalness={0.2}
-            roughness={0.85}
-            transparent
-            opacity={0.55}
-          />
-        </mesh>
-      )}
+      <ContactShadows
+        position={[0, 0.004, 0]}
+        opacity={0.48}
+        scale={9}
+        blur={2.8}
+        far={6}
+        color="#0a0c10"
+      />
+
       <OrbitControls
         ref={orbitRef as never}
         makeDefault
         target={scene.cameraHint.target}
-        minDistance={0.35}
-        maxDistance={4}
+        minDistance={0.9}
+        maxDistance={16}
         enablePan
         enableDamping
-        dampingFactor={0.06}
-        enabled={!editMode || !view.selectedNodeId}
+        dampingFactor={0.08}
+        // Keep orbit alive during select — only pause when actively posing
+        enabled={!editMode}
       />
     </>
   );
@@ -373,6 +619,15 @@ export function ProductViewer3D({
   initialPoses,
   onPosesChange,
   onBeautyMeshChange,
+  /** Controlled assembly view (CAD shell). When set, layer panel can be external. */
+  controlledView,
+  onViewChange,
+  hideChrome = false,
+  harnesses,
+  /** Override scene nodes (phase/joint frame applied by parent) */
+  sceneNodesOverride,
+  /** JARVIS: double-click part to isolate (parent owns state) */
+  onIsolatePart,
 }: {
   plan: BuildPlan;
   /** Prefer this layer (solo-ish highlight) */
@@ -387,6 +642,13 @@ export function ProductViewer3D({
   onPosesChange?: (poses: PoseLayout3D) => void;
   /** Persist generated beauty mesh on the plan */
   onBeautyMeshChange?: (mesh: BeautyMeshSpec) => void;
+  controlledView?: LayerViewState | null;
+  onViewChange?: (view: LayerViewState) => void;
+  /** Strip header/brain chips — assembly shell owns chrome */
+  hideChrome?: boolean;
+  harnesses?: import("@/lib/product-3d").WireRoute3D[];
+  sceneNodesOverride?: SceneNode3D[] | null;
+  onIsolatePart?: (nodeId: string) => void;
 }) {
   const [poses, setPoses] = useState<PoseLayout3D>(() => {
     if (initialPoses) return initialPoses;
@@ -411,6 +673,7 @@ export function ProductViewer3D({
   }, []);
   const [sun, setSun] = useState<SunState>(DEFAULT_SUN);
   const [aimSolar, setAimSolar] = useState(true);
+  // Wiring is product content — on by default so you can trace pin-to-pin
   const [showWires, setShowWires] = useState(true);
 
   const planForBeauty = useMemo(
@@ -419,7 +682,12 @@ export function ProductViewer3D({
   );
 
   const baseScene = useMemo(() => buildProductScene3D(plan), [plan]);
-  const posedScene = useMemo(() => applyPoseLayout(baseScene, poses), [baseScene, poses]);
+  const posedScene = useMemo(() => {
+    const withNodes = sceneNodesOverride
+      ? { ...baseScene, nodes: sceneNodesOverride }
+      : baseScene;
+    return applyPoseLayout(withNodes, poses);
+  }, [baseScene, poses, sceneNodesOverride]);
   /** Re-aim solar panels toward interactive sun */
   const scene = useMemo(() => {
     if (!aimSolar) return posedScene;
@@ -451,7 +719,27 @@ export function ProductViewer3D({
   const layers = useMemo(() => uniqueLayers(scene), [scene]);
   const beautyResolved = useMemo(() => resolveBeautyMesh(planForBeauty), [planForBeauty]);
   const beautySpec = beautyResolved.spec;
-  const [view, setView] = useState<LayerViewState>(() => defaultLayerView(scene.nodes));
+  const [internalView, setInternalView] = useState<LayerViewState>(() => defaultLayerView(scene.nodes));
+  const isControlled = controlledView != null;
+  const view = isControlled ? controlledView! : internalView;
+  /** Always read latest controlled snapshot — never close over a stale controlledView. */
+  const controlledViewRef = useRef(controlledView);
+  controlledViewRef.current = controlledView;
+  const onViewChangeRef = useRef(onViewChange);
+  onViewChangeRef.current = onViewChange;
+  const setView = useCallback(
+    (updater: LayerViewState | ((v: LayerViewState) => LayerViewState)) => {
+      if (isControlled) {
+        const prev = controlledViewRef.current;
+        if (!prev) return;
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        onViewChangeRef.current?.(next);
+      } else {
+        setInternalView(updater);
+      }
+    },
+    [isControlled]
+  );
   const [webgl, setWebgl] = useState(true);
 
   const showBeauty = beautyUnderlayAllowed({
@@ -534,26 +822,29 @@ export function ProductViewer3D({
   }, [plan.id, initialPoses]);
 
   useEffect(() => {
-    setView(defaultLayerView(scene.nodes));
-  }, [baseScene.templateId]);
+    if (isControlled) return;
+    setInternalView(defaultLayerView(scene.nodes));
+  }, [baseScene.templateId, isControlled]);
 
   useEffect(() => {
     // Clear solo when no focus; only solo layers that exist in this scene
+    // Skip when parent assembly shell owns focus via controlledView
+    if (isControlled) return;
     if (!focusLayer) {
-      setView((v) => ({ ...v, soloLayerId: null }));
+      setInternalView((v) => ({ ...v, soloLayerId: null }));
       return;
     }
     const hasLayer = scene.nodes.some((n) => n.layer === focusLayer);
     if (!hasLayer) {
-      setView((v) => ({ ...v, soloLayerId: null }));
+      setInternalView((v) => ({ ...v, soloLayerId: null }));
       return;
     }
-    setView((v) => ({
+    setInternalView((v) => ({
       ...v,
       soloLayerId: focusLayer,
       selectedNodeId: scene.nodes.find((n) => n.layer === focusLayer)?.id || v.selectedNodeId,
     }));
-  }, [focusLayer, scene.nodes]);
+  }, [focusLayer, scene.nodes, isControlled]);
 
   const commitPoses = useCallback(
     (next: PoseLayout3D) => {
@@ -571,9 +862,29 @@ export function ProductViewer3D({
     [poses, commitPoses]
   );
 
-  const onSelect = useCallback((id: string) => {
-    setView((v) => ({ ...v, selectedNodeId: id, soloLayerId: null }));
-  }, []);
+  const onSelect = useCallback(
+    (id: string) => {
+      // Functional updater + ref-backed setView → preserves explode/hides/section
+      setView((v) => ({ ...v, selectedNodeId: id, soloLayerId: null }));
+    },
+    [setView]
+  );
+
+  const onIsolate = useCallback(
+    (id: string) => {
+      if (onIsolatePart) {
+        onIsolatePart(id);
+        return;
+      }
+      setView((v) => ({
+        ...v,
+        isolateNodeId: v.isolateNodeId === id ? null : id,
+        selectedNodeId: id,
+        soloLayerId: null,
+      }));
+    },
+    [onIsolatePart, setView]
+  );
 
   const toggleLayer = (layerId: string) => {
     setView((v) => ({
@@ -621,9 +932,14 @@ export function ProductViewer3D({
 
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1219] to-[#080b10] overflow-hidden shadow-2xl shadow-black/40`}
+      className={`relative overflow-hidden ${
+        hideChrome
+          ? "rounded-none border-0 bg-transparent shadow-none h-full"
+          : "rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1219] to-[#080b10] shadow-2xl shadow-black/40"
+      }`}
     >
-      {/* Header — slim in compact/session mode */}
+      {/* Header — slim in compact/session mode; hidden when assembly shell owns chrome */}
+      {!hideChrome && (
       <div
         className={`flex items-center justify-between gap-2 border-b border-white/[0.07] bg-black/20 ${
           compact ? "px-2.5 py-1.5" : "px-3.5 py-2.5"
@@ -712,9 +1028,10 @@ export function ProductViewer3D({
           )}
         </div>
       </div>
+      )}
 
       {/* Design brain chips */}
-      {notes.length > 0 && (
+      {!hideChrome && notes.length > 0 && (
         <div className="px-3 py-1.5 flex flex-wrap gap-1.5 border-b border-white/[0.05] bg-cyan-500/[0.03]">
           <span className="text-[9px] font-semibold text-cyan-500/80 uppercase tracking-wider self-center mr-0.5">
             Brain
@@ -744,29 +1061,69 @@ export function ProductViewer3D({
         </div>
       )}
 
-      <div className={`flex ${showLayerPanel ? "flex-col sm:flex-row" : "flex-col"}`}>
-        <div className="flex-1 relative min-h-0" style={{ height }}>
+      {/* Tiny corner tools only — no toolbar strip eating the model */}
+      {hideChrome && editable && (
+        <div className="absolute top-2 right-2 z-10 flex gap-1">
+          <button
+            type="button"
+            title="Show wiring"
+            onClick={() => setShowWires((v) => !v)}
+            className={`text-[9px] px-2 py-1 rounded-md cursor-pointer border border-white/10 ${
+              showWires ? "bg-cyan-500/40 text-white" : "bg-black/50 text-white/60"
+            }`}
+          >
+            Wires
+          </button>
+          <button
+            type="button"
+            title="Drag parts"
+            onClick={() => {
+              setEditMode((e) => {
+                if (!e) setView((v) => ({ ...v, explode: 0 }));
+                return !e;
+              });
+            }}
+            className={`text-[9px] px-2 py-1 rounded-md cursor-pointer border border-white/10 ${
+              editMode ? "bg-amber-400 text-black" : "bg-black/50 text-white/60"
+            }`}
+          >
+            {editMode ? "Done" : "Pose"}
+          </button>
+        </div>
+      )}
+
+      <div className={`flex ${showLayerPanel ? "flex-col sm:flex-row" : "flex-col"} ${hideChrome ? "h-full" : ""}`}>
+        <div className="flex-1 relative min-h-0 w-full" style={{ height: hideChrome ? "100%" : height, minHeight: height }}>
           <Canvas
             camera={{
-              position: scene.cameraHint.position,
-              fov: 36,
-              near: 0.01,
-              far: 50,
+              position: (() => {
+                const f = cadCameraForNodes(scene.nodes, scene.rootScale, 1.4);
+                return f.position;
+              })(),
+              fov: 40,
+              near: 0.05,
+              far: 100,
             }}
             dpr={quality.dpr}
             shadows
             gl={{
               antialias: quality.antialias,
-              alpha: true,
+              alpha: false,
               powerPreference: "high-performance",
-              toneMappingExposure: 1.05,
+              toneMapping: ACESFilmicToneMapping,
+              toneMappingExposure: 1.35,
             }}
             onPointerMissed={() => {
-              if (!editMode) setView((v) => ({ ...v, selectedNodeId: null, soloLayerId: null }));
+              if (!editMode)
+                setView((v) => ({
+                  ...v,
+                  selectedNodeId: null,
+                  soloLayerId: null,
+                }));
             }}
           >
-            <color attach="background" args={["#070a0f"]} />
-            <fog attach="fog" args={["#070a0f", 4, 9]} />
+            {/* Studio slate — never pure black */}
+            <color attach="background" args={["#23282f"]} />
             <Suspense fallback={null}>
               <SceneContent
                 scene={scene}
@@ -774,6 +1131,7 @@ export function ProductViewer3D({
                 editMode={editMode}
                 gizmoMode={gizmoMode}
                 onSelect={onSelect}
+                onIsolate={onIsolate}
                 onPoseCommit={onPoseCommit}
                 beautySpec={beautySpec}
                 showBeauty={showBeauty}
@@ -781,13 +1139,14 @@ export function ProductViewer3D({
                 onQualityDrop={dropQuality}
                 sun={sun}
                 showWires={showWires}
+                harnesses={harnesses}
               />
             </Suspense>
           </Canvas>
           {/* Floating hint */}
           <div className="pointer-events-none absolute bottom-2 left-2 right-2 sm:right-auto flex gap-1.5">
             <span className="text-[9px] px-2 py-1 rounded-md bg-black/50 text-white/40 backdrop-blur-sm border border-white/5">
-              Scroll zoom · drag orbit
+              Scroll zoom · drag orbit · double-click inspect
             </span>
           </div>
         </div>

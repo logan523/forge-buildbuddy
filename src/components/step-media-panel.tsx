@@ -1,19 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import type { BuildStep, BuildPlan } from "@/lib/types";
 import type { ProductVisual } from "@/lib/product-visual";
 import { resolveStepMedia } from "@/lib/step-media";
-import { ProductViewer3D } from "@/components/product-viewer-3d";
-import { focusLayerForStep } from "@/lib/product-3d";
+import { ProductAssemblyApp } from "@/components/product-assembly-app";
 
 /**
- * Left-pane: hands-on diagram PRIMARY, 3D product secondary (docs/STEP-MEDIA.md).
+ * Left-pane: hands-on diagram PRIMARY, assembly stage secondary (phase-aware).
  */
 export function StepMediaPanel({
   step,
   plan,
   visual: _visual,
-  stepIndex: _stepIndex,
+  stepIndex,
 }: {
   step: BuildStep;
   plan: BuildPlan;
@@ -21,8 +21,7 @@ export function StepMediaPanel({
   stepIndex: number;
 }) {
   const media = resolveStepMedia(step);
-  // Focus from the same step object as the diagram (not filtered plan.steps[i])
-  const focus = focusLayerForStep(step.title, step.description, step.mediaKind);
+  const [openAssembly, setOpenAssembly] = useState(false);
 
   return (
     <div className="flex flex-col gap-3 h-full overflow-y-auto p-3">
@@ -49,20 +48,57 @@ export function StepMediaPanel({
         </p>
       </div>
 
-      {/* SECONDARY — compact 3D product context */}
+      {/* Product assembly context — phase-aware stage + expand */}
       <div className="shrink-0">
-        <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-1.5 px-0.5">
-          Product layers
-        </p>
-        <ProductViewer3D
+        <div className="flex items-center justify-between mb-1.5 px-0.5">
+          <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+            Where it lives in the product
+          </p>
+          <button
+            type="button"
+            onClick={() => setOpenAssembly(true)}
+            className="text-[10px] px-2 py-1 rounded-md border border-border-subtle text-accent hover:bg-accent/10 cursor-pointer font-medium"
+          >
+            Open assembly stage
+          </button>
+        </div>
+        <ProductAssemblyApp
           plan={plan}
-          focusLayer={focus}
-          height={200}
-          showLayerPanel={false}
-          compact
-          editable={false}
+          stepIndex={stepIndex}
+          step={{
+            title: step.title,
+            description: step.description,
+            mediaKind: step.mediaKind,
+          }}
+          height={420}
+          expandable={false}
         />
       </div>
+
+      {openAssembly && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-6xl max-h-[95vh] overflow-auto relative">
+            <button
+              type="button"
+              onClick={() => setOpenAssembly(false)}
+              className="absolute top-3 right-3 z-10 text-[11px] px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 cursor-pointer border border-white/20"
+            >
+              Close
+            </button>
+            <ProductAssemblyApp
+              plan={plan}
+              stepIndex={stepIndex}
+              step={{
+                title: step.title,
+                description: step.description,
+                mediaKind: step.mediaKind,
+              }}
+              height={520}
+              expandable={false}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

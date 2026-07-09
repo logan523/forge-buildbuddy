@@ -1,0 +1,511 @@
+"use client";
+
+/**
+ * Assembly Stage — PRODUCT-FIRST + JARVIS isolate.
+ * Double-click / Inspect extracts a part; Reassemble recomposes.
+ * Thin chrome only: scrub bar + collapsible tree + selection card.
+ */
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { BuildPlan } from "@/lib/types";
+import {
+  buildProductScene3D,
+  getRecipeForTemplate,
+  resolveAssemblyFrame,
+  applyFrameToNodes,
+  phaseIndexForStep,
+  buildHarnesses,
+  wiresForPart,
+  wireLegend,
+  buildAssemblyTree,
+  type BeautyMeshSpec,
+  type LayerViewState,
+  type WireRoute3D,
+} from "@/lib/product-3d";
+import {
+  type AssemblyViewState,
+  type AssemblyTreeNode,
+  defaultAssemblyView,
+  inspectNode,
+  selectNode,
+  setExplode,
+  isolateNode,
+  clearIsolate,
+  toggleIsolate,
+} from "@/lib/product-3d/assembly-view";
+import { meshPinStubsForNode } from "@/lib/product-3d/sat-pins";
+import { ProductViewer3D } from "@/components/product-viewer-3d";
+
+function TreeRows({
+  node,
+  depth,
+  activeId,
+  onPick,
+}: {
+  node: AssemblyTreeNode;
+  depth: number;
+  activeId: string | null;
+  onPick: (id: string) => void;
+}) {
+  if (node.isGroup && node.id === "__root__") {
+    return (
+      <>
+        {node.children.map((c) => (
+          <TreeRows
+            key={c.id}
+            node={c}
+            depth={0}
+            activeId={activeId}
+            onPick={onPick}
+          />
+        ))}
+      </>
+    );
+  }
+  const active = activeId === node.id;
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onPick(node.id)}
+        className={`w-full text-left text-[10px] px-1.5 py-0.5 rounded cursor-pointer truncate ${
+          active
+            ? "bg-cyan-500/30 text-cyan-50"
+            : "text-white/55 hover:bg-white/10 hover:text-white/85"
+        }`}
+        style={{ paddingLeft: 6 + depth * 10 }}
+        title={`Inspect ${node.label}`}
+      >
+        {node.label}
+      </button>
+      {node.children.map((c) => (
+        <TreeRows
+          key={c.id}
+          node={c}
+          depth={depth + 1}
+          activeId={activeId}
+          onPick={onPick}
+        />
+      ))}
+    </>
+  );
+}
+
+export function ProductAssemblyApp({
+  plan,
+  stepIndex = "prep",
+  step,
+  height = 920,
+  expandable = true,
+  onPlanPatch,
+  className = "",
+}: {
+  plan: BuildPlan;
+  stepIndex?: number | "prep";
+  step?: { title?: string; description?: string; mediaKind?: string };
+  height?: number;
+  expandable?: boolean;
+  onPlanPatch?: (patch: Partial<BuildPlan>) => void;
+  className?: string;
+}) {
+  const baseScene = useMemo(() => buildProductScene3D(plan), [plan]);
+  const recipe = useMemo(
+    () => getRecipeForTemplate(baseScene.templateId),
+    [baseScene.templateId]
+  );
+  const maxPhase = recipe ? recipe.phases.length - 1 : 0;
+
+  const initialScrub = useMemo(() => {
+    if (!recipe) return maxPhase;
+    if (stepIndex === "prep") return maxPhase;
+    return phaseIndexForStep(recipe, step);
+  }, [recipe, stepIndex, step, maxPhase]);
+
+  const [scrub, setScrub] = useState(initialScrub);
+  const [playing, setPlaying] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [treeOpen, setTreeOpen] = useState(true);
+
+  useEffect(() => {
+    setScrub(initialScrub);
+  }, [initialScrub]);
+
+  useEffect(() => {
+    if (!playing || !recipe) return;
+    const id = setInterval(() => {
+      setScrub((s) => {
+        const next = s + 0.035;
+        if (next >= maxPhase) {
+          setPlaying(false);
+          return maxPhase;
+        }
+        return next;
+      });
+    }, 48);
+    return () => clearInterval(id);
+  }, [playing, recipe, maxPhase]);
+
+  const frame = useMemo(() => {
+    if (!recipe) return null;
+    return resolveAssemblyFrame(recipe, scrub);
+  }, [recipe, scrub]);
+
+  const framedNodes = useMemo(() => {
+    if (!recipe || !frame) return baseScene.nodes;
+    return applyFrameToNodes(baseScene.nodes, recipe, frame, 0);
+  }, [baseScene.nodes, recipe, frame]);
+
+  const presentNodeIds = useMemo(
+    () => new Set(frame?.presentNodeIds || baseScene.nodes.map((n) => n.id)),
+    [frame, baseScene.nodes]
+  );
+
+  const presentMap = useMemo(() => {
+    const m: Record<string, boolean> = {};
+    for (const n of baseScene.nodes) m[n.id] = presentNodeIds.has(n.id);
+    return m;
+  }, [baseScene.nodes, presentNodeIds]);
+
+  const [view, setView] = useState<AssemblyViewState>(() =>
+    defaultAssemblyView(baseScene.nodes)
+  );
+
+  useEffect(() => {
+    setView((v) => ({ ...v, present: presentMap }));
+  }, [presentMap]);
+
+  // Clear isolate when phase scrub moves (parts may leave present set)
+  useEffect(() => {
+    setView((v) => (v.isolateNodeId ? clearIsolate(v) : v));
+  }, [scrub]);
+
+  const layerView: LayerViewState = useMemo(
+    () => ({
+      visible: view.visible,
+      soloLayerId: view.soloLayerId,
+      explode: view.explode,
+      selectedNodeId: view.selectedNodeId,
+      nodeVisible: view.nodeVisible,
+      present: presentMap,
+      section: view.section,
+      isolateNodeId: view.isolateNodeId ?? null,
+    }),
+    [view, presentMap]
+  );
+
+  const displayNodes = useMemo(() => {
+    if (!recipe || !frame) return framedNodes;
+    if (view.explode <= 0) return framedNodes;
+    return applyFrameToNodes(baseScene.nodes, recipe, frame, view.explode);
+  }, [recipe, frame, framedNodes, baseScene.nodes, view.explode]);
+
+  const harnesses: WireRoute3D[] = useMemo(() => {
+    if (!recipe || !frame) return [];
+    const hints =
+      frame.phaseIndex >= maxPhase
+        ? undefined
+        : frame.activeNetHints.length
+          ? frame.activeNetHints
+          : undefined;
+    let wires = buildHarnesses(
+      { ...baseScene, nodes: displayNodes },
+      plan,
+      recipe,
+      { presentNodeIds: frame.presentNodeIds, activeNetHints: hints }
+    );
+    // Inspect mode: only incident nets on the extracted part
+    if (view.isolateNodeId) {
+      wires = wiresForPart(wires, view.isolateNodeId);
+    }
+    return wires;
+  }, [recipe, frame, baseScene, displayNodes, plan, maxPhase, view.isolateNodeId]);
+
+  const onViewChange = useCallback((lv: LayerViewState) => {
+    setView((v) => ({
+      ...v,
+      visible: lv.visible,
+      soloLayerId: lv.soloLayerId,
+      explode: lv.explode,
+      selectedNodeId: lv.selectedNodeId,
+      nodeVisible: lv.nodeVisible ?? v.nodeVisible,
+      section: lv.section !== undefined ? lv.section : v.section,
+      isolateNodeId:
+        lv.isolateNodeId !== undefined ? lv.isolateNodeId : v.isolateNodeId,
+    }));
+  }, []);
+
+  const inspected = useMemo(
+    () =>
+      inspectNode(
+        { ...baseScene, nodes: displayNodes },
+        view.selectedNodeId,
+        plan.parts
+      ),
+    [baseScene, displayNodes, view.selectedNodeId, plan.parts]
+  );
+
+  const focusId = view.isolateNodeId || view.selectedNodeId;
+  const incidentWires = useMemo(() => {
+    if (!focusId) return [];
+    return wiresForPart(harnesses, focusId);
+  }, [harnesses, focusId]);
+
+  const pinStubs = useMemo(() => {
+    if (!focusId) return [];
+    return meshPinStubsForNode(focusId);
+  }, [focusId]);
+
+  const tree = useMemo(
+    () =>
+      buildAssemblyTree(
+        { ...baseScene, nodes: displayNodes },
+        recipe?.productLabel || "Product"
+      ),
+    [baseScene, displayNodes, recipe]
+  );
+
+  const stageH = expanded
+    ? Math.min(1000, typeof window !== "undefined" ? window.innerHeight * 0.92 : 920)
+    : Math.max(height, 880);
+
+  const phase = frame?.phase;
+  const isolating = !!view.isolateNodeId;
+
+  const shell = (
+    <div
+      className={`rounded-2xl border border-white/10 bg-[#070a0f] overflow-hidden shadow-2xl shadow-black/50 ${className}`}
+    >
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.06] bg-black/30">
+        <p className="text-[11px] font-medium text-white/70 truncate max-w-[28%] shrink-0">
+          {isolating
+            ? `Inspect · ${inspected.node?.label || view.isolateNodeId}`
+            : phase?.title || "Product"}
+        </p>
+        {recipe && (
+          <input
+            type="range"
+            min={0}
+            max={maxPhase * 100}
+            value={Math.round(scrub * 100)}
+            onChange={(e) => {
+              setPlaying(false);
+              setScrub(Number(e.target.value) / 100);
+            }}
+            className="flex-1 accent-cyan-400 h-1.5 cursor-pointer min-w-0"
+            aria-label="Assembly phase scrub"
+            data-testid="phase-scrub"
+            title={frame?.callout || "Build phase"}
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            setPlaying((p) => !p);
+            if (!playing && scrub >= maxPhase - 0.01) setScrub(0);
+          }}
+          className={`text-[10px] px-2.5 py-1 rounded-md cursor-pointer font-semibold shrink-0 ${
+            playing ? "bg-amber-400 text-black" : "bg-cyan-500 text-black"
+          }`}
+        >
+          {playing ? "Pause" : "Play"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setView((v) => setExplode(v, v.explode > 0.05 ? 0 : 0.5))}
+          className={`text-[10px] px-2 py-1 rounded-md cursor-pointer shrink-0 ${
+            view.explode > 0.05 ? "bg-white/20 text-white" : "bg-white/10 text-white/60"
+          }`}
+          title="Explode assembly"
+        >
+          Explode
+        </button>
+        <button
+          type="button"
+          onClick={() => setTreeOpen((t) => !t)}
+          className="text-[10px] px-2 py-1 rounded-md bg-white/10 text-white/60 cursor-pointer shrink-0"
+          title="Parts tree"
+        >
+          Tree
+        </button>
+        {isolating && (
+          <button
+            type="button"
+            onClick={() => setView((v) => clearIsolate(v))}
+            className="text-[10px] px-2 py-1 rounded-md bg-cyan-500/40 text-white cursor-pointer shrink-0 font-medium"
+            data-testid="reassemble-btn"
+          >
+            Reassemble
+          </button>
+        )}
+        {expandable && (
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            className="text-[10px] px-2 py-1 rounded-md bg-white/10 text-white/70 cursor-pointer shrink-0"
+          >
+            {expanded ? "Close" : "Full"}
+          </button>
+        )}
+      </div>
+
+      <div className="relative w-full bg-[#05080c]" style={{ height: stageH }}>
+        <ProductViewer3D
+          plan={plan}
+          height={stageH}
+          showLayerPanel={false}
+          compact={false}
+          editable
+          hideChrome
+          controlledView={layerView}
+          onViewChange={onViewChange}
+          harnesses={harnesses}
+          sceneNodesOverride={displayNodes}
+          onIsolatePart={(id) => setView((v) => toggleIsolate(v, id))}
+          onBeautyMeshChange={(mesh: BeautyMeshSpec) => {
+            onPlanPatch?.({ beautyMesh: mesh });
+          }}
+        />
+
+        {/* Collapsible parts tree */}
+        {treeOpen && (
+          <div className="absolute top-3 left-3 z-10 w-[9.5rem] max-h-[50%] overflow-y-auto rounded-lg bg-black/60 backdrop-blur-sm border border-white/10 py-1.5 px-1">
+            <p className="text-[9px] uppercase tracking-wide text-white/40 px-1.5 mb-1">
+              Parts
+            </p>
+            <TreeRows
+              node={tree}
+              depth={0}
+              activeId={view.isolateNodeId || view.selectedNodeId}
+              onPick={(id) => setView((v) => isolateNode(v, id))}
+            />
+          </div>
+        )}
+
+        {/* Wire legend only when not isolating */}
+        {harnesses.length > 0 && !isolating && (
+          <div className="absolute top-3 right-3 z-10 rounded-lg bg-black/55 backdrop-blur-sm border border-white/10 px-2 py-1.5 max-w-[10rem]">
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-white/45 mb-1">
+              Wiring · {harnesses.length}
+            </p>
+            <ul className="space-y-0.5">
+              {wireLegend().map((row) => (
+                <li
+                  key={row.netClass}
+                  className="flex items-center gap-1.5 text-[10px] text-white/70"
+                >
+                  <span
+                    className="inline-block w-2 h-2 rounded-full shrink-0 ring-1 ring-white/20"
+                    style={{ background: row.color }}
+                  />
+                  <span className="truncate">{row.meaning}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Selection / inspect card */}
+        {inspected.node && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 max-w-md w-[min(92%,22rem)] rounded-lg bg-black/80 backdrop-blur-md border border-white/12 px-3 py-2 z-10">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-white truncate">
+                {inspected.node.label}
+                {isolating && (
+                  <span className="ml-1.5 text-[10px] text-cyan-300/90 font-normal">
+                    isolated
+                  </span>
+                )}
+              </p>
+              <div className="flex items-center gap-1 shrink-0">
+                {!isolating ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setView((v) =>
+                        isolateNode(v, inspected.node!.id)
+                      )
+                    }
+                    className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/35 text-cyan-50 cursor-pointer"
+                    data-testid="inspect-btn"
+                  >
+                    Inspect
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setView((v) => clearIsolate(v))}
+                    className="text-[10px] px-2 py-0.5 rounded bg-white/15 text-white cursor-pointer"
+                  >
+                    Reassemble
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setView((v) => clearIsolate(selectNode(v, null)))
+                  }
+                  className="text-[10px] text-white/40 hover:text-white cursor-pointer px-1"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <p className="text-[9px] text-white/35 mt-0.5">
+              Double-click part to isolate · Esc reassemble
+            </p>
+            {pinStubs.length > 0 && (
+              <p className="text-[10px] text-white/50 mt-1 truncate">
+                Pins: {pinStubs.map((p) => p.name).join(" · ")}
+              </p>
+            )}
+            {incidentWires.length > 0 ? (
+              <ul className="mt-1.5 space-y-1 max-h-28 overflow-y-auto">
+                {incidentWires.slice(0, 8).map((w) => (
+                  <li
+                    key={w.id}
+                    className="flex items-start gap-1.5 text-[10px] text-white/65"
+                  >
+                    <span
+                      className="mt-0.5 inline-block w-1.5 h-1.5 rounded-full shrink-0 ring-1 ring-white/15"
+                      style={{ background: w.color }}
+                    />
+                    <span className="leading-snug min-w-0">
+                      <span className="text-white/95 font-medium">{w.label}</span>
+                      <span className="text-white/40"> AWG{w.awg}</span>
+                      <br />
+                      <span className="text-white/55">
+                        {w.fromNodeId === focusId
+                          ? `${w.fromAnchor} → ${w.toNodeId} · ${w.toAnchor}`
+                          : `${w.toAnchor} ← ${w.fromNodeId} · ${w.fromAnchor}`}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[10px] text-white/35 mt-0.5">No incident nets</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Esc reassemble
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setView((v) => clearIsolate(v));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  if (expanded) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm">
+        <div className="w-full max-w-7xl max-h-[98vh] overflow-auto">{shell}</div>
+      </div>
+    );
+  }
+
+  return shell;
+}

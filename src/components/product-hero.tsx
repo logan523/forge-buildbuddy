@@ -3,8 +3,7 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import type { BuildPlan } from "@/lib/types";
 import { buildProductVisual, type ProductVisual } from "@/lib/product-visual";
-import { ProductViewer3D } from "@/components/product-viewer-3d";
-import type { BeautyMeshSpec } from "@/lib/product-3d";
+import { ProductAssemblyApp } from "@/components/product-assembly-app";
 
 export function useProductVisual(plan: BuildPlan): ProductVisual {
   return useMemo(() => buildProductVisual(plan), [plan]);
@@ -42,7 +41,7 @@ export function ProductHero({
   }, [plan]);
 
   const onBeauty = useCallback(
-    (mesh: BeautyMeshSpec) => {
+    (mesh: import("@/lib/product-3d").BeautyMeshSpec) => {
       setLivePlan((p) => {
         const next = { ...p, beautyMesh: mesh };
         onPlanPatch?.({ beautyMesh: mesh });
@@ -52,13 +51,16 @@ export function ProductHero({
     [onPlanPatch]
   );
 
+  // Keyframes unused but kept for API stability
+  void showKeyframes;
+
   return (
     <div
       className={`rounded-xl border border-border-subtle bg-surface shadow-card overflow-hidden ${
         compact ? "" : "mb-6"
       }`}
     >
-      <div className="px-4 pt-4 pb-2 flex items-start justify-between gap-3">
+      <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
@@ -69,11 +71,6 @@ export function ProductHero({
                 {form.templateId}
               </span>
             )}
-            {form?.grade && (
-              <span className="text-[9px] uppercase tracking-wider text-accent/80">
-                {form.grade} form
-              </span>
-            )}
           </div>
           {!compact && (
             <h3 className="text-base font-semibold text-text font-serif mt-0.5 truncate">
@@ -81,39 +78,33 @@ export function ProductHero({
             </h3>
           )}
           <p className="text-xs text-text-secondary mt-1 leading-relaxed">{caption}</p>
-          {stepIndex === "prep" && !compact && (
-            <p className="text-[11px] text-text-muted mt-1.5 leading-snug">
-              Orbit the 3D model · Solo layers to peel the build · Pose to drag parts ·
-              Beauty is optional polish only
-            </p>
-          )}
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => setShow2d((v) => !v)}
-            className="text-[10px] px-2 py-1 rounded-md border border-border-subtle text-text-muted cursor-pointer"
-          >
-            {show2d ? "Show 3D" : "2D fallback"}
-          </button>
-          <p className="text-[10px] text-text-muted tabular-nums">
-            {plan.estimatedTime || ""}
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShow2d((v) => !v)}
+          className="text-[10px] px-2 py-1 rounded-md border border-border-subtle text-text-muted cursor-pointer shrink-0"
+        >
+          {show2d ? "3D" : "2D"}
+        </button>
       </div>
 
-      <div className="px-3 pb-3">
+      {/* Full-bleed CAD stage — wider than page padding */}
+      <div className={compact ? "px-2 pb-2" : "px-0 pb-0 sm:-mx-1"}>
         {show2d ? (
           <div
-            className="w-full rounded-lg border border-border-subtle overflow-hidden bg-[#f7f5f2]"
+            className="w-full rounded-lg border border-border-subtle overflow-hidden bg-[#f7f5f2] mx-3 mb-3"
             dangerouslySetInnerHTML={{ __html: svg }}
           />
         ) : (
-          <ProductViewer3D
+          <ProductAssemblyApp
             plan={livePlan}
-            height={compact ? 260 : 360}
-            showLayerPanel
-            onBeautyMeshChange={onBeauty}
+            stepIndex={stepIndex}
+            height={compact ? 560 : 920}
+            expandable
+            onPlanPatch={(patch) => {
+              if (patch.beautyMesh) onBeauty(patch.beautyMesh);
+              else onPlanPatch?.(patch);
+            }}
           />
         )}
       </div>

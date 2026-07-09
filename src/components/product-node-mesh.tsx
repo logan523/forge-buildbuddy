@@ -2,10 +2,28 @@
 
 /**
  * High-fidelity parametric part meshes — composite geometry + MeshPhysicalMaterial.
+ * Cage rods use pure geom-math (quaternion-safe euler) so the cube is a solid 3D frame.
  */
-import { forwardRef } from "react";
-import { Html, RoundedBox, Outlines } from "@react-three/drei";
-import { DoubleSide, type Object3D } from "three";
+import {
+  Component,
+  forwardRef,
+  Suspense,
+  useMemo,
+  useRef,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
+import { useFrame } from "@react-three/fiber";
+import { Html, RoundedBox, Outlines, useGLTF } from "@react-three/drei";
+import {
+  DoubleSide,
+  Vector2,
+  Vector3,
+  type Group,
+  type Material,
+  type Mesh,
+  type Object3D,
+} from "three";
 import {
   computeNodeWorldPosition,
   nodeOpacity,
@@ -13,7 +31,13 @@ import {
   type SceneNode3D,
   type LayerViewState,
 } from "@/lib/product-3d";
-import { resolvePhysicalMaterial } from "@/lib/product-3d/materials";
+import {
+  inferMaterialPreset,
+  resolvePhysicalMaterial,
+} from "@/lib/product-3d/materials";
+import { getProceduralMap } from "@/lib/product-3d/procedural-maps";
+import { cubeCorners, wireCubeRods } from "@/lib/product-3d/geom-math";
+import { meshPinStubsForNode, pinLocal } from "@/lib/product-3d/sat-pins";
 
 function PhysMat({
   geomKind,
@@ -27,6 +51,25 @@ function PhysMat({
   opacity: number;
 }) {
   const m = resolvePhysicalMaterial(geomKind, material, nodeId, opacity);
+  const preset = inferMaterialPreset(geomKind, material, nodeId);
+  const maps = useMemo(() => {
+    if (preset === "brass" || preset === "copper" || geomKind === "wire_cube_cage") {
+      return {
+        normalMap: getProceduralMap("brushed_normal"),
+        normalScale: new Vector2(0.55, 0.55),
+        roughnessMap: null as null,
+      };
+    }
+    if (preset === "pcb_green" || geomKind === "pcb_module" || geomKind === "board") {
+      return {
+        normalMap: null as null,
+        normalScale: new Vector2(1, 1),
+        roughnessMap: getProceduralMap("fr4_roughness"),
+      };
+    }
+    return { normalMap: null, normalScale: new Vector2(1, 1), roughnessMap: null };
+  }, [preset, geomKind]);
+
   return (
     <meshPhysicalMaterial
       color={m.color}
@@ -40,6 +83,12 @@ function PhysMat({
       emissive={m.emissive || "#000000"}
       emissiveIntensity={m.emissiveIntensity ?? 0}
       envMapIntensity={m.envMapIntensity ?? 0.8}
+      transmission={m.transmission ?? 0}
+      thickness={m.thickness ?? 0}
+      ior={m.ior ?? 1.5}
+      normalMap={maps.normalMap || undefined}
+      normalScale={maps.normalScale}
+      roughnessMap={maps.roughnessMap || undefined}
       transparent={m.transparent}
       opacity={m.opacity}
     />
@@ -51,11 +100,199 @@ function SelectOutline({ selected }: { selected: boolean }) {
   return <Outlines thickness={2.5} color="#22d3ee" screenspace opacity={0.9} />;
 }
 
+/** Catch missing FreeCAD/OpenSCAD GLBs without crashing the parametric mesh. */
+class GlbErrorBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(_e: Error, _i: ErrorInfo) {
+    /* parametric fallback */
+  }
+  render() {
+    if (this.state.failed) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+/**
+ * Optional catalog GLB underlay (authored in FreeCAD/OpenSCAD → public/models/parts).
+ * Pins/wires stay parametric; GLB is visual only. Units: mm, scaled by rootScale.
+ */
+function CatalogGlbUnderlay({
+  url,
+  rootScale,
+  opacity,
+}: {
+  url: string;
+  rootScale: number;
+  opacity: number;
+}) {
+  const { scene } = useGLTF(url);
+  const clone = useMemo(() => {
+    const c = scene.clone(true);
+    c.traverse((obj) => {
+      const mesh = obj as Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      const cloned = mats.map((m) => {
+        const nm = (m as Material).clone() as Material & {
+          opacity?: number;
+          transparent?: boolean;
+          depthWrite?: boolean;
+        };
+        nm.transparent = opacity < 0.99;
+        nm.opacity = opacity;
+        nm.depthWrite = opacity > 0.85;
+        return nm;
+      });
+      mesh.material = cloned.length === 1 ? cloned[0]! : cloned;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+    return c;
+  }, [scene, opacity]);
+  return <primitive object={clone} scale={rootScale} />;
+}
+
+/** Gold pin + copper pad + solder — lands harness tubes on boards (craft realism). */
+function PinStub({
+  position,
+  scale,
+  opacity,
+  color = "#e2e8f0",
+  netColor,
+}: {
+  position: [number, number, number];
+  scale: number;
+  opacity: number;
+  color?: string;
+  /** Optional insulation color ring under the pin */
+  netColor?: string;
+}) {
+  const s = scale;
+  return (
+    <group position={position}>
+      {/* Copper annular pad on FR4 */}
+      <mesh position={[0, 0, -0.05 * s]}>
+        <cylinderGeometry args={[1.05 * s, 1.1 * s, 0.18 * s, 12]} />
+        <meshPhysicalMaterial
+          color="#c47a3a"
+          metalness={0.96}
+          roughness={0.2}
+          envMapIntensity={1.45}
+          normalMap={getProceduralMap("copper_normal")}
+          normalScale={new Vector2(0.8, 0.8)}
+          transparent
+          opacity={opacity}
+        />
+      </mesh>
+      {/* Solder meniscus */}
+      <mesh position={[0, 0, 0.2 * s]}>
+        <sphereGeometry args={[0.72 * s, 10, 10]} />
+        <meshPhysicalMaterial
+          color="#d4b06a"
+          metalness={0.94}
+          roughness={0.18}
+          envMapIntensity={1.4}
+          transparent
+          opacity={opacity}
+        />
+      </mesh>
+      {/* Gold pin post (Z out of board) */}
+      <mesh position={[0, 0, 1.15 * s]}>
+        <boxGeometry args={[0.5 * s, 0.5 * s, 2.15 * s]} />
+        <meshPhysicalMaterial
+          color={color}
+          metalness={0.96}
+          roughness={0.1}
+          envMapIntensity={1.55}
+          transparent
+          opacity={opacity}
+        />
+      </mesh>
+      {/* Black plastic header shoulder */}
+      <mesh position={[0, 0, 0.45 * s]}>
+        <boxGeometry args={[0.95 * s, 0.95 * s, 0.55 * s]} />
+        <meshPhysicalMaterial
+          color="#1a1a1e"
+          metalness={0.08}
+          roughness={0.62}
+          transparent
+          opacity={opacity}
+        />
+      </mesh>
+      {netColor && (
+        <mesh position={[0, 0, 0.75 * s]}>
+          <torusGeometry args={[0.65 * s, 0.14 * s, 6, 12]} />
+          <meshPhysicalMaterial
+            color={netColor}
+            metalness={0.05}
+            roughness={0.48}
+            transparent
+            opacity={opacity}
+          />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+/** Smooth position for phase/explode so the modeler feels animated, not jumpy. */
+function SmoothRoot({
+  position,
+  rotation,
+  children,
+  meshRef,
+}: {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  children: React.ReactNode;
+  meshRef?: React.Ref<Object3D>;
+}) {
+  const g = useRef<Group>(null);
+  const target = useRef(new Vector3(...position));
+  const rot = useRef(rotation);
+  const snapped = useRef(false);
+  target.current.set(position[0], position[1], position[2]);
+  rot.current = rotation;
+  useFrame((_, dt) => {
+    if (!g.current) return;
+    if (!snapped.current) {
+      g.current.position.copy(target.current);
+      g.current.rotation.set(rot.current[0], rot.current[1], rot.current[2]);
+      snapped.current = true;
+      return;
+    }
+    const k = 1 - Math.exp(-11 * dt);
+    g.current.position.lerp(target.current, k);
+    g.current.rotation.x += (rot.current[0] - g.current.rotation.x) * k;
+    g.current.rotation.y += (rot.current[1] - g.current.rotation.y) * k;
+    g.current.rotation.z += (rot.current[2] - g.current.rotation.z) * k;
+  });
+  return (
+    <group
+      ref={(obj) => {
+        (g as React.MutableRefObject<Group | null>).current = obj;
+        if (typeof meshRef === "function") meshRef(obj);
+        else if (meshRef && "current" in meshRef)
+          (meshRef as React.MutableRefObject<Object3D | null>).current = obj;
+      }}
+    >
+      {children}
+    </group>
+  );
+}
+
 export function NodeMesh({
   node,
   view,
   rootScale,
   onSelect,
+  onIsolate,
   meshRef,
   suppressExplode = false,
   segments = 40,
@@ -64,6 +301,7 @@ export function NodeMesh({
   view: LayerViewState;
   rootScale: number;
   onSelect: (id: string) => void;
+  onIsolate?: (id: string) => void;
   meshRef?: React.Ref<Object3D>;
   suppressExplode?: boolean;
   segments?: number;
@@ -78,6 +316,7 @@ export function NodeMesh({
   const opacity = nodeOpacity(node, view);
   const visible = nodeVisible(node, view);
   const selected = view.selectedNodeId === node.id;
+  const isolated = view.isolateNodeId === node.id;
   const s = rootScale;
   const p = node.geom.params;
   const kind = node.geom.kind;
@@ -88,6 +327,10 @@ export function NodeMesh({
     e.stopPropagation();
     onSelect(node.id);
   };
+  const onDoubleClick = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    onIsolate?.(node.id);
+  };
 
   const phys = (k = kind) => (
     <PhysMat geomKind={k} material={node.material} nodeId={node.id} opacity={opacity} />
@@ -97,25 +340,55 @@ export function NodeMesh({
 
   switch (kind) {
     case "metal_stand": {
-      const stemR = (p.stemR || 1.6) * s;
-      const ht = (p.height || 95) * s;
-      const footR = (p.footR || 10) * s;
-      const footH = (p.footH || 2.5) * s;
+      const stemR = (p.stemR || 2.4) * s;
+      const ht = (p.height || 88) * s;
+      const footR = (p.footR || 14) * s;
+      const footH = (p.footH || 3.5) * s;
+      const segs = Math.max(24, segments);
       inner = (
         <group onClick={onClick}>
+          {/* Weighted disc foot — brushed steel */}
           <mesh position={[0, footH / 2, 0]} castShadow receiveShadow>
-            <cylinderGeometry args={[footR, footR * 1.05, footH, segments]} />
-            <meshPhysicalMaterial color="#8a9299" metalness={0.88} roughness={0.28} envMapIntensity={1.1} transparent opacity={opacity} />
+            <cylinderGeometry args={[footR, footR * 1.08, footH, segs]} />
+            <meshPhysicalMaterial
+              color="#9aa3ad"
+              metalness={0.92}
+              roughness={0.22}
+              envMapIntensity={1.35}
+              transparent
+              opacity={opacity}
+            />
             <SelectOutline selected={selected} />
           </mesh>
-          <mesh position={[0, footH + ht / 2, 0]} castShadow>
-            <cylinderGeometry args={[stemR, stemR * 0.95, ht, Math.max(12, segments / 2)]} />
-            <meshPhysicalMaterial color="#b0b8c0" metalness={0.9} roughness={0.25} envMapIntensity={1.15} transparent opacity={opacity} />
+          {/* Beveled foot lip */}
+          <mesh position={[0, footH * 0.95, 0]}>
+            <cylinderGeometry args={[footR * 0.72, footR * 0.95, footH * 0.35, segs]} />
+            <meshPhysicalMaterial color="#b8c0c8" metalness={0.9} roughness={0.2} envMapIntensity={1.3} transparent opacity={opacity} />
           </mesh>
-          {/* Stem cap into cage */}
-          <mesh position={[0, footH + ht + 0.001, 0]}>
-            <sphereGeometry args={[stemR * 1.4, 12, 12]} />
-            <meshPhysicalMaterial color="#c9a227" metalness={0.92} roughness={0.25} transparent opacity={opacity} />
+          {/* Tapered stem */}
+          <mesh position={[0, footH + ht / 2, 0]} castShadow>
+            <cylinderGeometry args={[stemR * 0.88, stemR, ht, segs]} />
+            <meshPhysicalMaterial
+              color="#d0d6dc"
+              metalness={0.94}
+              roughness={0.18}
+              envMapIntensity={1.4}
+              transparent
+              opacity={opacity}
+            />
+          </mesh>
+          {/* Brass collar into cage */}
+          <mesh position={[0, footH + ht + stemR * 0.2, 0]} castShadow>
+            <sphereGeometry args={[stemR * 1.55, 20, 20]} />
+            <meshPhysicalMaterial
+              color="#d4a84b"
+              metalness={0.96}
+              roughness={0.18}
+              clearcoat={0.4}
+              envMapIntensity={1.5}
+              transparent
+              opacity={opacity}
+            />
           </mesh>
         </group>
       );
@@ -123,75 +396,78 @@ export function NodeMesh({
     }
 
     case "wire_cube_cage": {
-      const size = (p.size || 58) * s;
-      const r = (p.rodR || 1) * s;
-      const half = size / 2;
-      // 8 corners of cube
-      const corners: [number, number, number][] = [
-        [-half, -half, -half],
-        [half, -half, -half],
-        [half, half, -half],
-        [-half, half, -half],
-        [-half, -half, half],
-        [half, -half, half],
-        [half, half, half],
-        [-half, half, half],
-      ];
-      // 12 edges as [i,j] corner indices
-      const edges: [number, number][] = [
-        [0, 1], [1, 2], [2, 3], [3, 0], // back
-        [4, 5], [5, 6], [6, 7], [7, 4], // front
-        [0, 4], [1, 5], [2, 6], [3, 7], // sides
-      ];
-      const brass = (
-        <meshPhysicalMaterial
-          color="#c9a227"
-          metalness={0.94}
-          roughness={0.24}
-          clearcoat={0.3}
-          clearcoatRoughness={0.2}
-          envMapIntensity={1.25}
-          transparent
-          opacity={opacity}
-        />
-      );
+      // Pure geom-math rods → true 3D cube of solid brass (mm → world via s)
+      const sizeMm = p.size || 62;
+      const r = (p.rodR || 2.4) * s;
+      const size = sizeMm * s;
+      const segs = Math.max(20, Math.floor(segments / 2));
+      const corners = cubeCorners(size);
+      const rods = wireCubeRods(sizeMm).map((rod) => ({
+        ...rod,
+        mid: [rod.mid[0] * s, rod.mid[1] * s, rod.mid[2] * s] as [number, number, number],
+        length: rod.length * s,
+      }));
+      const brassNormal = getProceduralMap("brushed_normal");
+      const brassNScale = new Vector2(0.65, 0.65);
       inner = (
         <group onClick={onClick}>
           {corners.map((c, i) => (
             <mesh key={`c${i}`} position={c} castShadow>
-              <sphereGeometry args={[r * 1.35, 10, 10]} />
-              {brass}
+              <sphereGeometry args={[r * 1.65, segs, segs]} />
+              <meshPhysicalMaterial
+                color="#d4a84b"
+                metalness={0.97}
+                roughness={0.14}
+                clearcoat={0.55}
+                clearcoatRoughness={0.1}
+                envMapIntensity={1.7}
+                normalMap={brassNormal}
+                normalScale={brassNScale}
+                transparent
+                opacity={opacity}
+              />
             </mesh>
           ))}
-          {edges.map(([ia, ib], i) => {
-            const a = corners[ia];
-            const b = corners[ib];
-            const mx = (a[0] + b[0]) / 2;
-            const my = (a[1] + b[1]) / 2;
-            const mz = (a[2] + b[2]) / 2;
-            const dx = b[0] - a[0];
-            const dy = b[1] - a[1];
-            const dz = b[2] - a[2];
-            const len = Math.hypot(dx, dy, dz);
-            // Align Y-cylinder to edge direction
-            const yaw = Math.atan2(dx, dz);
-            const pitch = Math.atan2(dy, Math.hypot(dx, dz));
-            return (
-              <mesh
-                key={`e${i}`}
-                position={[mx, my, mz]}
-                rotation={[pitch - Math.PI / 2, yaw, 0]}
-                castShadow
-              >
-                <cylinderGeometry args={[r, r, len, 8]} />
-                {brass}
-              </mesh>
-            );
-          })}
+          {rods.map((rod, i) => (
+            <mesh
+              key={`e${i}`}
+              position={rod.mid}
+              rotation={rod.euler}
+              castShadow
+            >
+              <cylinderGeometry args={[r, r, rod.length, segs]} />
+              <meshPhysicalMaterial
+                color="#e0b45c"
+                metalness={0.98}
+                roughness={0.12}
+                clearcoat={0.55}
+                clearcoatRoughness={0.08}
+                envMapIntensity={1.8}
+                normalMap={brassNormal}
+                normalScale={brassNScale}
+                transparent
+                opacity={opacity}
+              />
+            </mesh>
+          ))}
+          {/* Soldery mid-edge beads for craft specificity */}
+          {rods.map((rod, i) => (
+            <mesh key={`j${i}`} position={rod.mid} castShadow>
+              <sphereGeometry args={[r * 1.15, 12, 12]} />
+              <meshPhysicalMaterial
+                color="#c9963a"
+                metalness={0.96}
+                roughness={0.18}
+                envMapIntensity={1.5}
+                transparent
+                opacity={opacity}
+              />
+            </mesh>
+          ))}
           {selected && (
             <mesh>
-              <boxGeometry args={[size * 1.02, size * 1.02, size * 1.02]} />
-              <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={0.25} />
+              <boxGeometry args={[size * 1.06, size * 1.06, size * 1.06]} />
+              <meshBasicMaterial color="#22d3ee" wireframe transparent opacity={0.2} />
             </mesh>
           )}
         </group>
@@ -212,6 +488,183 @@ export function NodeMesh({
               <SelectOutline selected={selected} />
             </mesh>
           ))}
+        </group>
+      );
+      break;
+    }
+
+    case "face_panel": {
+      // Front body plate with OLED cutout — satellite has a face, not empty brass void
+      const w = (p.width || 57) * s;
+      const h = (p.height || 57) * s;
+      const d = (p.depth || 2.2) * s;
+      const cutW = (p.cutoutW || 38) * s;
+      const cutH = (p.cutoutH || 28) * s;
+      const rim = Math.max(d * 0.9, s * 1.2);
+      // Four bars around the window (CSG-free cutout)
+      const topH = (h - cutH) / 2;
+      const sideW = (w - cutW) / 2;
+      const mat = {
+        color: node.material.color || "#1e293b",
+        metalness: 0.28,
+        roughness: 0.42,
+        envMapIntensity: 0.95,
+      } as const;
+      inner = (
+        <group onClick={onClick}>
+          {/* Outer frame bars */}
+          <mesh position={[0, h / 2 - topH / 2, 0]} castShadow receiveShadow>
+            <boxGeometry args={[w, topH, d]} />
+            <meshPhysicalMaterial {...mat} transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[0, -h / 2 + topH / 2, 0]} castShadow receiveShadow>
+            <boxGeometry args={[w, topH, d]} />
+            <meshPhysicalMaterial {...mat} transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[-w / 2 + sideW / 2, 0, 0]} castShadow>
+            <boxGeometry args={[sideW, cutH, d]} />
+            <meshPhysicalMaterial {...mat} transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[w / 2 - sideW / 2, 0, 0]} castShadow>
+            <boxGeometry args={[sideW, cutH, d]} />
+            <meshPhysicalMaterial {...mat} transparent opacity={opacity} />
+          </mesh>
+          {/* Bezel lip around OLED window */}
+          <mesh position={[0, 0, d * 0.55]}>
+            <boxGeometry args={[cutW + rim * 0.6, cutH + rim * 0.6, d * 0.25]} />
+            <meshPhysicalMaterial
+              color="#0f172a"
+              metalness={0.4}
+              roughness={0.35}
+              transparent
+              opacity={0.95 * opacity}
+            />
+          </mesh>
+          {/* Corner rivets */}
+          {[
+            [-1, -1],
+            [1, -1],
+            [-1, 1],
+            [1, 1],
+          ].map(([sx, sy], i) => (
+            <mesh
+              key={i}
+              position={[(sx * w) / 2 - sx * d * 2.2, (sy * h) / 2 - sy * d * 2.2, d * 0.65]}
+            >
+              <cylinderGeometry args={[d * 0.45, d * 0.5, d * 0.35, 10]} />
+              <meshPhysicalMaterial
+                color="#94a3b8"
+                metalness={0.88}
+                roughness={0.25}
+                transparent
+                opacity={opacity}
+              />
+            </mesh>
+          ))}
+          {/* Thin edge highlight */}
+          <mesh position={[0, 0, d * 0.7]}>
+            <boxGeometry args={[w * 0.98, h * 0.98, d * 0.05]} />
+            <meshBasicMaterial color="#64748b" transparent opacity={0.15 * opacity} />
+          </mesh>
+          <SelectOutline selected={selected} />
+        </group>
+      );
+      break;
+    }
+
+    case "rear_panel": {
+      // Rear service plate — charger mounts here; body presence on the back
+      const w = (p.width || 54) * s;
+      const h = (p.height || 54) * s;
+      const d = (p.depth || 2) * s;
+      const mat = {
+        color: node.material.color || "#334155",
+        metalness: 0.32,
+        roughness: 0.48,
+        envMapIntensity: 0.9,
+      } as const;
+      inner = (
+        <group onClick={onClick}>
+          <RoundedBox args={[w, h, d]} radius={d * 0.15} smoothness={3} castShadow receiveShadow>
+            <meshPhysicalMaterial {...mat} transparent opacity={opacity} />
+            <SelectOutline selected={selected} />
+          </RoundedBox>
+          {/* Vent slots */}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <mesh
+              key={`v${i}`}
+              position={[-w * 0.28 + i * w * 0.14, h * 0.28, d * 0.55]}
+            >
+              <boxGeometry args={[w * 0.06, h * 0.22, d * 0.15]} />
+              <meshPhysicalMaterial
+                color="#0f172a"
+                metalness={0.2}
+                roughness={0.6}
+                transparent
+                opacity={0.9 * opacity}
+              />
+            </mesh>
+          ))}
+          {/* Mount boss for charger */}
+          <mesh position={[0, -h * 0.12, d * 0.55]}>
+            <boxGeometry args={[w * 0.42, h * 0.32, d * 0.2]} />
+            <meshPhysicalMaterial
+              color="#1e293b"
+              metalness={0.25}
+              roughness={0.5}
+              transparent
+              opacity={opacity}
+            />
+          </mesh>
+          {/* Corner fasteners */}
+          {[
+            [-1, -1],
+            [1, -1],
+            [-1, 1],
+            [1, 1],
+          ].map(([sx, sy], i) => (
+            <mesh
+              key={i}
+              position={[(sx * w) / 2 - sx * d * 2.5, (sy * h) / 2 - sy * d * 2.5, d * 0.7]}
+            >
+              <cylinderGeometry args={[d * 0.4, d * 0.45, d * 0.3, 8]} />
+              <meshPhysicalMaterial
+                color="#94a3b8"
+                metalness={0.9}
+                roughness={0.2}
+                transparent
+                opacity={opacity}
+              />
+            </mesh>
+          ))}
+        </group>
+      );
+      break;
+    }
+
+    case "shell_panel": {
+      // Optional frosted inner shell — peelable body volume
+      const w = (p.width || 58) * s;
+      const h = (p.height || 58) * s;
+      const d = (p.depth || 58) * s;
+      const t = Math.max((p.thickness || 1.2) * s, s * 0.8);
+      inner = (
+        <group onClick={onClick}>
+          <mesh castShadow>
+            <boxGeometry args={[w, h, d]} />
+            <meshPhysicalMaterial
+              color={node.material.color || "#94a3b8"}
+              metalness={0.05}
+              roughness={0.35}
+              transmission={0.55}
+              thickness={t * 8}
+              transparent
+              opacity={0.22 * opacity}
+              side={DoubleSide}
+              envMapIntensity={1.1}
+            />
+          </mesh>
+          <SelectOutline selected={selected} />
         </group>
       );
       break;
@@ -258,54 +711,65 @@ export function NodeMesh({
 
     case "oled_module":
     case "oled_panel": {
-      const w = (p.width || 34) * s;
-      const h = (p.height || 24) * s;
-      const d = (p.depth || 3.5) * s;
-      const bezel = (p.bezel || 2.2) * s;
+      // width/height = full module board (RealPartSpec ~27×27); active area inset
+      const w = (p.width || 27) * s;
+      const h = (p.height || 27) * s;
+      const d = (p.depth || 4) * s;
+      const bezel = (p.bezel || 2.5) * s;
       const showPcb = (p.pcb ?? 1) > 0;
-      const pcbW = w * 1.18;
-      const pcbH = h * 1.35;
+      // Outer bound stays at w×h (dimension authority). PCB = module board; glass = active area.
+      const screenW = Math.max(w - bezel * 2, w * 0.72);
+      const screenH = Math.max(h - bezel * 2.4, h * 0.62);
       inner = (
         <group onClick={onClick}>
-          {/* PCB flange (blue module board) */}
+          {/* Module PCB flange (blue) — slightly thinner, same outer XY as bbox */}
           {showPcb && (
-            <RoundedBox position={[0, -h * 0.08, -d * 0.35]} args={[pcbW, pcbH, d * 0.45]} radius={d * 0.08} smoothness={3} castShadow>
+            <RoundedBox position={[0, -h * 0.02, -d * 0.28]} args={[w, h, d * 0.4]} radius={d * 0.08} smoothness={3} castShadow>
               <meshPhysicalMaterial color="#1e3a5f" metalness={0.15} roughness={0.5} envMapIntensity={0.6} transparent opacity={opacity} />
             </RoundedBox>
           )}
-          {/* Black module shell */}
-          <RoundedBox args={[w, h, d]} radius={d * 0.12} smoothness={4} castShadow>
+          {/* Black module shell — outer = RealPartSpec bbox */}
+          <RoundedBox args={[w * 0.96, h * 0.9, d * 0.75]} radius={d * 0.1} smoothness={4} castShadow>
             <meshPhysicalMaterial color="#0c0c10" metalness={0.35} roughness={0.4} clearcoat={0.12} envMapIntensity={0.75} transparent opacity={opacity} />
             <SelectOutline selected={selected} />
           </RoundedBox>
-          {/* Glass screen */}
-          <mesh position={[0, 0, d * 0.4]}>
-            <planeGeometry args={[w - bezel * 2, h - bezel * 2]} />
+          {/* Glass screen — ~0.96" active class within module */}
+          <mesh position={[0, h * 0.04, d * 0.38]}>
+            <planeGeometry args={[screenW, screenH]} />
             <meshPhysicalMaterial
-              color="#050a08"
-              metalness={0.15}
-              roughness={0.06}
+              color="#030806"
+              metalness={0.08}
+              roughness={0.04}
               clearcoat={1}
-              clearcoatRoughness={0.03}
-              emissive="#14532d"
-              emissiveIntensity={0.35}
-              envMapIntensity={1.4}
+              clearcoatRoughness={0.015}
+              transmission={0.12}
+              thickness={0.4}
+              emissive="#0a3d28"
+              emissiveIntensity={0.55}
+              envMapIntensity={1.7}
               transparent
               opacity={opacity}
             />
           </mesh>
-          {/* Green pixel text glow */}
-          <mesh position={[0, 0, d * 0.42]}>
-            <planeGeometry args={[(w - bezel * 2) * 0.72, (h - bezel * 2) * 0.22]} />
-            <meshBasicMaterial color="#4ade80" transparent opacity={0.75 * opacity} />
+          {/* Soft active-area glow only (no DOM Html — avoids floating UI junk) */}
+          <mesh position={[0, screenH * 0.02, d * 0.42]}>
+            <planeGeometry args={[screenW * 0.72, screenH * 0.55]} />
+            <meshBasicMaterial color="#14532d" transparent opacity={0.35 * opacity} />
           </mesh>
-          {/* Header pins along bottom of PCB */}
+          <mesh position={[0, screenH * 0.08, d * 0.43]}>
+            <planeGeometry args={[screenW * 0.5, screenH * 0.08]} />
+            <meshBasicMaterial color="#4ade80" transparent opacity={0.45 * opacity} />
+          </mesh>
+          {/* 4-pin OLED header — locals from sat-pins (same as harness) */}
           {showPcb &&
-            Array.from({ length: 8 }).map((_, i) => (
-              <mesh key={i} position={[-pcbW * 0.35 + i * (pcbW * 0.1), -pcbH * 0.42, -d * 0.55]}>
-                <boxGeometry args={[d * 0.2, d * 0.2, d * 0.7]} />
-                <meshPhysicalMaterial color="#cbd5e1" metalness={0.85} roughness={0.2} transparent opacity={opacity} />
-              </mesh>
+            meshPinStubsForNode(node.id === "face" ? "face" : "").map((pin) => (
+              <PinStub
+                key={pin.name}
+                position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
+                scale={s}
+                opacity={opacity}
+                netColor={pin.netColor}
+              />
             ))}
         </group>
       );
@@ -314,56 +778,91 @@ export function NodeMesh({
 
     case "solar_module":
     case "solar_panel": {
-      const w = (p.width || 42) * s;
-      const h = (p.height || 28) * s;
-      const d = Math.min((p.depth || 1.6) * s, w * 0.06); // keep thin
+      const w = (p.width || 48) * s;
+      const h = (p.height || 36) * s;
+      // Real thin laminate — not a thick white slab
+      const d = Math.max((p.depth || 2.4) * s, s * 1.8);
       const cells = Math.min(8, Math.max(2, Math.round(p.cells || 6)));
-      const cellW = (w * 0.9) / cells;
-      const cellH = h * 0.82;
+      const cellW = (w * 0.88) / cells;
+      const cellH = h * 0.84;
+      const frameT = Math.min(d * 0.9, s * 1.2);
       inner = (
         <group onClick={onClick}>
-          {/* Thin metal frame lip */}
-          <RoundedBox args={[w, h, d]} radius={d * 0.25} smoothness={3} castShadow>
-            <meshPhysicalMaterial color="#94a3b8" metalness={0.88} roughness={0.28} envMapIntensity={1.05} transparent opacity={opacity} />
+          {/* Dark anodized frame */}
+          <RoundedBox args={[w, h, d]} radius={d * 0.2} smoothness={3} castShadow>
+            <meshPhysicalMaterial
+              color="#3d4654"
+              metalness={0.85}
+              roughness={0.32}
+              envMapIntensity={1.1}
+              transparent
+              opacity={opacity}
+            />
             <SelectOutline selected={selected} />
           </RoundedBox>
-          {/* Dark cell plane */}
-          <mesh position={[0, 0, d * 0.35]}>
-            <planeGeometry args={[w * 0.94, h * 0.9]} />
+          {/* Deep navy cell body (reads dark blue-black in product photos) */}
+          <mesh position={[0, 0, d * 0.42]} castShadow>
+            <planeGeometry args={[w - frameT * 2.2, h - frameT * 2.2]} />
             <meshPhysicalMaterial
-              color="#0a0f18"
-              metalness={0.65}
-              roughness={0.22}
-              clearcoat={0.85}
-              clearcoatRoughness={0.08}
-              envMapIntensity={1.35}
+              color="#0b1428"
+              metalness={0.55}
+              roughness={0.14}
+              clearcoat={1}
+              clearcoatRoughness={0.04}
+              envMapIntensity={1.6}
               transparent
               opacity={opacity}
             />
           </mesh>
           {Array.from({ length: cells }).map((_, i) => {
-            const x = -w * 0.42 + cellW * 0.5 + i * cellW;
+            const x = -w * 0.4 + cellW * 0.5 + i * cellW;
             return (
-              <mesh key={i} position={[x, 0, d * 0.38]}>
+              <mesh key={i} position={[x, 0, d * 0.44]}>
                 <planeGeometry args={[cellW * 0.9, cellH]} />
-                <meshPhysicalMaterial color="#0f172a" metalness={0.55} roughness={0.3} transparent opacity={0.92 * opacity} />
+                <meshPhysicalMaterial
+                  color="#111d36"
+                  metalness={0.5}
+                  roughness={0.22}
+                  transparent
+                  opacity={0.96 * opacity}
+                />
               </mesh>
             );
           })}
+          {/* Silver busbars */}
           {Array.from({ length: cells - 1 }).map((_, i) => {
-            const x = -w * 0.42 + cellW * (i + 1);
+            const x = -w * 0.4 + cellW * (i + 1);
             return (
-              <mesh key={`b${i}`} position={[x, 0, d * 0.4]}>
-                <boxGeometry args={[s * 0.15, cellH * 0.95, s * 0.08]} />
-                <meshPhysicalMaterial color="#cbd5e1" metalness={0.9} roughness={0.2} transparent opacity={opacity} />
+              <mesh key={`b${i}`} position={[x, 0, d * 0.46]}>
+                <boxGeometry args={[s * 0.18, cellH * 0.96, s * 0.08]} />
+                <meshPhysicalMaterial color="#e8edf2" metalness={0.96} roughness={0.12} transparent opacity={opacity} />
               </mesh>
             );
           })}
-          {/* Glass highlight strip */}
-          <mesh position={[0, h * 0.28, d * 0.42]} rotation={[0, 0, 0]}>
-            <planeGeometry args={[w * 0.7, h * 0.08]} />
-            <meshBasicMaterial color="#e2e8f0" transparent opacity={0.12 * opacity} />
+          {Array.from({ length: 5 }).map((_, i) => {
+            const y = -cellH * 0.38 + i * (cellH * 0.19);
+            return (
+              <mesh key={`f${i}`} position={[0, y, d * 0.47]}>
+                <boxGeometry args={[w * 0.84, s * 0.07, s * 0.05]} />
+                <meshPhysicalMaterial color="#c5ced8" metalness={0.92} roughness={0.18} transparent opacity={0.85 * opacity} />
+              </mesh>
+            );
+          })}
+          {/* Specular glass strip */}
+          <mesh position={[0, h * 0.22, d * 0.5]}>
+            <planeGeometry args={[w * 0.55, h * 0.1]} />
+            <meshBasicMaterial color="#dbeafe" transparent opacity={0.18 * opacity} />
           </mesh>
+          {/* PV lead pads — same local mm as sat-pins / harness */}
+          {meshPinStubsForNode(node.id).map((pin) => (
+            <PinStub
+              key={pin.name}
+              position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
+              scale={s}
+              opacity={opacity}
+              netColor={pin.netColor}
+            />
+          ))}
         </group>
       );
       break;
@@ -398,65 +897,129 @@ export function NodeMesh({
       const catalog = node.catalogId || "";
       const isEsp = catalog === "esp32_c3" || node.id === "brain";
       const isTp = catalog === "tp4056" || node.id === "charger";
-      const w = (p.width || (isEsp ? 32 : 28)) * s;
-      const h = (p.height || (isEsp ? 22 : 18)) * s;
-      const d = (p.depth || 2.8) * s;
+      const isSensor = node.id === "sensor";
+      // Defaults match RealPartSpec (SuperMini / TP4056), not illustration 32×22
+      const w = (p.width || (isEsp ? 22.5 : isTp ? 25 : 16)) * s;
+      const h = (p.height || (isEsp ? 18 : isTp ? 19 : 16)) * s;
+      const d = (p.depth || (isEsp ? 3.2 : 3.5)) * s;
       const chips = Math.min(4, Math.max(1, Math.round(p.chips || (isEsp ? 3 : 1))));
+      // USB-C on SuperMini short edge (Y-); TP4056 micro-USB on short edge
+      const usbOnShortEdge = isEsp || isTp;
       inner = (
         <group onClick={onClick}>
-          <RoundedBox args={[w, h, d]} radius={d * 0.12} smoothness={3} castShadow>
-            {phys("pcb_module")}
+          {/* FR4 substrate — outer bound = geom params = RealPartSpec bbox */}
+          <RoundedBox args={[w, h, d]} radius={d * 0.1} smoothness={3} castShadow>
+            <meshPhysicalMaterial
+              color={isEsp || isTp || isSensor ? "#0f3d24" : "#14532d"}
+              metalness={0.08}
+              roughness={0.55}
+              envMapIntensity={0.7}
+              transparent
+              opacity={opacity}
+            />
             <SelectOutline selected={selected} />
           </RoundedBox>
-          {/* Silkscreen edge */}
+          {/* Brown FR4 edge (core) */}
+          <mesh>
+            <boxGeometry args={[w * 1.01, h * 1.01, d * 0.55]} />
+            <meshPhysicalMaterial
+              color="#5c4030"
+              metalness={0.05}
+              roughness={0.75}
+              transparent
+              opacity={0.9 * opacity}
+            />
+          </mesh>
+          {/* Silkscreen top + FR4 roughness map */}
           <mesh position={[0, 0, d * 0.52]}>
             <planeGeometry args={[w * 0.92, h * 0.92]} />
-            <meshPhysicalMaterial color="#166534" metalness={0.05} roughness={0.7} transparent opacity={0.35 * opacity} />
+            <meshPhysicalMaterial
+              color="#1a5c32"
+              metalness={0.04}
+              roughness={0.68}
+              roughnessMap={getProceduralMap("fr4_roughness")}
+              transparent
+              opacity={0.55 * opacity}
+            />
           </mesh>
-          {/* USB-C */}
-          <mesh position={[0, -h / 2 + 0.0015, d * 0.15]}>
-            <boxGeometry args={[w * (isEsp ? 0.32 : 0.26), h * 0.1, d * 0.55]} />
-            <meshPhysicalMaterial color="#e2e8f0" metalness={0.75} roughness={0.25} transparent opacity={opacity} />
+          {/* Faint copper pour suggestion */}
+          <mesh position={[0, 0, d * 0.54]}>
+            <planeGeometry args={[w * 0.55, h * 0.35]} />
+            <meshPhysicalMaterial
+              color="#8b5a2b"
+              metalness={0.75}
+              roughness={0.35}
+              transparent
+              opacity={0.22 * opacity}
+            />
           </mesh>
+          {/* USB-C / micro-USB on short edge (real SuperMini / TP4056) */}
+          {usbOnShortEdge && (
+            <>
+              <mesh position={[0, -h / 2 + s * 0.4, d * 0.15]}>
+                <boxGeometry args={[isEsp ? s * 9 : s * 7.5, s * 2.6, d * 0.7]} />
+                <meshPhysicalMaterial color="#e2e8f0" metalness={0.85} roughness={0.2} transparent opacity={opacity} />
+              </mesh>
+              <mesh position={[0, -h / 2 + s * 0.25, d * 0.22]}>
+                <boxGeometry args={[isEsp ? s * 7.2 : s * 5.5, s * 1.4, d * 0.35]} />
+                <meshPhysicalMaterial color="#0f172a" metalness={0.3} roughness={0.5} transparent opacity={opacity} />
+              </mesh>
+            </>
+          )}
           {Array.from({ length: chips }).map((_, i) => (
-            <mesh key={i} position={[-w * 0.22 + i * w * 0.2, h * 0.08, d * 0.58]}>
-              <boxGeometry args={[w * 0.16, h * 0.2, d * 0.4]} />
+            <mesh key={i} position={[-w * 0.18 + i * w * 0.18, h * 0.05, d * 0.58]}>
+              <boxGeometry args={[w * 0.14, h * 0.18, d * 0.45]} />
               <meshPhysicalMaterial color="#0f172a" metalness={0.35} roughness={0.4} transparent opacity={opacity} />
             </mesh>
           ))}
-          {/* Antenna meander for ESP */}
+          {/* SuperMini antenna meander (mesh only — no DOM Html labels) */}
           {isEsp && (
-            <mesh position={[w * 0.38, h * 0.32, d * 0.55]}>
-              <boxGeometry args={[w * 0.12, h * 0.28, d * 0.15]} />
+            <mesh position={[w * 0.32, h * 0.28, d * 0.55]}>
+              <boxGeometry args={[w * 0.14, h * 0.22, d * 0.12]} />
               <meshPhysicalMaterial color="#f8fafc" metalness={0.5} roughness={0.3} transparent opacity={opacity} />
             </mesh>
           )}
           {/* Charge LED pair for TP4056 */}
           {isTp && (
             <>
-              <mesh position={[w * 0.28, h * 0.25, d * 0.65]}>
-                <sphereGeometry args={[d * 0.28, 10, 10]} />
+              <mesh position={[w * 0.28, h * 0.22, d * 0.65]}>
+                <sphereGeometry args={[d * 0.35, 10, 10]} />
                 <meshPhysicalMaterial color="#ef4444" emissive="#dc2626" emissiveIntensity={0.9} transparent opacity={opacity} />
               </mesh>
-              <mesh position={[w * 0.28, -h * 0.1, d * 0.65]}>
-                <sphereGeometry args={[d * 0.28, 10, 10]} />
+              <mesh position={[w * 0.28, -h * 0.08, d * 0.65]}>
+                <sphereGeometry args={[d * 0.35, 10, 10]} />
                 <meshPhysicalMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={0.7} transparent opacity={opacity} />
               </mesh>
             </>
           )}
-          {!isTp && (
-            <mesh position={[w * 0.32, h * 0.28, d * 0.65]}>
+          {!isTp && !isEsp && (
+            <mesh position={[w * 0.28, h * 0.22, d * 0.65]}>
               <sphereGeometry args={[d * 0.32, 12, 12]} />
               <meshPhysicalMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={0.85} transparent opacity={opacity} />
             </mesh>
           )}
-          {/* Header pins row */}
-          {Array.from({ length: 6 }).map((_, i) => (
-            <mesh key={`p${i}`} position={[-w * 0.35 + i * w * 0.12, -h * 0.35, -d * 0.4]}>
-              <boxGeometry args={[d * 0.25, d * 0.25, d * 0.9]} />
-              <meshPhysicalMaterial color="#cbd5e1" metalness={0.85} roughness={0.2} transparent opacity={opacity} />
-            </mesh>
-          ))}
+          {/* Named pin stubs from sat-pins / RealPartSpec */}
+          {(isEsp || isTp || isSensor) &&
+            meshPinStubsForNode(node.id).map((pin) => (
+              <PinStub
+                key={pin.name}
+                position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
+                scale={s}
+                opacity={opacity}
+                netColor={pin.netColor}
+              />
+            ))}
+          {!isEsp &&
+            !isTp &&
+            !isSensor &&
+            Array.from({ length: 6 }).map((_, i) => (
+              <PinStub
+                key={`p${i}`}
+                position={[-w * 0.35 + i * w * 0.12, -h * 0.35, -d * 0.2]}
+                scale={s}
+                opacity={opacity}
+              />
+            ))}
         </group>
       );
       break;
@@ -478,6 +1041,11 @@ export function NodeMesh({
     case "cell_16340": {
       const rad = (p.radius || 8) * s;
       const ht = (p.height || 34) * s;
+      // Terminals at sat-pins battery ±Y so harness tubes hit visible ends
+      const plusL = pinLocal(node.id === "battery" ? "battery" : "", "+") || [0, ht * 0.48 / s, 0];
+      const minusL = pinLocal(node.id === "battery" ? "battery" : "", "-") || [0, -ht * 0.46 / s, 0];
+      const plusY = plusL[1] * s;
+      const minusY = minusL[1] * s;
       inner = (
         <group onClick={onClick}>
           <mesh castShadow>
@@ -485,20 +1053,34 @@ export function NodeMesh({
             {phys()}
             <SelectOutline selected={selected} />
           </mesh>
-          {/* + terminal */}
-          <mesh position={[0, ht * 0.48, 0]}>
+          {/* + terminal cap at shared pin local */}
+          <mesh position={[0, plusY * 0.92, 0]}>
             <cylinderGeometry args={[rad * 0.55, rad * 0.55, ht * 0.08, 16]} />
             <meshPhysicalMaterial color="#e2e8f0" metalness={0.9} roughness={0.2} transparent opacity={opacity} />
           </mesh>
-          {/* − end */}
-          <mesh position={[0, -ht * 0.46, 0]}>
+          {/* − end cap */}
+          <mesh position={[0, minusY * 0.92, 0]}>
             <cylinderGeometry args={[rad * 0.95, rad * 0.95, ht * 0.06, 16]} />
             <meshPhysicalMaterial color="#0f172a" metalness={0.5} roughness={0.4} transparent opacity={opacity} />
           </mesh>
           {/* wrap label band */}
           <mesh>
             <cylinderGeometry args={[rad * 1.01, rad * 1.01, ht * 0.35, segments, 1, true]} />
-            <meshPhysicalMaterial color="#334155" metalness={0.2} roughness={0.6} side={DoubleSide} transparent opacity={0.9 * opacity} />
+            <meshPhysicalMaterial color="#1e293b" metalness={0.15} roughness={0.55} side={DoubleSide} transparent opacity={0.95 * opacity} />
+          </mesh>
+          {/* thin brass ring detail */}
+          <mesh position={[0, ht * 0.12, 0]}>
+            <torusGeometry args={[rad * 1.02, rad * 0.06, 8, 24]} />
+            <meshPhysicalMaterial color="#c9a227" metalness={0.9} roughness={0.25} transparent opacity={opacity} />
+          </mesh>
+          {/* Lead nubs = harness pin landings (sat-pins locals) */}
+          <mesh position={[0, plusY, 0]}>
+            <sphereGeometry args={[rad * 0.22, 10, 10]} />
+            <meshPhysicalMaterial color="#dc2626" metalness={0.3} roughness={0.4} transparent opacity={opacity} />
+          </mesh>
+          <mesh position={[0, minusY, 0]}>
+            <sphereGeometry args={[rad * 0.2, 10, 10]} />
+            <meshPhysicalMaterial color="#1e293b" metalness={0.3} roughness={0.4} transparent opacity={opacity} />
           </mesh>
         </group>
       );
@@ -528,6 +1110,15 @@ export function NodeMesh({
               opacity={opacity}
             />
           </mesh>
+          {meshPinStubsForNode("touch").map((pin) => (
+            <PinStub
+              key={pin.name}
+              position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
+              scale={s}
+              opacity={opacity}
+              netColor={pin.netColor}
+            />
+          ))}
         </group>
       );
       break;
@@ -568,21 +1159,72 @@ export function NodeMesh({
     }
   }
 
+  // Inspect LOD silkscreen pin names when JARVIS-isolated
+  const inspectLabels =
+    isolated &&
+    meshPinStubsForNode(node.id).map((pin) => (
+      <Html
+        key={`pin-${pin.name}`}
+        position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s + 0.04]}
+        center
+        distanceFactor={2.4}
+        style={{ pointerEvents: "none" }}
+      >
+        <div className="px-1 py-0.5 rounded bg-black/80 text-[9px] text-cyan-100/95 border border-cyan-400/30 whitespace-nowrap font-mono">
+          {pin.name}
+        </div>
+      </Html>
+    ));
+
+  /**
+   * Prefer parametric life-mm meshes. GLB only when assetUrl is set (glbReady)
+   * and loads cleanly — never Suspense-fallback to full parametric (avoids double draw).
+   * Pin stubs: parametric meshes already include them; overlay only for GLB path.
+   */
+  const body = node.assetUrl ? (
+    <GlbErrorBoundary fallback={inner}>
+      <Suspense fallback={null}>
+        <CatalogGlbUnderlay
+          url={node.assetUrl}
+          rootScale={rootScale}
+          opacity={opacity}
+        />
+      </Suspense>
+    </GlbErrorBoundary>
+  ) : (
+    inner
+  );
+
   return (
-    <group
-      ref={meshRef}
+    <SmoothRoot
       position={pos}
       rotation={node.rotation as [number, number, number]}
+      meshRef={meshRef}
     >
-      {inner}
-      {selected && (
-        <Html position={[0, 0.14, 0]} center distanceFactor={4}>
-          <div className="px-2 py-0.5 rounded-md bg-black/80 text-cyan-100 text-[10px] whitespace-nowrap pointer-events-none border border-cyan-500/30 shadow-lg">
-            {node.ref ? `${node.ref} · ${node.label}` : node.label}
-          </div>
-        </Html>
-      )}
-    </group>
+      <group onClick={onClick} onDoubleClick={onDoubleClick}>
+        {body}
+        {node.assetUrl &&
+          meshPinStubsForNode(node.id).map((pin) => (
+            <PinStub
+              key={`overlay-${pin.name}`}
+              position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
+              scale={s}
+              opacity={opacity}
+              netColor={pin.netColor}
+            />
+          ))}
+        {inspectLabels}
+        {/* Label only while isolated/selected — distanceFactor keeps it on-screen, not mesh-sized junk */}
+        {(selected || isolated) && (
+          <Html position={[0, 0.12, 0]} center distanceFactor={8} style={{ pointerEvents: "none" }}>
+            <div className="px-2 py-0.5 rounded-md bg-black/85 text-cyan-50 text-[10px] font-medium whitespace-nowrap border border-cyan-400/40 shadow-lg">
+              {node.ref ? `${node.ref} · ${node.label}` : node.label}
+              {isolated ? " · inspect" : ""}
+            </div>
+          </Html>
+        )}
+      </group>
+    </SmoothRoot>
   );
 }
 
