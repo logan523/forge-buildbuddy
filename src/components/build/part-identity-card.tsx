@@ -8,14 +8,44 @@
  */
 
 import type { BuildPlan, MicroStep, Part } from "@/lib/types";
-import { realPartForPart, sizeLabel, bestBuyLink, keyFootgun } from "@/lib/part-identity";
+import { realPartForPart, partCatalogId, sizeLabel, bestBuyLink, keyFootgun } from "@/lib/part-identity";
+import { useProbedImage } from "./use-probed-image";
 
-function PartIdentityCard({ part, role }: { part: Part; role: "from" | "to" }) {
+/**
+ * Real bench photo of the part, if the founder has shot one:
+ * public/build-photos/<planId>/part-<catalogId>.jpg. Renders nothing until it
+ * decodes (no ghost card), so the 3D model stays the answer until a photo exists.
+ */
+function PartPhoto({ planId, part }: { planId: string; part: Part }) {
+  const catalogId = partCatalogId(part);
+  const src = catalogId ? `/build-photos/${planId}/part-${catalogId}.jpg` : "";
+  const loaded = useProbedImage(src);
+  if (!catalogId || !loaded) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={`Photo of ${part.name}`}
+      className="w-full h-20 object-cover rounded-lg border border-border-subtle"
+    />
+  );
+}
+
+function PartIdentityCard({
+  part,
+  role,
+  planId,
+}: {
+  part: Part;
+  role: "from" | "to";
+  planId: string;
+}) {
   const real = realPartForPart(part);
   const buy = bestBuyLink(part);
   const footgun = keyFootgun(part);
   return (
     <div className="rounded-xl border border-border bg-surface p-3 space-y-1.5">
+      <PartPhoto planId={planId} part={part} />
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-text leading-tight">{part.name}</p>
         <span className="text-[9px] uppercase tracking-wide text-text-muted shrink-0 mt-0.5">
@@ -70,8 +100,8 @@ export function WireAndPartsIdentity({ micro, plan }: { micro: MicroStep; plan: 
           wire.
         </p>
       </div>
-      {from && <PartIdentityCard part={from} role="from" />}
-      {to && <PartIdentityCard part={to} role="to" />}
+      {from && <PartIdentityCard part={from} role="from" planId={plan.id} />}
+      {to && <PartIdentityCard part={to} role="to" planId={plan.id} />}
     </div>
   );
 }

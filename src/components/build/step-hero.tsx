@@ -13,6 +13,7 @@ import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { resolveStepMedia } from "@/lib/step-media";
 import { ProductAssemblyApp } from "@/components/product-assembly-app";
 import { useOverlay } from "./use-overlay";
+import { useProbedImage } from "./use-probed-image";
 
 function useStageHeight(): number {
   const [h, setH] = useState(420);
@@ -32,33 +33,11 @@ function useStageHeight(): number {
 
 function PhotoCard({ planId, stepNumber }: { planId: string; stepNumber: number }) {
   // Renders nothing until a real photo decodes — a missing file must never
-  // flash a ghost card. Probing with img.decode() is timing-proof: it
-  // resolves even for cached images whose load event fired before React
-  // attached listeners, and rejects on 404s (which can hang before erroring
-  // in dev).
-  const [loaded, setLoaded] = useState(false);
+  // flash a ghost card (probe is timing-proof, see useProbedImage).
   const [lightbox, setLightbox] = useState(false);
   useOverlay(() => setLightbox(false), lightbox);
   const src = `/build-photos/${planId}/step-${stepNumber}.jpg`;
-
-  useEffect(() => {
-    setLoaded(false);
-    let alive = true;
-    const probe = new Image();
-    // Handlers attach BEFORE src so a cache-synchronous load can't slip past;
-    // (img.decode() hangs in some embedders, so no reliance on it).
-    probe.onload = () => {
-      if (alive && probe.naturalWidth > 0) setLoaded(true);
-    };
-    probe.onerror = () => {
-      if (alive) setLoaded(false);
-    };
-    probe.src = src;
-    if (probe.complete && probe.naturalWidth > 0) setLoaded(true);
-    return () => {
-      alive = false;
-    };
-  }, [src]);
+  const loaded = useProbedImage(src);
 
   if (!loaded) return null;
   return (
