@@ -6,6 +6,7 @@ import type { BuildPlan } from "@/lib/types";
 import type { ElectricalModel, NetClass } from "@/lib/electrical/types";
 import type { ProductScene3D, SceneNode3D } from "./types";
 import type { SpatialReasonNote } from "./spatial-reason";
+import { netColorFor } from "@/lib/wire-colors";
 
 export interface SceneEdge3D {
   id: string;
@@ -18,40 +19,8 @@ export interface SceneEdge3D {
   label?: string;
 }
 
-const NET_COLORS: Record<string, string> = {
-  gnd: "#64748b",
-  power: "#ef4444",
-  i2c: "#3b82f6",
-  spi: "#a855f7",
-  uart: "#22c55e",
-  analog: "#f59e0b",
-  digital: "#06b6d4",
-  other: "#94a3b8",
-};
-
-function colorForNet(netClass: string, wireColor?: string): string {
-  if (wireColor && /^#?[0-9a-fA-F]{3,8}$/.test(wireColor.replace(/^#/, ""))) {
-    return wireColor.startsWith("#") ? wireColor : `#${wireColor}`;
-  }
-  const map: Record<string, string> = {
-    red: "#ef4444",
-    black: "#1e293b",
-    blue: "#3b82f6",
-    green: "#22c55e",
-    yellow: "#eab308",
-    orange: "#f97316",
-    white: "#e2e8f0",
-    brown: "#92400e",
-    purple: "#a855f7",
-    grey: "#94a3b8",
-    gray: "#94a3b8",
-  };
-  if (wireColor) {
-    const k = wireColor.toLowerCase().trim();
-    if (map[k]) return map[k];
-  }
-  return NET_COLORS[netClass] || NET_COLORS.other;
-}
+// Edge colors resolve through THE authority (src/lib/wire-colors.ts) — the
+// spars' former private palette disagreed with the harness on 5 of 8 classes.
 
 /**
  * Map electrical ref / part id → scene node id.
@@ -141,7 +110,7 @@ export function buildConnectionEdges(
         toNodeId: b,
         netName: net.name,
         netClass: net.netClass,
-        color: colorForNet(net.netClass, wireColor),
+        color: netColorFor(net.netClass, wireColor, net.name),
         label: net.name,
       });
       if (edges.length >= maxEdges) break;

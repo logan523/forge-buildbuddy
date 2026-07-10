@@ -9,6 +9,7 @@ import type { ElectricalModel } from "@/lib/electrical/types";
 import type { ProductScene3D, SceneNode3D } from "./types";
 import type { AssemblyRecipe, PartDef } from "./assembly-recipe";
 import { mapRefToNodeId } from "./connection-spars";
+import { netColorFor } from "@/lib/wire-colors";
 
 export type WireInsulation = "pvc" | "enamel" | "silicone";
 
@@ -32,39 +33,8 @@ export interface WireRoute3D {
   awg: number;
 }
 
-const NET_COLORS: Record<string, string> = {
-  gnd: "#1e293b",
-  power: "#dc2626",
-  i2c: "#2563eb",
-  spi: "#a855f7",
-  uart: "#16a34a",
-  analog: "#d97706",
-  digital: "#0891b2",
-  signal: "#0891b2",
-  other: "#94a3b8",
-};
-
-function colorFor(netClass: string, wireColor?: string): string {
-  if (wireColor) {
-    const map: Record<string, string> = {
-      red: "#dc2626",
-      black: "#1e293b",
-      blue: "#2563eb",
-      green: "#16a34a",
-      yellow: "#eab308",
-      orange: "#ea580c",
-      white: "#e2e8f0",
-      brown: "#92400e",
-      purple: "#a855f7",
-    };
-    const k = wireColor.toLowerCase();
-    if (map[k]) return map[k];
-    if (/^#?[0-9a-f]{3,8}$/i.test(wireColor.replace("#", ""))) {
-      return wireColor.startsWith("#") ? wireColor : `#${wireColor}`;
-    }
-  }
-  return NET_COLORS[netClass] || NET_COLORS.other;
-}
+// Wire colors resolve through THE authority (src/lib/wire-colors.ts) —
+// class color wins on classed nets; SDA/SCL stay distinguishable (eng V5).
 
 function metaForClass(netClass: string): {
   gauge: number;
@@ -427,7 +397,7 @@ export function buildHarnesses(
         to: b!.nodeId,
         netName: net.name,
         netClass: net.netClass,
-        color: colorFor(net.netClass, (net as { wireColor?: string }).wireColor),
+        color: netColorFor(net.netClass, (net as { wireColor?: string }).wireColor, net.name),
         fromPin: a!.pin,
         toPin: b!.pin,
         fromRole: a!.role,
@@ -498,7 +468,7 @@ export function buildHarnesses(
       to: b,
       netName: name,
       netClass: cls,
-      color: colorFor(cls),
+      color: netColorFor(cls, undefined, name),
       fromPin: pa,
       toPin: pb,
       fromRole: ra,
@@ -599,13 +569,5 @@ export function wiresForPart(wires: WireRoute3D[], nodeId: string): WireRoute3D[
   return wires.filter((w) => w.fromNodeId === nodeId || w.toNodeId === nodeId);
 }
 
-/** Legend rows for UI */
-export function wireLegend(): { netClass: string; color: string; meaning: string }[] {
-  return [
-    { netClass: "power", color: NET_COLORS.power, meaning: "Power (VCC / B+)" },
-    { netClass: "gnd", color: NET_COLORS.gnd, meaning: "Ground" },
-    { netClass: "i2c", color: NET_COLORS.i2c, meaning: "I²C (SDA/SCL)" },
-    { netClass: "digital", color: NET_COLORS.digital, meaning: "Digital / GPIO" },
-    { netClass: "analog", color: NET_COLORS.analog, meaning: "Solar / analog" },
-  ];
-}
+/** Legend rows for UI — re-exported from the single color authority. */
+export { wireLegend } from "@/lib/wire-colors";

@@ -231,7 +231,9 @@ export function nodePresent(frame: AssemblyFrame, nodeId: string): boolean {
 /** Map build step → phase index via mediaKind / title keywords. */
 export function phaseIndexForStep(
   recipe: AssemblyRecipe,
-  step?: { title?: string; description?: string; mediaKind?: string } | null
+  step?: { title?: string; description?: string; mediaKind?: string } | null,
+  stepIndex?: number,
+  totalSteps?: number
 ): number {
   if (!step) return recipe.phases.length - 1;
   const mk = step.mediaKind || "";
@@ -245,5 +247,11 @@ export function phaseIndexForStep(
   if (/touch|ttp|sensor|sht|temp|humid/.test(t)) return 5;
   if (/solar|wing|panel/.test(t)) return 6;
   if (/final|complete|assembl/.test(t)) return 7;
-  return Math.min(7, recipe.phases.length - 1);
+  // Unmatched: proportional to build position — never show the finished
+  // product mid-build (the old fallback landed on the FINAL phase).
+  const maxPhase = recipe.phases.length - 1;
+  if (stepIndex != null && totalSteps != null && totalSteps > 1) {
+    return Math.min(maxPhase, Math.round((stepIndex / (totalSteps - 1)) * maxPhase));
+  }
+  return Math.min(7, maxPhase);
 }

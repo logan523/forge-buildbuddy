@@ -1,5 +1,6 @@
 /** Hand-authored instructional SVGs — one action per diagram. HTML fragments (no XML prolog). */
 import { escAttr, escText, markerDefs } from "./svg-util";
+import { WIRE_NAME_HEX } from "@/lib/wire-colors";
 
 export function svgOledDesolder(): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" role="img" aria-label="Remove OLED header pins">
@@ -117,10 +118,10 @@ export function svgI2cWiring(): string {
   <!-- ESP32 -->
   <rect x="30" y="50" width="100" height="140" rx="6" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
   <text x="80" y="75" text-anchor="middle" font-weight="700" font-size="12" fill="#0c4a6e">ESP32-C3</text>
-  <text x="45" y="105" font-size="10" fill="#dc2626" font-family="ui-monospace,monospace">3V3</text>
-  <text x="45" y="130" font-size="10" fill="#0f172a" font-family="ui-monospace,monospace">GND</text>
-  <text x="45" y="155" font-size="10" fill="#2563eb" font-family="ui-monospace,monospace">GPIO4 SDA</text>
-  <text x="45" y="180" font-size="10" fill="#ca8a04" font-family="ui-monospace,monospace">GPIO5 SCL</text>
+  <text x="45" y="105" font-size="10" fill="${WIRE_NAME_HEX.red}" font-family="ui-monospace,monospace">3V3</text>
+  <text x="45" y="130" font-size="10" fill="${WIRE_NAME_HEX.black}" font-family="ui-monospace,monospace">GND</text>
+  <text x="45" y="155" font-size="10" fill="${WIRE_NAME_HEX.blue}" font-family="ui-monospace,monospace">GPIO4 SDA</text>
+  <text x="45" y="180" font-size="10" fill="${WIRE_NAME_HEX.yellow}" font-family="ui-monospace,monospace">GPIO5 SCL</text>
   <!-- OLED -->
   <rect x="280" y="50" width="110" height="140" rx="6" fill="#0b1220" stroke="#38bdf8" stroke-width="2"/>
   <text x="335" y="75" text-anchor="middle" font-weight="700" font-size="12" fill="#e2e8f0">OLED</text>
@@ -129,11 +130,11 @@ export function svgI2cWiring(): string {
   <text x="295" y="155" font-size="10" fill="#93c5fd" font-family="ui-monospace,monospace">SDA</text>
   <text x="295" y="180" font-size="10" fill="#fde047" font-family="ui-monospace,monospace">SCL</text>
   <!-- wires -->
-  <line x1="130" y1="100" x2="280" y2="100" stroke="#dc2626" stroke-width="3"/>
-  <line x1="130" y1="125" x2="280" y2="125" stroke="#0f172a" stroke-width="3"/>
-  <line x1="130" y1="150" x2="280" y2="150" stroke="#2563eb" stroke-width="3"/>
-  <line x1="130" y1="175" x2="280" y2="175" stroke="#ca8a04" stroke-width="3"/>
-  <text x="210" y="95" text-anchor="middle" font-size="9" fill="#dc2626">red 3.3V</text>
+  <line x1="130" y1="100" x2="280" y2="100" stroke="${WIRE_NAME_HEX.red}" stroke-width="3"/>
+  <line x1="130" y1="125" x2="280" y2="125" stroke="${WIRE_NAME_HEX.black}" stroke-width="3"/>
+  <line x1="130" y1="150" x2="280" y2="150" stroke="${WIRE_NAME_HEX.blue}" stroke-width="3"/>
+  <line x1="130" y1="175" x2="280" y2="175" stroke="${WIRE_NAME_HEX.yellow}" stroke-width="3"/>
+  <text x="210" y="95" text-anchor="middle" font-size="9" fill="${WIRE_NAME_HEX.red}">red 3.3V</text>
   <text x="210" y="220" text-anchor="middle" font-size="12" font-weight="600" fill="#0f172a">Never put OLED VCC on 5V</text>
   <text x="210" y="245" text-anchor="middle" font-size="11" fill="#57534e">Same four wires to the sensor if you have one</text>
   <text x="210" y="280" text-anchor="middle" font-size="11" fill="#0369a1">Black = shared ground on every board</text>

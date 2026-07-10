@@ -117,8 +117,13 @@ export function ProductAssemblyApp({
   const initialScrub = useMemo(() => {
     if (!recipe) return maxPhase;
     if (stepIndex === "prep") return maxPhase;
-    return phaseIndexForStep(recipe, step);
-  }, [recipe, stepIndex, step, maxPhase]);
+    return phaseIndexForStep(
+      recipe,
+      step,
+      typeof stepIndex === "number" ? stepIndex : undefined,
+      plan.steps?.length
+    );
+  }, [recipe, stepIndex, step, maxPhase, plan.steps?.length]);
 
   const [scrub, setScrub] = useState(initialScrub);
   const [playing, setPlaying] = useState(false);
@@ -389,7 +394,7 @@ export function ProductAssemblyApp({
             <ul className="space-y-0.5">
               {wireLegend().map((row) => (
                 <li
-                  key={row.netClass}
+                  key={`${row.netClass}-${row.meaning}`}
                   className="flex items-center gap-1.5 text-[10px] text-white/70"
                 >
                   <span

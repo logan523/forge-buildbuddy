@@ -1,4 +1,5 @@
 import type { BuildPlan, BuildStep, Part } from "./types";
+import { stepKind } from "./steps/classify";
 
 export type SymptomId =
   | "blank_display"
@@ -67,15 +68,8 @@ function hasText(blob: string, ...needles: string[]): boolean {
   return needles.some((n) => blob.includes(n));
 }
 
-function stepKind(step?: BuildStep): "wiring" | "software" | "mechanical" | "verify" | "general" {
-  if (!step) return "general";
-  const t = `${step.title} ${step.description}`.toLowerCase();
-  if (/\b(upload|code|program|compile|flash|firmware|arduino|platformio)\b/.test(t)) return "software";
-  if (/\b(connect|solder|pin|wire\s+up|wiring)\b/.test(t) && !/\bbrass|copper\b.*wire|bend.*wire/i.test(t)) return "wiring";
-  if (/\b(bend|cut|drill|mount|prepare|mark|assemble|sand)\b/.test(t)) return "mechanical";
-  if (/\b(verify|test|check|measure|confirm|calibrat)\b/.test(t)) return "verify";
-  return "general";
-}
+// Step classification lives in src/lib/steps/classify.ts (one authority,
+// R1 goldens pin equivalence with the previous local copy).
 
 /** Symptoms that make sense for this plan/step — hide irrelevant ones. */
 export function relevantSymptoms(plan: BuildPlan, step?: BuildStep): SymptomOption[] {

@@ -4,6 +4,7 @@ import type { BuildPlan, BuildStep, Part } from "@/lib/types";
 import type { FirmwarePackage } from "@/lib/firmware";
 import type { ProductVisual } from "@/lib/product-visual";
 import { InstructionCard } from "@/components/instruction-card";
+import { stepKind, kindLabel } from "@/lib/steps/classify";
 import { StepMediaPanel } from "@/components/step-media-panel";
 import type { DetailLevel, DrawerId } from "./use-build-state";
 
@@ -180,26 +181,7 @@ export function BuildScreen({
                   step={s}
                   stepIndex={stepIndex}
                   totalSteps={steps.length}
-                  kindLabel={(() => {
-                    const st = `${s.title || ""} ${s.description || ""}`.toLowerCase();
-                    const isMech =
-                      /\b(bend|cut|drill|mount|prepare|mark|assemble|install|strip|sand)\b/.test(st) &&
-                      !/\b(connect|solder|pin|wire\s+up|upload|code|flash)\b/.test(st);
-                    const isWire =
-                      /\b(connect|solder|pin|attach|wire\s+up|wiring)\b/.test(st) &&
-                      !/\b(brass|copper)\s+wire|bend.*wire/i.test(st);
-                    const isSw = /\b(upload|code|program|compile|flash|firmware)\b/.test(st);
-                    const isVf = /\b(verify|test|check|measure|confirm|calibrat)\b/.test(st);
-                    return isWire
-                      ? "Wiring"
-                      : isSw
-                        ? "Software"
-                        : isVf
-                          ? "Check"
-                          : isMech
-                            ? "Hands-on"
-                            : "Step";
-                  })()}
+                  kindLabel={kindLabel(stepKind(s))}
                   detailLevel={detailLevel}
                 />
               )}

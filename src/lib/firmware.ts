@@ -1,5 +1,6 @@
 import type { BuildPlan, Part, WiringConnection } from "./types";
 import { getModuleById } from "./catalog";
+import { stepKind } from "./steps/classify";
 
 export interface FirmwareSketch {
   id: string;
@@ -582,7 +583,5 @@ Use the generated \`platformio.ini\` if you prefer PIO over Arduino IDE.
 
 /** True when this step is primarily about code upload. */
 export function isSoftwareStep(step?: { title?: string; description?: string }): boolean {
-  if (!step) return false;
-  const t = `${step.title || ""} ${step.description || ""}`.toLowerCase();
-  return /\b(upload|code|program|compile|flash|firmware|arduino\s*ide|platformio|sketch)\b/.test(t);
+  return stepKind(step) === "software";
 }
