@@ -12,7 +12,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { GlossaryText, ConnectionsTable } from "@/components/step-facts";
 import { diagnose, type SymptomId } from "@/lib/unstick";
-import { resolveStepMedia } from "@/lib/step-media";
 import { loadWireChecks, saveWireChecks } from "@/lib/storage";
 
 export function GuidedSteps({
@@ -54,7 +53,6 @@ export function GuidedSteps({
     return () => onActiveWire?.(null);
   }, [cur, showAll, onActiveWire]);
 
-  const media = useMemo(() => resolveStepMedia(step), [step]);
   const rescue = useMemo(() => {
     if (!cur?.rescueSymptomId) return null;
     return diagnose(plan, cur.rescueSymptomId as SymptomId, step)[0] ?? null;
@@ -146,17 +144,6 @@ export function GuidedSteps({
           {cur.fromLabel}, and <span className="font-mono font-semibold text-text">{cur.toPin}</span> on the{" "}
           {cur.toLabel}. <span className="text-text-muted">Trust the printed label, not the position.</span>
         </div>
-
-        {/* Technique inset — only on the first wire, so it's help not clutter */}
-        {cur.showTechnique && media.svg && (
-          <details className="rounded-xl border border-border-subtle overflow-hidden" open>
-            <summary className="text-xs font-semibold text-text-secondary px-3 py-2 cursor-pointer bg-surface-overlay">
-              {media.title}
-            </summary>
-            <div className="p-2 bg-white" dangerouslySetInnerHTML={{ __html: media.svg }} />
-            {media.caption && <p className="text-[11px] text-text-muted px-3 pb-2">{media.caption}</p>}
-          </details>
-        )}
 
         {/* Verify it */}
         <div className="rounded-xl bg-success-soft/50 border border-success/25 p-3 space-y-1.5">

@@ -239,7 +239,7 @@ export function ProductAssemblyApp({
     if (!nodeIds.length) return null;
     // Frame against the ASSEMBLED positions (framedNodes), not baseScene —
     // base positions are pre-assembly, so framing those aims at empty space.
-    const f = frameForNodeIds(framedNodes, nodeIds, baseScene.rootScale, 1.35);
+    const f = frameForNodeIds(framedNodes, nodeIds, baseScene.rootScale, 1.15);
     return { position: f.position, target: f.target };
   }, [stepChrome, step, baseScene.nodes, framedNodes, baseScene.rootScale]);
 

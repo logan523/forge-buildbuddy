@@ -130,9 +130,20 @@ interface Assignment {
   unassigned: CompiledConnection[];
 }
 
+/**
+ * A "prepare/desolder" step makes NO net connections — you're removing a header
+ * or prepping a module, not wiring a net. The classifier can still label these
+ * "wiring" (they mention "solder"), but they must not absorb connection legs,
+ * or a desolder step ends up telling you to "solder the black wire." Keep them
+ * out of the candidate pool so the connections land on the real wiring step.
+ */
+function isPrepStep(step: BuildStep): boolean {
+  return /\b(prepare|desolder|de-solder)\b|\bremove the .*(header|pins?)\b/i.test(step.title || "");
+}
+
 /** Assign each edge to its best-matching wiring step; ties → earliest step. */
 export function assignEdges(steps: BuildStep[], edges: CompiledConnection[]): Assignment {
-  const wiringSteps = steps.filter((s) => stepKind(s) === "wiring");
+  const wiringSteps = steps.filter((s) => stepKind(s) === "wiring" && !isPrepStep(s));
   const blobs = new Map(wiringSteps.map((s) => [s.stepNumber, stepBlob(s)]));
   const byStep = new Map<number, CompiledConnection[]>();
   const unassigned: CompiledConnection[] = [];
