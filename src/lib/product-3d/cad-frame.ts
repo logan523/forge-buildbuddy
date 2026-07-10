@@ -84,8 +84,10 @@ export function cadCameraForNodes(
   const b = sceneWorldBounds(nodes, rootScale);
   // Tight enough to read detail, loose enough that wings/stand never clip
   const dist = Math.max(1.6, b.radius * 2.1 * margin);
-  // Standard CAD isometric-ish diagonal (right, up, front)
-  const dir: [number, number, number] = [0.72, 0.55, 0.85];
+  // Standard CAD isometric-ish diagonal (right, up, front). Higher `up`
+  // component so the camera starts ABOVE the object looking down (~38°),
+  // not low looking up — the tall stand pulls the bbox center down.
+  const dir: [number, number, number] = [0.72, 0.86, 0.85];
   const len = Math.hypot(...dir) || 1;
   const ux = dir[0] / len;
   const uy = dir[1] / len;

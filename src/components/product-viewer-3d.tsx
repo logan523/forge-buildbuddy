@@ -686,7 +686,8 @@ function SceneContent({
           />
         </Suspense>
       </EnvBoundary>
-      <Lightformer intensity={1.1} position={[0, 4.5, 2]} scale={[10, 2.5, 1]} form="rect" />
+      {/* (removed the standalone visible Lightformer rect — it read as a
+          bright "block of sun" in-frame; the HDRI IBL now covers reflections) */}
       <fog attach="fog" args={["#23282f", 9, 24]} />
 
       {showBeauty && beautySpec && (
