@@ -8,6 +8,7 @@ import { InstructionCard } from "@/components/instruction-card";
 import { stepKind, kindLabel } from "@/lib/steps/classify";
 import { StepHero } from "./step-hero";
 import { HandsFreeMode } from "./hands-free";
+import { AskAboutStep } from "./ask-step";
 import { useOverlay } from "./use-overlay";
 import type { DetailLevel, DrawerId } from "./use-build-state";
 
@@ -281,6 +282,14 @@ export function BuildScreen({
               >
                 🎙 Hands-free mode
               </button>
+
+              {s && (
+                <AskAboutStep
+                  step={s}
+                  parts={plan.parts}
+                  onOpenUnstick={() => onOpenDrawer("unstick")}
+                />
+              )}
 
               {stepIndex === steps.length - 1 && completed.has(s?.stepNumber || 0) && (
                 <div className="mt-4 p-5 rounded-2xl border border-success/25 bg-success-soft/50 text-center space-y-3">

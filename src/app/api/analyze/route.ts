@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkApiGuards, clientIp } from "@/lib/api-guards";
 import { fetchTranscript, extractVideoId } from "@/lib/transcript";
 import { enrichLivePrices, nexarConfigured } from "@/lib/nexar";
 import { estimateBom } from "@/lib/cart";
@@ -39,6 +40,12 @@ export async function POST(request: Request) {
       { error: "Please provide a YouTube URL or project description." },
       { status: 400 }
     );
+  }
+
+  // Abuse/spend guards (eng F3 + Tension E) — fail closed, friendly message.
+  const guard = checkApiGuards("analyze", clientIp(request), text.length);
+  if (!guard.ok) {
+    return NextResponse.json({ error: guard.message }, { status: guard.status });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
