@@ -60,6 +60,8 @@ export {
   phaseIndexForStep,
 } from "./assembly-recipe";
 export { SAT_CLOCK_RECIPE, getRecipeForTemplate } from "./sat-clock-recipe";
+export { auditPlanRender, auditStepRender, scrubForStep } from "./step-render-audit";
+export type { StepRenderFinding } from "./step-render-audit";
 export {
   SAT_PIN_LOCALS,
   SAT_PIN_NODE_IDS,

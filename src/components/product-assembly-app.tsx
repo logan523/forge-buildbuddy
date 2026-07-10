@@ -12,12 +12,12 @@ import {
   getRecipeForTemplate,
   resolveAssemblyFrame,
   applyFrameToNodes,
-  phaseIndexForStep,
   buildHarnesses,
   wiresForPart,
   wireLegend,
   buildAssemblyTree,
   frameForNodeIds,
+  scrubForStep,
   type BeautyMeshSpec,
   type LayerViewState,
   type WireRoute3D,
@@ -132,18 +132,12 @@ export function ProductAssemblyApp({
 
   const initialScrub = useMemo(() => {
     if (!recipe) return maxPhase;
-    if (stepIndex === "prep") return maxPhase;
-    // A wiring step happens on the fully-assembled product — every part is
-    // mounted before you connect it. Show the whole board present, then the
-    // focus camera zooms to exactly the parts being wired. (Without this the
-    // regex phase can land early, leaving the wired parts not yet present.)
-    if (step?.compiled?.focusPartIds?.length) return maxPhase;
-    return phaseIndexForStep(
-      recipe,
-      step,
-      typeof stepIndex === "number" ? stepIndex : undefined,
-      plan.steps?.length
-    );
+    if (stepIndex === "prep" || typeof stepIndex !== "number") return maxPhase;
+    // scrubForStep is the shared rule the render-audit validates against: a
+    // wiring step (has focusPartIds) shows the fully-assembled product so the
+    // focus camera can zoom to exactly the parts being wired; otherwise fall
+    // back to the recipe phase for this step.
+    return scrubForStep(recipe, step, stepIndex, plan.steps?.length ?? 1);
   }, [recipe, stepIndex, step, maxPhase, plan.steps?.length]);
 
   const [scrub, setScrub] = useState(initialScrub);
