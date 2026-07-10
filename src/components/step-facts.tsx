@@ -90,6 +90,19 @@ export function ConnectionsTable({ compiled }: { compiled: CompiledStepFacts }) 
                 <span aria-hidden> → </span>
                 <span className="sr-only"> to </span>
                 {c.toLabel} · <span className="font-bold text-text">{c.toPin}</span>
+                {c.domainLabel && (
+                  <span
+                    className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full text-[9px] font-sans font-semibold align-[1px]"
+                    style={{
+                      color: c.domainColorHex,
+                      background: `${c.domainColorHex}1a`,
+                      border: `1px solid ${c.domainColorHex}55`,
+                    }}
+                    title={`This wire carries the ${c.domainLabel} domain`}
+                  >
+                    {c.domainLabel}
+                  </span>
+                )}
               </td>
               <td className="pr-3 py-2 text-right align-middle">
                 <span
@@ -107,9 +120,46 @@ export function ConnectionsTable({ compiled }: { compiled: CompiledStepFacts }) 
           ))}
         </tbody>
       </table>
+      <DomainLegend compiled={compiled} />
       <p className="px-3 pb-2 pt-1 text-[10px] text-text-muted">
         Pins are the labels printed on each board — trust the silkscreen, not the pin position.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The 3.3V Island legend: the distinct voltage domains in this step, colored, so
+ * a beginner learns to see voltage as islands. Power domains get a "keep them
+ * apart" nudge — the whole point of the color language.
+ */
+function DomainLegend({ compiled }: { compiled: CompiledStepFacts }) {
+  const domains = new Map<string, { label: string; color: string }>();
+  for (const c of compiled.connections) {
+    if (c.domainKey && c.domainLabel && c.domainColorHex) {
+      domains.set(c.domainKey, { label: c.domainLabel, color: c.domainColorHex });
+    }
+  }
+  if (domains.size < 2) return null;
+  const powerIslands = [...domains.keys()].filter((k) => k === "3v3" || k === "5v" || k === "batt");
+  return (
+    <div className="px-3 pt-1.5 pb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="text-[9px] uppercase tracking-wider text-text-muted">Voltage islands:</span>
+      {[...domains.values()].map((d) => (
+        <span key={d.label} className="inline-flex items-center gap-1 text-[10px] text-text-secondary">
+          <span
+            aria-hidden
+            className="inline-block w-2.5 h-2.5 rounded-full ring-1 ring-black/15"
+            style={{ background: d.color }}
+          />
+          {d.label}
+        </span>
+      ))}
+      {powerIslands.length >= 2 && (
+        <span className="text-[10px] text-warning w-full">
+          ⚠ Different power colors are different voltages — never bridge them, or you can fry a part.
+        </span>
+      )}
     </div>
   );
 }

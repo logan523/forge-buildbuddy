@@ -120,6 +120,11 @@ export interface CompiledConnection {
   colorHex: string;
   colorName: string;
   grade: "consistent" | "derived";
+  /** Voltage-domain island ("The 3.3V Island") — derived from the net's domainV. */
+  domainKey?: string;
+  domainLabel?: string;
+  domainColorHex?: string;
+  domainVolts?: number | null;
 }
 
 export interface CompiledCheck {

@@ -27,6 +27,7 @@ import type {
 } from "@/lib/types";
 import type { ElectricalModel, ElectricalNet, NetMember } from "@/lib/electrical/types";
 import { netColorFor, wireColorName } from "@/lib/wire-colors";
+import { domainForNet } from "@/lib/electrical/voltage-domains";
 import { stepKind } from "./classify";
 import { buildMicroSteps } from "./micro-steps";
 
@@ -74,6 +75,7 @@ export function edgesFromModel(plan: BuildPlan, model: ElectricalModel): Compile
       const colorHex = netColorFor(net.netClass, wireColor, net.name);
       const colorName = wireColorName(colorHex);
       const grade: CompiledConnection["grade"] = members.length === 2 ? "consistent" : "derived";
+      const domain = domainForNet(net);
       const hub = members.length === 2 ? members[0] : pickHub(members);
       for (const m of members) {
         if (m === hub) continue;
@@ -90,6 +92,10 @@ export function edgesFromModel(plan: BuildPlan, model: ElectricalModel): Compile
           colorHex,
           colorName,
           grade,
+          domainKey: domain.key,
+          domainLabel: domain.label,
+          domainColorHex: domain.colorHex,
+          domainVolts: domain.volts,
         });
       }
     } catch {
