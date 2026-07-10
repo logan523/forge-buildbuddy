@@ -27,7 +27,6 @@ const VENDOR_LABEL: Record<string, string> = {
 // Beginner glossary lives in src/lib/glossary.ts (one authority; step text
 // popovers and part-row tooltips share it).
 import { glossaryTip } from "@/lib/glossary";
-export { glossaryTip };
 
 // ── Part category icons ──
 export function partIcon(name: string, spec: string): string {

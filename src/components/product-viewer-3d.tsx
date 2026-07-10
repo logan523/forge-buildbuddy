@@ -517,8 +517,17 @@ function SceneContent({
     if (idleTimer.current) clearTimeout(idleTimer.current);
   }, []);
 
-  // Stable CAD framing once per scene identity (not on every click)
+  // A step focus camera OWNS the camera. Stable string key so effects can gate
+  // on it (null in playground/prep → CAD framing runs; set in step mode → it
+  // stands down and the focus framing below is the only writer).
+  const phaseKey = phaseCamera
+    ? `${phaseCamera.position.join(",")}|${phaseCamera.target.join(",")}`
+    : null;
+
+  // Whole-scene CAD framing — playground/prep only. Gated on phaseKey so a step
+  // scene change can never let it re-frame the board over the focus camera.
   useEffect(() => {
+    if (phaseKey) return;
     const key = `${scene.templateId}|${scene.nodes.map((n) => n.id).join(",")}|${scene.rootScale}`;
     if (framedKey.current === key) return;
     framedKey.current = key;
@@ -538,7 +547,7 @@ function SceneContent({
       orbitRef.current?.target?.set(...frame.target);
     });
     return () => cancelAnimationFrame(t);
-  }, [scene.templateId, scene.nodes, scene.rootScale, camera, reducedMotion]);
+  }, [scene.templateId, scene.nodes, scene.rootScale, camera, reducedMotion, phaseKey]);
 
   // Drive the intro dolly (cancelled by user interaction or isolate framing)
   useFrame((_, delta) => {
@@ -550,10 +559,11 @@ function SceneContent({
     if (d.t >= 1) dolly.current = null;
   });
 
-  // Camera-intent arbiter, step framing (eng V2): exactly one writer at a
-  // time; phase hints lerp position AND target together (OrbitControls'
-  // target would otherwise re-aim every frame and yaw the lerp); user
-  // interaction cancels instantly via onStart below.
+  // Camera-intent arbiter, step framing (eng V2). The step focus camera is the
+  // SOLE writer in step mode: it SNAPS to the framed parts on every step change
+  // AND every scene-identity change (navigation swaps present nodes), so the
+  // camera can never be left pointing at empty space or a stale far view. User
+  // orbit between changes is preserved (onStart cancels the intro dolly below).
   const stepLerp = useRef<{
     fromP: Vector3;
     toP: Vector3;
@@ -561,32 +571,19 @@ function SceneContent({
     toT: Vector3;
     t: number;
   } | null>(null);
-  const phaseKey = phaseCamera
-    ? `${phaseCamera.position.join(",")}|${phaseCamera.target.join(",")}`
-    : null;
+  const sceneKey = scene.nodes.map((n) => n.id).join(",");
   useEffect(() => {
-    if (!phaseCamera || view.isolateNodeId) return;
+    if (view.isolateNodeId || !phaseCamera) return;
+    dolly.current = null;
+    stepLerp.current = null;
     const toP = new Vector3(...phaseCamera.position);
     const toT = new Vector3(...phaseCamera.target);
-    if (reducedMotion) {
-      camera.position.copy(toP);
-      camera.lookAt(toT);
-      orbitRef.current?.target?.set(toT.x, toT.y, toT.z);
-      return;
-    }
-    dolly.current = null;
-    const fromT =
-      (orbitRef.current?.target as Vector3 | undefined)?.clone?.() ?? toT.clone();
-    stepLerp.current = {
-      fromP: camera.position.clone(),
-      toP,
-      fromT,
-      toT,
-      t: 0,
-    };
-    onTransient?.();
+    camera.position.copy(toP);
+    camera.lookAt(toT);
+    camera.updateProjectionMatrix();
+    orbitRef.current?.target?.set(toT.x, toT.y, toT.z);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phaseKey, view.isolateNodeId]);
+  }, [phaseKey, sceneKey, view.isolateNodeId]);
 
   useFrame((_, delta) => {
     const s = stepLerp.current;
