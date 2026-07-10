@@ -46,10 +46,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# agent / local review artifacts
-ceo-plans/
+# agent / local review artifacts (root-level only — docs/designs/ is tracked)
+/ceo-plans/
 decisions.active.json
 decisions.jsonl
-designs/
+/designs/
 *-reviews.jsonl
 logansilver-*.md
+.gstack/
