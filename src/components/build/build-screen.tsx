@@ -7,6 +7,7 @@ import type { ProductVisual } from "@/lib/product-visual";
 import { InstructionCard } from "@/components/instruction-card";
 import { stepKind, kindLabel } from "@/lib/steps/classify";
 import { StepHero } from "./step-hero";
+import { NextBuildDoorway } from "./next-build-doorway";
 import { HandsFreeMode } from "./hands-free";
 import { AskAboutStep } from "./ask-step";
 import { useOverlay } from "./use-overlay";
@@ -324,6 +325,7 @@ export function BuildScreen({
                       Publish as a kit
                     </button>
                   </div>
+                  <NextBuildDoorway finished={plan} />
                 </div>
               )}
             </div>
