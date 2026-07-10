@@ -34,6 +34,7 @@ export {
   toggleNodeVisible,
   soloLayer,
   setExplode,
+  toggleConnectionMap,
   setSection,
   toggleSection,
   resetAssemblyView,
@@ -64,6 +65,8 @@ export { auditPlanRender, auditStepRender, scrubForStep } from "./step-render-au
 export type { StepRenderFinding } from "./step-render-audit";
 export { pinWorldPositionMm, frameForPin, resolvePinLocal } from "./pin-focus";
 export { wireRouteForNodes } from "./micro-wire-bridge";
+export { connectionPads } from "./connection-pads";
+export type { ConnectionPad } from "./connection-pads";
 export {
   SAT_PIN_LOCALS,
   SAT_PIN_NODE_IDS,

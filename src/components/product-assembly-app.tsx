@@ -19,6 +19,7 @@ import {
   frameForNodeIds,
   frameForPin,
   wireRouteForNodes,
+  connectionPads,
   scrubForStep,
   type BeautyMeshSpec,
   type LayerViewState,
@@ -31,6 +32,7 @@ import {
   inspectNode,
   selectNode,
   setExplode,
+  toggleConnectionMap,
   isolateNode,
   clearIsolate,
   toggleIsolate,
@@ -38,6 +40,9 @@ import {
 import { meshPinStubsForNode } from "@/lib/product-3d/sat-pins";
 import { deriveStepPresence } from "@/lib/product-3d/step-presence";
 import { ProductViewer3D } from "@/components/product-viewer-3d";
+
+/** Wiring-map spread amount (fraction of full explode; baked into displayNodes). */
+const MAP_SPREAD = 0.7;
 
 function TreeRows({
   node,
@@ -295,15 +300,20 @@ export function ProductAssemblyApp({
       present: presentMap,
       section: view.section,
       isolateNodeId: view.isolateNodeId ?? null,
+      connectionMap: view.connectionMap ?? false,
     }),
     [view, presentMap]
   );
 
   const displayNodes = useMemo(() => {
     if (!recipe || !frame) return framedNodes;
-    if (view.explode <= 0) return framedNodes;
-    return applyFrameToNodes(baseScene.nodes, recipe, frame, view.explode);
-  }, [recipe, frame, framedNodes, baseScene.nodes, view.explode]);
+    // Wiring-map spreads parts apart. Bake the spread into positions here (NOT
+    // view.explode) so meshes, harness, and pads all read one exploded set —
+    // NodeMesh renders these as-is at explode 0, so nothing double-explodes.
+    const amt = Math.max(view.explode, view.connectionMap ? MAP_SPREAD : 0);
+    if (amt <= 0) return framedNodes;
+    return applyFrameToNodes(baseScene.nodes, recipe, frame, amt);
+  }, [recipe, frame, framedNodes, baseScene.nodes, view.explode, view.connectionMap]);
 
   const harnesses: WireRoute3D[] = useMemo(() => {
     if (!recipe || !frame) return [];
@@ -347,6 +357,23 @@ export function ProductAssemblyApp({
     if (!cam && !wireId) return null;
     return { pinCamera: cam, wireId };
   }, [stepChrome, focusWire, partIdToNode, framedNodes, layerView, baseScene.rootScale, harnesses]);
+
+  // Wiring-map: a labeled net-colored pad at every wire endpoint (derived from
+  // the harness paths, so pads sit exactly on the wires), and a loose camera
+  // that fits the whole spread-apart product.
+  const connectionPadList = useMemo(
+    () => (view.connectionMap ? connectionPads(harnesses) : []),
+    [view.connectionMap, harnesses]
+  );
+  const mapCamera = useMemo(() => {
+    if (!view.connectionMap) return null;
+    const ids = presentNodeIds.size
+      ? [...presentNodeIds]
+      : displayNodes.map((n) => n.id);
+    if (!ids.length) return null;
+    const f = frameForNodeIds(displayNodes, ids, baseScene.rootScale, 1.35);
+    return { position: f.position, target: f.target };
+  }, [view.connectionMap, presentNodeIds, displayNodes, baseScene.rootScale]);
 
   const onViewChange = useCallback((lv: LayerViewState) => {
     setView((v) => ({
@@ -496,7 +523,14 @@ export function ProductAssemblyApp({
           harnesses={harnesses}
           sceneNodesOverride={displayNodes}
           onIsolatePart={(id) => setView((v) => toggleIsolate(v, id))}
-          phaseCamera={stepChrome ? (wireFocus?.pinCamera ?? focusCamera) : null}
+          phaseCamera={
+            stepChrome
+              ? view.connectionMap
+                ? mapCamera
+                : (wireFocus?.pinCamera ?? focusCamera)
+              : null
+          }
+          connectionPads={connectionPadList}
           activeWireId={wireFocus?.wireId ?? null}
           idleSpin={stepChrome ? false : undefined}
           transientEpoch={expandEpoch}
@@ -505,11 +539,38 @@ export function ProductAssemblyApp({
           }}
         />
 
+        {/* Wiring-map toggle — spread the parts + label every connection point */}
+        {stepChrome && harnesses.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setView((v) => toggleConnectionMap(v))}
+            aria-pressed={!!view.connectionMap}
+            className={`absolute top-3 right-3 z-10 text-[11px] px-2.5 py-1.5 min-h-[32px] rounded-lg border cursor-pointer font-medium backdrop-blur-sm transition-colors ${
+              view.connectionMap
+                ? "bg-cyan-400 text-black border-cyan-300"
+                : "bg-black/60 text-cyan-100 border-cyan-300/30 hover:bg-black/75"
+            }`}
+            title="Spread the parts apart and label every wire's connection points"
+          >
+            {view.connectionMap ? "✓ Wiring map" : "🔌 Wiring map"}
+          </button>
+        )}
+
         {/* Step callout — on-canvas, touch-visible (was a slider tooltip) */}
-        {stepChrome && frame?.callout && !inspected.node && (
+        {stepChrome && frame?.callout && !inspected.node && !view.connectionMap && (
           <div className="absolute left-3 right-3 bottom-3 z-10 flex items-center gap-2 rounded-lg bg-black/70 backdrop-blur-sm border border-cyan-300/25 px-3 py-2">
             <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_#67e8f9] shrink-0" />
             <p className="text-[11px] text-cyan-50/90 leading-snug truncate">{frame.callout}</p>
+          </div>
+        )}
+
+        {/* Wiring-map hint — what the beginner is looking at */}
+        {stepChrome && view.connectionMap && (
+          <div className="absolute left-3 right-3 bottom-3 z-10 flex items-center gap-2 rounded-lg bg-black/70 backdrop-blur-sm border border-cyan-300/25 px-3 py-2">
+            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_#67e8f9] shrink-0" />
+            <p className="text-[11px] text-cyan-50/90 leading-snug">
+              Parts spread apart. Each colored dot is a connection point — the label is the pin a wire lands on.
+            </p>
           </div>
         )}
 

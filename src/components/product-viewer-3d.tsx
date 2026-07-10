@@ -380,6 +380,55 @@ function WireSpars({
   );
 }
 
+/**
+ * Wiring-map connection pads: a net-colored marker + pin label at every wire
+ * endpoint. Positions come from the harness paths (see connection-pads.ts), so
+ * a pad always sits on its wire even after the parts spread apart.
+ */
+function ConnectionPads({
+  pads,
+  rootScale,
+}: {
+  pads: import("@/lib/product-3d").ConnectionPad[];
+  rootScale: number;
+}) {
+  if (!pads.length) return null;
+  const s = rootScale;
+  return (
+    <group>
+      {pads.map((p, i) => {
+        const pos: [number, number, number] = [
+          p.posMm[0] * s,
+          p.posMm[1] * s,
+          p.posMm[2] * s,
+        ];
+        return (
+          <group key={`${p.nodeId}:${p.pin}:${i}`} position={pos}>
+            <mesh>
+              <sphereGeometry args={[0.024, 16, 16]} />
+              <meshStandardMaterial
+                color={p.color}
+                emissive={p.color}
+                emissiveIntensity={0.55}
+                roughness={0.35}
+                metalness={0.1}
+              />
+            </mesh>
+            <Html center distanceFactor={4.2} style={{ pointerEvents: "none" }} zIndexRange={[20, 0]}>
+              <div
+                className="px-1 py-0.5 rounded bg-black/85 text-[9px] text-white font-mono whitespace-nowrap border"
+                style={{ borderColor: p.color }}
+              >
+                {p.pin}
+              </div>
+            </Html>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
 function nodeLayerVisible(node: SceneNode3D, view: LayerViewState): boolean {
   if (view.visible[node.layer] === false) return false;
   if (view.nodeVisible?.[node.id] === false) return false;
@@ -473,6 +522,7 @@ function SceneContent({
   reducedMotion = false,
   phaseCamera = null,
   activeWireId = null,
+  connectionPads = null,
   monitorActive = true,
   onQualityRise,
   onTransient,
@@ -498,6 +548,8 @@ function SceneContent({
   phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
   /** "Show me" drill-down: the one wire route to light (others dim). */
   activeWireId?: string | null;
+  /** Wiring-map: labeled net-colored pads at each wire endpoint. */
+  connectionPads?: import("@/lib/product-3d").ConnectionPad[] | null;
   /** Suspend the PerformanceMonitor during known-transient churn (eng V3) */
   monitorActive?: boolean;
   onQualityRise?: () => void;
@@ -715,6 +767,10 @@ function SceneContent({
         activeWireId={activeWireId}
       />
 
+      {connectionPads && connectionPads.length > 0 && (
+        <ConnectionPads pads={connectionPads} rootScale={scene.rootScale} />
+      )}
+
       {/* Never remount on select — keeps materials/lights stable */}
       <group>
         {scene.nodes.map((n) => (
@@ -834,6 +890,7 @@ export function ProductViewer3D({
   onIsolatePart,
   phaseCamera = null,
   activeWireId = null,
+  connectionPads = null,
   idleSpin: idleSpinProp,
   transientEpoch = 0,
 }: {
@@ -861,6 +918,8 @@ export function ProductViewer3D({
   phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
   /** "Show me" drill-down: light exactly one wire route. */
   activeWireId?: string | null;
+  /** Wiring-map: labeled net-colored pads at each wire endpoint. */
+  connectionPads?: import("@/lib/product-3d").ConnectionPad[] | null;
   /** Override idle auto-orbit (step variant disables it — eng V2) */
   idleSpin?: boolean;
   /** Bump on canvas-size transitions (expand) to pause the perf monitor */
@@ -1392,6 +1451,7 @@ export function ProductViewer3D({
                 showWires={showWires}
                 harnesses={harnesses}
                 activeWireId={activeWireId}
+                connectionPads={connectionPads}
                 idleSpin={idleSpinProp ?? !!hideChrome}
                 reducedMotion={reducedMotion}
                 phaseCamera={phaseCamera}

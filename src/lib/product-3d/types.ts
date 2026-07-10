@@ -111,6 +111,13 @@ export interface LayerViewState {
     /** 0–1 along axis bounds; 0.5 ≈ mid product */
     offset: number;
   } | null;
+  /**
+   * Wiring-map mode: parts spread apart, bodies ghosted, every wire endpoint
+   * marked with a labeled net-colored pad — so a beginner can read which wire
+   * goes where. Spread is baked into displayNodes (NOT view.explode), so meshes,
+   * harness, and pads share one position set (no double-explode).
+   */
+  connectionMap?: boolean;
 }
 
 /** Per-node pose override (template defaults + user/LLM edit). Keyed by node id. */
@@ -203,6 +210,11 @@ export function nodeOpacity(node: SceneNode3D, view: LayerViewState): number {
   // Isolate peers → ghost; isolated part full
   if (view.isolateNodeId) {
     return view.isolateNodeId === node.id ? 1 : 0.14;
+  }
+  // Wiring-map: ghost part bodies so wires + connection pads are the subject.
+  // The selected/tapped part stays readable.
+  if (view.connectionMap) {
+    return view.selectedNodeId === node.id ? 0.9 : 0.4;
   }
   if (view.soloLayerId && view.soloLayerId !== node.layer) return 0.08;
   if (view.selectedNodeId && view.selectedNodeId === node.id) return 1;

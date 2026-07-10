@@ -44,6 +44,7 @@ export function defaultAssemblyView(nodes: SceneNode3D[]): AssemblyViewState {
     present: {},
     section: null,
     isolateNodeId: null,
+    connectionMap: false,
   };
 }
 
@@ -133,6 +134,11 @@ export function soloLayer(state: AssemblyViewState, layerId: string | null): Ass
 export function setExplode(state: AssemblyViewState, explode: number): AssemblyViewState {
   const t = Math.max(0, Math.min(1, explode));
   return { ...state, explode: t };
+}
+
+/** Toggle the wiring-map (spread parts + labeled connection pads). */
+export function toggleConnectionMap(state: AssemblyViewState): AssemblyViewState {
+  return { ...state, connectionMap: !state.connectionMap };
 }
 
 export function setSection(
