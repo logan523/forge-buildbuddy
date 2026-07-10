@@ -38,6 +38,32 @@ test("pinWorldPositionMm: a pin sits ON its part (near the node, not the origin)
   assert.ok(Math.hypot(sda[0] - gnd[0], sda[1] - gnd[1], sda[2] - gnd[2]) > 1, "SDA ≠ GND location");
 });
 
+// Load-bearing for the "Show me" wireFocus memo: a real guided micro-step's
+// destination part must map to a scene node whose pin the camera can frame —
+// else tapping the wire glows it but never zooms. This is the frameForPin half
+// of the seam (micro-wire-bridge.test covers the wireRouteForNodes half).
+test("integration: a demo micro-step's toPart resolves to a framable pin", () => {
+  const s = scene();
+  const p2n = new Map(s.nodes.filter((n) => n.partId).map((n) => [n.partId!, n.id]));
+  const plan = applyTrustPipeline(JSON.parse(JSON.stringify(satLine)) as BuildPlan);
+  const micro = plan.steps.find((st) => st.stepNumber === 6)!.compiled!.microSteps!;
+
+  const frames = (m: (typeof micro)[number]) => {
+    const nodeId = m.toPartId ? p2n.get(m.toPartId) : undefined;
+    const node = nodeId ? s.nodes.find((n) => n.id === nodeId) : undefined;
+    return node ? frameForPin(node, m.toPin, VIEW, s.rootScale) : null;
+  };
+
+  const sda = micro.find((m) => /sda/i.test(m.netName))!;
+  assert.ok(sda.toPartId, "SDA micro-step carries a destination part id");
+  assert.ok(frames(sda), "the SDA wire zooms to a real pin (the beginner's job)");
+
+  // Broad coverage: most signal/power legs land on a framable pin. GND star-legs
+  // and parts absent from the 3D degrade to no-zoom (glow only) — that's fine.
+  const framable = micro.filter(frames).length;
+  assert.ok(framable >= micro.length / 2, `most micro-steps frame a pin (${framable}/${micro.length})`);
+});
+
 test("frameForPin: targets the pin (scaled), camera offset along the CAD diagonal; null on bad pin", () => {
   const s = scene();
   const brain = s.nodes.find((n) => n.id === "brain")!;
