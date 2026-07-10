@@ -112,6 +112,33 @@ export function saveActionChecks(planId: string, stepNumber: number, checked: Se
   }
 }
 
+// Guided micro-steps key on the stable connection id (not the action index), so
+// per-wire progress survives the recompile-on-every-load of derived facts.
+const WIRE_CHECKS_PREFIX = "forge-wirechecks-";
+
+export function loadWireChecks(planId: string, stepNumber: number): Set<string> {
+  if (!browser()) return new Set();
+  try {
+    return new Set(
+      JSON.parse(localStorage.getItem(`${WIRE_CHECKS_PREFIX}${planId}-${stepNumber}`) || "[]")
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveWireChecks(planId: string, stepNumber: number, checked: Set<string>): void {
+  if (!browser()) return;
+  try {
+    localStorage.setItem(
+      `${WIRE_CHECKS_PREFIX}${planId}-${stepNumber}`,
+      JSON.stringify([...checked])
+    );
+  } catch {
+    /* quota */
+  }
+}
+
 export function loadMeta(id: string): PlanMeta | null {
   if (!browser()) return null;
   try {

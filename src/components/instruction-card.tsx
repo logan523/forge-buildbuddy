@@ -11,7 +11,7 @@
  *   deep     — + why this works · tool technique · full notes
  */
 
-import type { BuildStep } from "@/lib/types";
+import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import {
   resolveActions,
   resolveGoal,
@@ -25,6 +25,7 @@ import {
   GlossaryText,
 } from "@/components/step-facts";
 import { PhotoCheck } from "@/components/build/photo-check";
+import { GuidedSteps } from "@/components/build/guided-steps";
 
 const TIME_BY_KIND: Record<ReturnType<typeof stepKind>, string> = {
   wiring: "≈15 min",
@@ -41,8 +42,10 @@ export function InstructionCard({
   kindLabel,
   detailLevel = "standard",
   planId,
+  plan,
   stepCompleted = false,
   onAutoComplete,
+  onActiveWire,
 }: {
   step: BuildStep;
   stepIndex: number;
@@ -50,13 +53,23 @@ export function InstructionCard({
   kindLabel: string;
   detailLevel?: "quick" | "standard" | "deep";
   planId?: string;
+  plan?: BuildPlan;
   stepCompleted?: boolean;
   onAutoComplete?: () => void;
+  onActiveWire?: (m: MicroStep | null) => void;
 }) {
   const goal = resolveGoal(step);
   const youNeed = resolveYouNeed(step);
   const actions = resolveActions(step);
   const kind = stepKind(step);
+  // Wiring steps with compiled micro-steps get the guided one-wire-at-a-time
+  // experience (hand-holding) in place of the coarse checklist + separate table.
+  const guided =
+    kind === "wiring" &&
+    !!plan &&
+    !!planId &&
+    !!onAutoComplete &&
+    (step.compiled?.microSteps?.length ?? 0) > 0;
 
   return (
     <div className="space-y-4">
@@ -102,39 +115,52 @@ export function InstructionCard({
         </div>
       )}
 
-      {detailLevel !== "quick" &&
-        (planId && onAutoComplete ? (
-          <ActionChecklist
-            planId={planId}
-            stepNumber={step.stepNumber}
-            actions={actions}
-            stepCompleted={stepCompleted}
-            onAutoComplete={onAutoComplete}
-          />
-        ) : (
-          actions.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">
-                Do this
-              </p>
-              <ol className="space-y-2.5">
-                {actions.map((a) => (
-                  <li key={a.n} className="flex gap-3">
-                    <span className="shrink-0 w-6 h-6 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center">
-                      {a.n}
-                    </span>
-                    <div className="min-w-0 pt-0.5">
-                      <p className="text-sm text-text leading-relaxed">{a.text}</p>
-                      {a.caution && <p className="text-xs text-warning mt-1">⚠ {a.caution}</p>}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )
-        ))}
+      {guided ? (
+        <GuidedSteps
+          step={step}
+          plan={plan!}
+          planId={planId!}
+          stepCompleted={stepCompleted}
+          onAutoComplete={onAutoComplete}
+          onActiveWire={onActiveWire}
+        />
+      ) : (
+        <>
+          {detailLevel !== "quick" &&
+            (planId && onAutoComplete ? (
+              <ActionChecklist
+                planId={planId}
+                stepNumber={step.stepNumber}
+                actions={actions}
+                stepCompleted={stepCompleted}
+                onAutoComplete={onAutoComplete}
+              />
+            ) : (
+              actions.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">
+                    Do this
+                  </p>
+                  <ol className="space-y-2.5">
+                    {actions.map((a) => (
+                      <li key={a.n} className="flex gap-3">
+                        <span className="shrink-0 w-6 h-6 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center">
+                          {a.n}
+                        </span>
+                        <div className="min-w-0 pt-0.5">
+                          <p className="text-sm text-text leading-relaxed">{a.text}</p>
+                          {a.caution && <p className="text-xs text-warning mt-1">⚠ {a.caution}</p>}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )
+            ))}
 
-      {step.compiled && <ConnectionsTable compiled={step.compiled} />}
+          {step.compiled && <ConnectionsTable compiled={step.compiled} />}
+        </>
+      )}
 
       <CheckYourWorkCard step={step} />
 

@@ -237,6 +237,7 @@ export function BuildScreen({
                   kindLabel={kindLabel(stepKind(s))}
                   detailLevel={detailLevel}
                   planId={plan.id}
+                  plan={plan}
                   stepCompleted={completed.has(s.stepNumber)}
                   onAutoComplete={() => {
                     if (!completed.has(s.stepNumber)) onToggleComplete(s.stepNumber);
