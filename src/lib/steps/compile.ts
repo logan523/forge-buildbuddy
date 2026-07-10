@@ -28,6 +28,7 @@ import type {
 import type { ElectricalModel, ElectricalNet, NetMember } from "@/lib/electrical/types";
 import { netColorFor, wireColorName } from "@/lib/wire-colors";
 import { stepKind } from "./classify";
+import { buildMicroSteps } from "./micro-steps";
 
 const STOP_WORDS = new Set([
   "the", "and", "for", "with", "module", "board", "sensor", "switch", "cell",
@@ -77,6 +78,7 @@ export function edgesFromModel(plan: BuildPlan, model: ElectricalModel): Compile
       for (const m of members) {
         if (m === hub) continue;
         edges.push({
+          id: `${net.name}:${m.ref}:${m.pin}`,
           netName: net.name,
           netClass: net.netClass,
           fromRef: hub.ref,
@@ -239,9 +241,11 @@ export function attachCompiledFacts(plan: BuildPlan): BuildPlan {
       return s;
     }
     const focusPartIds = focusPartIdsFor(connections, refToPartId);
+    const checks = checksFor(connections, model);
     const compiled: CompiledStepFacts = {
       connections,
-      checks: checksFor(connections, model),
+      checks,
+      microSteps: buildMicroSteps(connections, checks),
       ...(focusPartIds.length ? { focusPartIds } : {}),
     };
     return { ...s, compiled };

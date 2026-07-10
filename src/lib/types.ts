@@ -106,6 +106,9 @@ export interface StepAction {
  * a 3+-member net (star from a hub — physically may be daisy-chained).
  */
 export interface CompiledConnection {
+  /** Stable per-wire id (netName:toRef:toPin) — guided-step checkbox state keys
+   *  on this so progress survives the recompile-on-every-load of derived facts. */
+  id: string;
   netName: string;
   netClass: string;
   fromRef: string;
@@ -125,6 +128,39 @@ export interface CompiledCheck {
   expected: string;
 }
 
+/** Per-wire verification for a guided micro-step. */
+export interface MicroStepVerify {
+  /** Physical pull test — always applies to a soldered/seated joint. */
+  tug: string;
+  /** Continuity guidance (generated, not a measured value). */
+  continuity: string;
+  /** Voltage band, only on power wires (pulled from the step's CompiledCheck). */
+  voltage?: string;
+}
+
+/**
+ * One physical wire = one guided "find → do → verify" card. Derived from a
+ * CompiledConnection (never LLM prose), so the specificity can't drift from
+ * the connection truth. `rescueSymptomId` deep-links the inline unstick tree;
+ * it's a plain string here to avoid a types↔unstick import cycle.
+ */
+export interface MicroStep {
+  id: string;
+  index: number; // 1-based position in the step's sequence
+  total: number;
+  colorName: string;
+  colorHex: string;
+  fromLabel: string;
+  fromPin: string;
+  toLabel: string;
+  toPin: string;
+  netClass: string;
+  action: string; // verb-first, silkscreen labels only
+  verify: MicroStepVerify;
+  showTechnique: boolean; // first wire of the step shows the solder technique inset
+  rescueSymptomId?: string;
+}
+
 /** Per-step derived facts — recomputed on every load, stripped before share/persist. */
 export interface CompiledStepFacts {
   connections: CompiledConnection[];
@@ -136,6 +172,8 @@ export interface CompiledStepFacts {
    * unrelated item," which came from title-regex phase guessing.
    */
   focusPartIds?: string[];
+  /** Wiring steps only: each connection fanned into a guided one-at-a-time card. */
+  microSteps?: MicroStep[];
 }
 
 export interface StepContentIssue {

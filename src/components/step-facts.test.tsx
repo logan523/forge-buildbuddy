@@ -17,6 +17,7 @@ afterEach(() => cleanup());
 const compiled: CompiledStepFacts = {
   connections: [
     {
+      id: "SDA:U7:SDA",
       netName: "SDA",
       netClass: "i2c",
       fromRef: "U2",
