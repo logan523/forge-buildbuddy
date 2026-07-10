@@ -998,18 +998,18 @@ export function NodeMesh({
             <>
               <mesh position={[w * 0.28, h * 0.22, d * 0.65]}>
                 <sphereGeometry args={[d * 0.35, 10, 10]} />
-                <meshPhysicalMaterial color="#ef4444" emissive="#dc2626" emissiveIntensity={0.9} transparent opacity={opacity} />
+                <meshPhysicalMaterial color="#ef4444" emissive="#dc2626" emissiveIntensity={1.8} transparent opacity={opacity} />
               </mesh>
               <mesh position={[w * 0.28, -h * 0.08, d * 0.65]}>
                 <sphereGeometry args={[d * 0.35, 10, 10]} />
-                <meshPhysicalMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={0.7} transparent opacity={opacity} />
+                <meshPhysicalMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={1.6} transparent opacity={opacity} />
               </mesh>
             </>
           )}
           {!isTp && !isEsp && (
             <mesh position={[w * 0.28, h * 0.22, d * 0.65]}>
               <sphereGeometry args={[d * 0.32, 12, 12]} />
-              <meshPhysicalMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={0.85} transparent opacity={opacity} />
+              <meshPhysicalMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.7} transparent opacity={opacity} />
             </mesh>
           )}
           {/* Named pin stubs from sat-pins / RealPartSpec */}

@@ -14,8 +14,11 @@ export interface QualitySettings {
   antialias: boolean;
   /** Post-processing composer on at all (low tier renders raw for weak GPUs) */
   effects: boolean;
-  /** Screen-space ambient occlusion pass */
+  /** Ambient occlusion pass (contact/crevice darkening — the cheapest realism win) */
   ao: boolean;
+  /** N8AO strength + radius, tier-scaled so medium gets a lighter pass than high */
+  aoIntensity: number;
+  aoRadius: number;
   bloomIntensity: number;
   /** Composer MSAA samples (0 = off) */
   multisampling: number;
@@ -35,6 +38,8 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         antialias: true,
         effects: true,
         ao: true,
+        aoIntensity: 2,
+        aoRadius: 0.4,
         bloomIntensity: 0.55,
         multisampling: 4,
       };
@@ -49,7 +54,12 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         showGround: true,
         antialias: true,
         effects: true,
-        ao: false,
+        // AO ungated to medium (eng review): phones/most laptops land here, and
+        // contact/crevice darkening is the cheapest realism win. Lighter than
+        // high (half the strength, tighter radius) to stay in the frame budget.
+        ao: true,
+        aoIntensity: 1.1,
+        aoRadius: 0.32,
         bloomIntensity: 0.4,
         multisampling: 2,
       };
@@ -66,6 +76,8 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         antialias: false,
         effects: false,
         ao: false,
+        aoIntensity: 0,
+        aoRadius: 0,
         bloomIntensity: 0,
         multisampling: 0,
       };

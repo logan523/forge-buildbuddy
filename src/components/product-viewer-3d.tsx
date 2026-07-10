@@ -419,7 +419,7 @@ function PostFX({ quality }: { quality: ReturnType<typeof qualitySettings> }) {
   if (quality.ao) {
     return (
       <EffectComposer multisampling={quality.multisampling}>
-        <N8AO halfRes intensity={2} aoRadius={0.4} distanceFalloff={0.5} />
+        <N8AO halfRes intensity={quality.aoIntensity} aoRadius={quality.aoRadius} distanceFalloff={0.5} />
         <Bloom
           mipmapBlur
           intensity={quality.bloomIntensity}
@@ -658,26 +658,31 @@ function SceneContent({
       {monitorActive && (
         <PerformanceMonitor onDecline={onQualityDrop} onIncline={onQualityRise} />
       )}
-      {/* Always-on fills so the stage never reads as pure black */}
-      <ambientLight intensity={0.62} color="#eef2f6" />
-      <hemisphereLight args={["#f0f4f8", "#3a4550", 0.75]} />
+      {/* Lighting rebalance (eng review): the fills were ~2.3 combined and
+          drowned the 1.35 key + washed out the IBL, reading flat. Cut ambient
+          + fills so the key gives real directional contrast, and let the HDRI
+          do more work (envIntensity multiplier 0.7 → 1.0). A floor of ambient
+          keeps the stage off pure black. Shadow map bump is gated to `high`
+          so mid/low devices don't pay the memory. */}
+      <ambientLight intensity={0.36} color="#eef2f6" />
+      <hemisphereLight args={["#f0f4f8", "#3a4550", 0.5]} />
       <directionalLight
         position={sunPos}
-        intensity={1.35}
+        intensity={1.4}
         castShadow
         color="#fff6ea"
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={quality.tier === "high" ? [2048, 2048] : [1024, 1024]}
         shadow-bias={-0.0002}
       />
-      <directionalLight position={[-3.2, 2.8, -2.2]} intensity={0.55} color="#b8d0ea" />
-      <directionalLight position={[2.4, 1.8, 3.2]} intensity={0.45} color="#ffe4c4" />
-      <directionalLight position={[0, 5, 1]} intensity={0.4} color="#ffffff" />
+      <directionalLight position={[-3.2, 2.8, -2.2]} intensity={0.32} color="#b8d0ea" />
+      <directionalLight position={[2.4, 1.8, 3.2]} intensity={0.26} color="#ffe4c4" />
+      <directionalLight position={[0, 5, 1]} intensity={0.22} color="#ffffff" />
       {/* Local studio HDRI (no CDN); Lightformer rig fallback if it can't load */}
-      <EnvBoundary fallback={<LightformerStudio intensity={quality.envIntensity * 0.7} />}>
+      <EnvBoundary fallback={<LightformerStudio intensity={quality.envIntensity} />}>
         <Suspense fallback={null}>
           <Environment
             files="/hdri/studio_small_08_1k.hdr"
-            environmentIntensity={quality.envIntensity * 0.7}
+            environmentIntensity={quality.envIntensity}
           />
         </Suspense>
       </EnvBoundary>
