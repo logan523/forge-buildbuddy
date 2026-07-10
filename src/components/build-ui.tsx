@@ -27,6 +27,7 @@ const VENDOR_LABEL: Record<string, string> = {
 // Beginner glossary lives in src/lib/glossary.ts (one authority; step text
 // popovers and part-row tooltips share it).
 import { glossaryTip } from "@/lib/glossary";
+import { buyGuidance } from "@/lib/part-identity";
 import { IsolationWalkPanel } from "@/components/build/isolation-walk-panel";
 
 // ── Part category icons ──
@@ -49,11 +50,12 @@ export function partIcon(name: string, spec: string): string {
 
 
 export function confidenceBadge(part: Part): { label: string; className: string } | null {
+  // Honest, never "verified" — we know which part, we never tested it works.
   const c = part.matchConfidence;
-  if (!c || c === "none") return { label: "ASSUMED", className: "bg-surface-overlay text-text-muted border-border-subtle" };
-  if (c === "high") return { label: "VERIFIED", className: "bg-success-soft text-success border-success/20" };
-  if (c === "medium") return { label: "MATCHED", className: "bg-info-soft text-info border-info/20" };
-  return { label: "LOW", className: "bg-warning-soft text-warning border-warning/20" };
+  if (!c || c === "none") return { label: "BEST GUESS", className: "bg-warning-soft text-warning border-warning/20" };
+  if (c === "high") return { label: "EXACT MATCH", className: "bg-success-soft text-success border-success/20" };
+  if (c === "medium") return { label: "LIKELY", className: "bg-info-soft text-info border-info/20" };
+  return { label: "BEST GUESS", className: "bg-warning-soft text-warning border-warning/20" };
 }
 
 export function PartRow({
@@ -73,6 +75,8 @@ export function PartRow({
   const alts = resolveOffers(part).filter((o) => o.vendor !== link.vendor).slice(0, 3);
   const tip = glossaryTip(`${part.name} ${part.specification}`);
   const badge = !compact ? confidenceBadge(part) : null;
+  const guidance = !compact ? buyGuidance(part) : null;
+  const hasGuidance = !!(guidance && (guidance.lookFor || guidance.priceBand || guidance.avoid));
   const footgunTip = part.footguns?.[0];
   const priceLabel = formatUsdRange(
     part.unitPriceMin ?? link.priceUsd,
@@ -150,6 +154,33 @@ export function PartRow({
             </a>
           ))}
         </div>
+      )}
+      {hasGuidance && (
+        <details className="mt-2 ml-9 group">
+          <summary className="text-[11px] font-medium text-accent cursor-pointer min-h-[22px]">
+            Know it when you see it
+          </summary>
+          <div className="mt-1 space-y-1 text-[11px] text-text-secondary">
+            {guidance!.lookFor && (
+              <p>
+                <span className="text-text-muted">Look for:</span>{" "}
+                <span className="text-text font-medium">{guidance!.lookFor}</span>
+              </p>
+            )}
+            {guidance!.priceBand && (
+              <p>
+                <span className="text-text-muted">Expect:</span>{" "}
+                <span className="text-text font-medium">{guidance!.priceBand}</span>
+                <span className="text-text-muted"> — much cheaper usually means the wrong thing</span>
+              </p>
+            )}
+            {guidance!.avoid && (
+              <p className="text-warning">
+                <span className="font-medium">Avoid:</span> {guidance!.avoid}
+              </p>
+            )}
+          </div>
+        </details>
       )}
     </div>
   );

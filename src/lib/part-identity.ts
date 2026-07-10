@@ -59,6 +59,45 @@ export function keyFootgun(part: Part): string | null {
   return part.footguns?.find((f) => f.trim().length > 0) ?? null;
 }
 
+const money = (n: number) => (n % 1 === 0 ? `${n}` : n.toFixed(2).replace(/0$/, ""));
+
+/**
+ * "Know It When You See It" — what to match, what to pay, what to avoid, BEFORE
+ * a beginner is dumped on a page of 40 look-alikes. So they buy the right thing
+ * on the first click. Derived from real-parts + the BOM; degrades field by field.
+ */
+export function buyGuidance(part: Part): {
+  lookFor: string | null;
+  priceBand: string | null;
+  avoid: string | null;
+} {
+  const real = realPartForPart(part);
+  const lookFor =
+    real?.mpnOrSku ??
+    part.mpn ??
+    (part.specification ? part.specification.split(/[.;]/)[0]!.trim() || null : null);
+
+  const link = bestBuyLink(part);
+  const lo = part.unitPriceMin ?? link?.priceUsd ?? null;
+  const hi = part.unitPriceMax ?? link?.priceMaxUsd ?? lo;
+  const priceBand =
+    lo != null ? (hi != null && hi > lo ? `$${money(lo)}–${money(hi)}` : `$${money(lo)}`) : null;
+
+  return { lookFor, priceBand, avoid: keyFootgun(part) };
+}
+
+/**
+ * Honest confidence — how sure we are which exact part this is. NOT "verified"
+ * (we never tested it works); "exact match" means we pinned it to a known
+ * catalog part, "best guess" means check the specs yourself.
+ */
+export function confidenceLabel(part: Part): { label: string; known: boolean } {
+  const c = part.matchConfidence;
+  if (c === "high") return { label: "Exact match", known: true };
+  if (c === "medium") return { label: "Likely match", known: false };
+  return { label: "Best guess — check specs", known: false };
+}
+
 /** CSS reference px per mm (96dpi / 25.4). Life-size on a standard display. */
 export const CSS_PX_PER_MM = 96 / 25.4;
 

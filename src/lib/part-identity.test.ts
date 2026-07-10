@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import satLine from "@/data/sat-line.json";
 import type { BuildPlan, Part } from "@/lib/types";
 import { applyTrustPipeline } from "@/lib/trust";
-import { partCatalogId, realPartForPart, sizeLabel, bestBuyLink, keyFootgun, sizeComparison } from "./part-identity";
+import { partCatalogId, realPartForPart, sizeLabel, bestBuyLink, keyFootgun, sizeComparison, buyGuidance, confidenceLabel } from "./part-identity";
 
 const part = (over: Partial<Part>): Part => ({
   id: "p",
@@ -52,6 +52,30 @@ test("sizeComparison anchors to an object everyone owns", () => {
   assert.match(sizeComparison({ l: 86, w: 54, h: 1 }).phrase, /credit card/, "a big board ≈ a credit card");
   const s = sizeComparison({ l: 50, w: 40, h: 3 });
   assert.match(s.phrase, /^(about the size of|smaller than|bigger than) /, "always a relation phrase");
+});
+
+test("buyGuidance tells you what to match, pay, and avoid", () => {
+  const g = buyGuidance(part({
+    name: "OLED display",
+    specification: '0.96" I2C',
+    unitPriceMin: 3,
+    unitPriceMax: 6,
+    footguns: ["7-pin is the wrong SPI version"],
+  }));
+  assert.match(g.lookFor ?? "", /SSD1306|OLED/, "the exact thing to look for");
+  assert.equal(g.priceBand, "$3–6", "the price that means 'correct'");
+  assert.match(g.avoid ?? "", /7-pin/, "the trap to avoid");
+});
+
+test("buyGuidance shows a single price when min===max, degrades to null", () => {
+  assert.equal(buyGuidance(part({ name: "x", unitPriceMin: 4, unitPriceMax: 4 })).priceBand, "$4");
+  assert.equal(buyGuidance(part({ name: "x" })).priceBand, null);
+});
+
+test("confidenceLabel is honest, never 'verified'", () => {
+  assert.deepEqual(confidenceLabel(part({ matchConfidence: "high" })), { label: "Exact match", known: true });
+  assert.equal(confidenceLabel(part({ matchConfidence: "low" })).known, false);
+  assert.match(confidenceLabel(part({})).label, /best guess/i);
 });
 
 test("integration: most demo BOM parts resolve to a physical spec", () => {
