@@ -98,6 +98,9 @@ export function ProductAssemblyApp({
   expandable = true,
   onPlanPatch,
   className = "",
+  variant = "full",
+  expanded: expandedProp,
+  onExpandedChange,
 }: {
   plan: BuildPlan;
   stepIndex?: number | "prep";
@@ -106,6 +109,11 @@ export function ProductAssemblyApp({
   expandable?: boolean;
   onPlanPatch?: (patch: Partial<BuildPlan>) => void;
   className?: string;
+  /** "step": minimal chrome (orbit + tap-select + callout) — playground lives behind Expand. */
+  variant?: "full" | "step";
+  /** Controlled expand (StepHero owns it for Back/Esc semantics). */
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const baseScene = useMemo(() => buildProductScene3D(plan), [plan]);
   const recipe = useMemo(
@@ -127,8 +135,25 @@ export function ProductAssemblyApp({
 
   const [scrub, setScrub] = useState(initialScrub);
   const [playing, setPlaying] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [treeOpen, setTreeOpen] = useState(true);
+  const [expandedState, setExpandedState] = useState(false);
+  const expanded = expandedProp ?? expandedState;
+  const setExpanded = useCallback(
+    (v: boolean) => (onExpandedChange ? onExpandedChange(v) : setExpandedState(v)),
+    [onExpandedChange]
+  );
+  const [treeOpen, setTreeOpen] = useState(variant !== "step");
+  // Minimal in-step chrome: a beginner mid-step needs "what goes where",
+  // not a timeline scrubber. The expanded stage is the full playground.
+  const stepChrome = variant === "step" && !expanded;
+
+  // Reactive viewport height (eng V4: never read innerHeight one-shot).
+  const [viewportH, setViewportH] = useState(920);
+  useEffect(() => {
+    const update = () => setViewportH(window.innerHeight);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   useEffect(() => {
     setScrub(initialScrub);
@@ -269,8 +294,8 @@ export function ProductAssemblyApp({
   );
 
   const stageH = expanded
-    ? Math.min(1000, typeof window !== "undefined" ? window.innerHeight * 0.92 : 920)
-    : Math.max(height, 320);
+    ? Math.min(1000, Math.round(viewportH * 0.86))
+    : Math.max(height, 260);
 
   const phase = frame?.phase;
   const isolating = !!view.isolateNodeId;
@@ -285,7 +310,7 @@ export function ProductAssemblyApp({
             ? `Inspect · ${inspected.node?.label || view.isolateNodeId}`
             : phase?.title || "Product"}
         </p>
-        {recipe && (
+        {recipe && !stepChrome && (
           <input
             type="range"
             min={0}
@@ -301,36 +326,43 @@ export function ProductAssemblyApp({
             title={frame?.callout || "Build phase"}
           />
         )}
-        <button
-          type="button"
-          onClick={() => {
-            setPlaying((p) => !p);
-            if (!playing && scrub >= maxPhase - 0.01) setScrub(0);
-          }}
-          className={`text-[10px] px-2.5 py-1 rounded-md cursor-pointer font-semibold shrink-0 ${
-            playing ? "bg-amber-400 text-black" : "bg-cyan-500 text-black"
-          }`}
-        >
-          {playing ? "Pause" : "Play"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setView((v) => setExplode(v, v.explode > 0.05 ? 0 : 0.5))}
-          className={`text-[10px] px-2 py-1 rounded-md cursor-pointer shrink-0 ${
-            view.explode > 0.05 ? "bg-white/20 text-white" : "bg-white/10 text-white/60"
-          }`}
-          title="Explode assembly"
-        >
-          Explode
-        </button>
-        <button
-          type="button"
-          onClick={() => setTreeOpen((t) => !t)}
-          className="text-[10px] px-2 py-1 rounded-md bg-white/10 text-white/60 cursor-pointer shrink-0"
-          title="Parts tree"
-        >
-          Tree
-        </button>
+        {stepChrome && <span className="flex-1 min-w-0" />}
+        {!stepChrome && (
+          <button
+            type="button"
+            onClick={() => {
+              setPlaying((p) => !p);
+              if (!playing && scrub >= maxPhase - 0.01) setScrub(0);
+            }}
+            className={`text-[10px] px-2.5 py-1 rounded-md cursor-pointer font-semibold shrink-0 ${
+              playing ? "bg-amber-400 text-black" : "bg-cyan-500 text-black"
+            }`}
+          >
+            {playing ? "Pause" : "Play"}
+          </button>
+        )}
+        {!stepChrome && (
+          <button
+            type="button"
+            onClick={() => setView((v) => setExplode(v, v.explode > 0.05 ? 0 : 0.5))}
+            className={`text-[10px] px-2 py-1 rounded-md cursor-pointer shrink-0 ${
+              view.explode > 0.05 ? "bg-white/20 text-white" : "bg-white/10 text-white/60"
+            }`}
+            title="Explode assembly"
+          >
+            Explode
+          </button>
+        )}
+        {!stepChrome && (
+          <button
+            type="button"
+            onClick={() => setTreeOpen((t) => !t)}
+            className="text-[10px] px-2 py-1 rounded-md bg-white/10 text-white/60 cursor-pointer shrink-0"
+            title="Parts tree"
+          >
+            Tree
+          </button>
+        )}
         {isolating && (
           <button
             type="button"
@@ -344,7 +376,7 @@ export function ProductAssemblyApp({
         {expandable && (
           <button
             type="button"
-            onClick={() => setExpanded((e) => !e)}
+            onClick={() => setExpanded(!expanded)}
             className="text-[10px] px-2 py-1 rounded-md bg-white/10 text-white/70 cursor-pointer shrink-0"
           >
             {expanded ? "Close" : "Full"}
@@ -370,8 +402,16 @@ export function ProductAssemblyApp({
           }}
         />
 
+        {/* Step callout — on-canvas, touch-visible (was a slider tooltip) */}
+        {stepChrome && frame?.callout && !inspected.node && (
+          <div className="absolute left-3 right-3 bottom-3 z-10 flex items-center gap-2 rounded-lg bg-black/70 backdrop-blur-sm border border-cyan-300/25 px-3 py-2">
+            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_#67e8f9] shrink-0" />
+            <p className="text-[11px] text-cyan-50/90 leading-snug truncate">{frame.callout}</p>
+          </div>
+        )}
+
         {/* Collapsible parts tree */}
-        {treeOpen && (
+        {treeOpen && !stepChrome && (
           <div className="absolute top-3 left-3 z-10 w-[9.5rem] max-h-[50%] overflow-y-auto rounded-lg bg-black/60 backdrop-blur-sm border border-white/10 py-1.5 px-1">
             <p className="text-[9px] uppercase tracking-wide text-white/40 px-1.5 mb-1">
               Parts
@@ -504,13 +544,19 @@ export function ProductAssemblyApp({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (expanded) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm">
-        <div className="w-full max-w-7xl max-h-[98vh] overflow-auto">{shell}</div>
+  // ONE stable element tree (eng V4): expanding swaps classNames only — the
+  // WebGL canvas must never remount (context loss + full shader recompile).
+  return (
+    <div
+      className={
+        expanded
+          ? "fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm"
+          : "contents"
+      }
+    >
+      <div className={expanded ? "w-full max-w-7xl max-h-[98vh] overflow-auto" : "contents"}>
+        {shell}
       </div>
-    );
-  }
-
-  return shell;
+    </div>
+  );
 }

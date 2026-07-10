@@ -147,7 +147,6 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
         onSoftwareStep={onSoftwareStep}
         shareMsg={state.shareMsg}
         tooltip={state.tooltip}
-        productVisual={productVisual}
         activeDrawer={state.drawer}
         onHome={goHome}
         onShare={share}

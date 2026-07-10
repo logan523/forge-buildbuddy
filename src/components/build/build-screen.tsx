@@ -5,7 +5,7 @@ import type { FirmwarePackage } from "@/lib/firmware";
 import type { ProductVisual } from "@/lib/product-visual";
 import { InstructionCard } from "@/components/instruction-card";
 import { stepKind, kindLabel } from "@/lib/steps/classify";
-import { StepMediaPanel } from "@/components/step-media-panel";
+import { StepHero } from "./step-hero";
 import type { DetailLevel, DrawerId } from "./use-build-state";
 
 export interface BuildScreenProps {
@@ -22,7 +22,6 @@ export interface BuildScreenProps {
   onSoftwareStep: boolean;
   shareMsg: string;
   tooltip: string | null;
-  productVisual: ProductVisual;
   activeDrawer: DrawerId | null;
   onHome: () => void;
   onShare: () => void;
@@ -52,7 +51,6 @@ export function BuildScreen({
   onSoftwareStep,
   shareMsg,
   tooltip,
-  productVisual,
   activeDrawer,
   onHome,
   onShare,
@@ -162,14 +160,7 @@ export function BuildScreen({
             </div>
           )}
           <div className="flex-1 min-h-0 overflow-hidden">
-            {s ? (
-              <StepMediaPanel
-                step={s}
-                plan={plan}
-                visual={productVisual}
-                stepIndex={stepIndex}
-              />
-            ) : null}
+            {s ? <StepHero step={s} plan={plan} stepIndex={stepIndex} /> : null}
           </div>
         </div>
 
