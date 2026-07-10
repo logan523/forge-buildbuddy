@@ -143,6 +143,14 @@ export function GuidedSteps({
           the pin printed <span className="font-mono font-semibold text-text">{cur.fromPin}</span> on the{" "}
           {cur.fromLabel}, and <span className="font-mono font-semibold text-text">{cur.toPin}</span> on the{" "}
           {cur.toLabel}. <span className="text-text-muted">Trust the printed label, not the position.</span>
+          <span className="mt-1.5 flex items-center gap-1.5 text-xs text-accent">
+            <span
+              aria-hidden
+              className="w-2.5 h-2.5 rounded-full border border-black/10"
+              style={{ background: cur.colorHex }}
+            />
+            This wire is lit up in the 3D — zoomed to where it lands.
+          </span>
         </div>
 
         {/* Verify it */}
