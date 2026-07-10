@@ -58,3 +58,33 @@ export function bestBuyLink(part: Part): ShoppingLink | null {
 export function keyFootgun(part: Part): string | null {
   return part.footguns?.find((f) => f.trim().length > 0) ?? null;
 }
+
+/** CSS reference px per mm (96dpi / 25.4). Life-size on a standard display. */
+export const CSS_PX_PER_MM = 96 / 25.4;
+
+const SIZE_REFS = [
+  { name: "a grain of rice", mm: 6 },
+  { name: "a fingernail", mm: 14 },
+  { name: "a quarter", mm: 24 },
+  { name: "a AA battery", mm: 50 },
+  { name: "a credit card", mm: 86 },
+];
+
+/**
+ * A relatable size comparison — device-independent and honest (real 1:1 depends
+ * on the screen, so we anchor to a physical object everyone owns). "Smaller than
+ * a quarter" tells a beginner what to expect in their palm before it arrives.
+ */
+export function sizeComparison(bbox: { l: number; w: number; h: number }): {
+  longestMm: number;
+  phrase: string;
+} {
+  const longest = Math.max(bbox.l, bbox.w);
+  let ref = SIZE_REFS[0]!;
+  for (const r of SIZE_REFS) {
+    if (Math.abs(r.mm - longest) < Math.abs(ref.mm - longest)) ref = r;
+  }
+  const ratio = longest / ref.mm;
+  const rel = ratio < 0.8 ? "smaller than" : ratio > 1.3 ? "bigger than" : "about the size of";
+  return { longestMm: Math.round(longest), phrase: `${rel} ${ref.name}` };
+}

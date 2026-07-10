@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import satLine from "@/data/sat-line.json";
 import type { BuildPlan, Part } from "@/lib/types";
 import { applyTrustPipeline } from "@/lib/trust";
-import { partCatalogId, realPartForPart, sizeLabel, bestBuyLink, keyFootgun } from "./part-identity";
+import { partCatalogId, realPartForPart, sizeLabel, bestBuyLink, keyFootgun, sizeComparison } from "./part-identity";
 
 const part = (over: Partial<Part>): Part => ({
   id: "p",
@@ -43,6 +43,15 @@ test("bestBuyLink prefers a product deep-link over a search link", () => {
 test("keyFootgun returns the first non-empty footgun, else null", () => {
   assert.equal(keyFootgun(part({ footguns: ["", "watch polarity"] })), "watch polarity");
   assert.equal(keyFootgun(part({})), null);
+});
+
+test("sizeComparison anchors to an object everyone owns", () => {
+  assert.match(sizeComparison({ l: 22.5, w: 18, h: 3 }).phrase, /quarter/, "an ESP32 board ≈ a quarter");
+  assert.equal(sizeComparison({ l: 22.5, w: 18, h: 3 }).longestMm, 23);
+  assert.match(sizeComparison({ l: 12, w: 10, h: 3 }).phrase, /fingernail|smaller/, "a tiny module ≈ a fingernail");
+  assert.match(sizeComparison({ l: 86, w: 54, h: 1 }).phrase, /credit card/, "a big board ≈ a credit card");
+  const s = sizeComparison({ l: 50, w: 40, h: 3 });
+  assert.match(s.phrase, /^(about the size of|smaller than|bigger than) /, "always a relation phrase");
 });
 
 test("integration: most demo BOM parts resolve to a physical spec", () => {

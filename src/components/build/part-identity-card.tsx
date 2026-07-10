@@ -8,8 +8,55 @@
  */
 
 import type { BuildPlan, MicroStep, Part } from "@/lib/types";
-import { realPartForPart, partCatalogId, sizeLabel, bestBuyLink, keyFootgun } from "@/lib/part-identity";
+import type { RealPartSpec } from "@/lib/product-3d/real-parts";
+import {
+  realPartForPart,
+  partCatalogId,
+  sizeLabel,
+  bestBuyLink,
+  keyFootgun,
+  sizeComparison,
+  CSS_PX_PER_MM,
+} from "@/lib/part-identity";
 import { useProbedImage } from "./use-probed-image";
+
+/**
+ * Hold It Up To Check — the part drawn at true screen scale next to a quarter,
+ * so a beginner literally holds the real thing to the glass and confirms. Draws
+ * both at the same CSS mm scale (honest relative size on any screen; ≈ life-size
+ * on a standard display); the strip scrolls for big parts rather than lying.
+ */
+function HoldItUp({ spec }: { spec: RealPartSpec }) {
+  const { l, w } = spec.bboxMm;
+  const longest = Math.max(l, w);
+  const shortest = Math.min(l, w);
+  const px = (mm: number) => Math.round(mm * CSS_PX_PER_MM);
+  const coinMm = 24; // a US quarter
+  const { phrase } = sizeComparison(spec.bboxMm);
+  return (
+    <div className="space-y-1">
+      <p className="text-[11px] text-text-secondary">
+        📏 {phrase} — hold yours up to the screen.
+      </p>
+      <div className="overflow-x-auto">
+        <div className="flex items-end gap-3 py-1" style={{ minWidth: px(longest) + px(coinMm) + 24 }}>
+          <div
+            className="rounded-[3px] border-2 border-accent/70 bg-accent/10 shrink-0"
+            style={{ width: px(longest), height: px(shortest) }}
+            title={`${Math.round(l)} × ${Math.round(w)} mm`}
+          />
+          <div className="flex flex-col items-center shrink-0">
+            <div
+              className="rounded-full border border-text-muted/50 bg-surface-overlay"
+              style={{ width: px(coinMm), height: px(coinMm) }}
+            />
+            <span className="text-[8px] text-text-muted mt-0.5">quarter</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Real bench photo of the part, if the founder has shot one:
@@ -53,9 +100,12 @@ function PartIdentityCard({
         </span>
       </div>
       {real ? (
-        <p className="text-xs text-text-secondary">
-          About {sizeLabel(real)} · {real.mpnOrSku}
-        </p>
+        <>
+          <p className="text-xs text-text-secondary">
+            About {sizeLabel(real)} · {real.mpnOrSku}
+          </p>
+          <HoldItUp spec={real} />
+        </>
       ) : (
         part.specification && (
           <p className="text-xs text-text-secondary line-clamp-2">{part.specification}</p>
