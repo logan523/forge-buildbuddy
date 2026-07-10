@@ -79,11 +79,14 @@ export function sceneWorldBounds(
 export function cadCameraForNodes(
   nodes: SceneNode3D[],
   rootScale: number,
-  margin = 1.35
+  margin = 1.35,
+  // Distance floor. 1.6 keeps the WHOLE product (with stand/wings) from
+  // clipping; a tight subset (step focus) passes a much smaller floor so the
+  // camera can get close instead of parking far back and showing empty stand.
+  minDist = 1.6
 ): CadFrame {
   const b = sceneWorldBounds(nodes, rootScale);
-  // Tight enough to read detail, loose enough that wings/stand never clip
-  const dist = Math.max(1.6, b.radius * 2.1 * margin);
+  const dist = Math.max(minDist, b.radius * 2.1 * margin);
   // Standard CAD isometric-ish diagonal (right, up, front). High `up`
   // component so the camera starts well ABOVE the object looking down (~45°),
   // not low looking up — the tall stand otherwise pulls the bbox center down.
@@ -116,7 +119,10 @@ export function frameForNodeIds(
   const idSet = new Set(nodeIds);
   const subset = nodes.filter((n) => idSet.has(n.id));
   const use = subset.length > 0 ? subset : nodes;
-  const frame = cadCameraForNodes(use, rootScale, margin);
+  // Subset framing gets close: a small focus bbox should NOT be floored to the
+  // whole-scene 1.6 (that parks the camera far back and fills the frame with
+  // the empty stand/ground below the parts).
+  const frame = cadCameraForNodes(use, rootScale, margin, 0.5);
   // Slightly tighter FOV when inspecting a single part
   if (subset.length === 1) {
     return { ...frame, fov: 36 };

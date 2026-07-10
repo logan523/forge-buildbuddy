@@ -239,7 +239,11 @@ export function ProductAssemblyApp({
     if (!nodeIds.length) return null;
     // Frame against the ASSEMBLED positions (framedNodes), not baseScene —
     // base positions are pre-assembly, so framing those aims at empty space.
-    const f = frameForNodeIds(framedNodes, nodeIds, baseScene.rootScale, 1.15);
+    // Tight focus: the diagnostic showed dist to FILL the frame ≈ 0.83 (margin
+    // ~0.8); the default loose margin left the small cube far away with the
+    // stand/ground filling the space below it. 0.95 fills the frame with a
+    // little padding (dist ≈ 1.0 vs the old 1.47).
+    const f = frameForNodeIds(framedNodes, nodeIds, baseScene.rootScale, 0.95);
     return { position: f.position, target: f.target };
   }, [stepChrome, step, baseScene.nodes, framedNodes, baseScene.rootScale]);
 
