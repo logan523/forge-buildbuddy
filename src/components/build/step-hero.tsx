@@ -8,41 +8,11 @@
  * leaving the build (F4) via a pushed history entry.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { BuildPlan, BuildStep } from "@/lib/types";
 import { resolveStepMedia } from "@/lib/step-media";
 import { ProductAssemblyApp } from "@/components/product-assembly-app";
-
-/** Push a history entry so Back closes the overlay instead of leaving (F4). */
-function useOverlay(onClose: () => void, open: boolean) {
-  const pushed = useRef(false);
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-
-  useEffect(() => {
-    if (!open) return;
-    if (typeof window === "undefined" || typeof history === "undefined") return;
-    history.pushState({ forgeOverlay: true }, "");
-    pushed.current = true;
-    const onPop = () => {
-      pushed.current = false;
-      closeRef.current();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeRef.current();
-    };
-    window.addEventListener("popstate", onPop);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("popstate", onPop);
-      window.removeEventListener("keydown", onKey);
-      if (pushed.current) {
-        pushed.current = false;
-        history.back();
-      }
-    };
-  }, [open]);
-}
+import { useOverlay } from "./use-overlay";
 
 function useStageHeight(): number {
   const [h, setH] = useState(420);

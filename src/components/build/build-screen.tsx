@@ -7,6 +7,8 @@ import type { ProductVisual } from "@/lib/product-visual";
 import { InstructionCard } from "@/components/instruction-card";
 import { stepKind, kindLabel } from "@/lib/steps/classify";
 import { StepHero } from "./step-hero";
+import { HandsFreeMode } from "./hands-free";
+import { useOverlay } from "./use-overlay";
 import type { DetailLevel, DrawerId } from "./use-build-state";
 
 export interface BuildScreenProps {
@@ -165,6 +167,8 @@ export function BuildScreen({
   onPrev,
   onSetTooltip,
 }: BuildScreenProps) {
+  const [handsFree, setHandsFree] = useState(false);
+  useOverlay(() => setHandsFree(false), handsFree);
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col">
       <div className="shrink-0 px-4 lg:px-6 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
@@ -270,6 +274,13 @@ export function BuildScreen({
               >
                 I&apos;m stuck — help me debug
               </button>
+              <button
+                onClick={() => setHandsFree(true)}
+                className="w-full py-3 rounded-xl font-medium text-sm cursor-pointer mb-2 border border-border-subtle bg-surface text-text-secondary hover:bg-surface-overlay"
+                title="Big text + read-aloud — for when your hands are full of flux"
+              >
+                🎙 Hands-free mode
+              </button>
 
               {stepIndex === steps.length - 1 && completed.has(s?.stepNumber || 0) && (
                 <div className="mt-4 p-5 rounded-2xl border border-success/25 bg-success-soft/50 text-center space-y-3">
@@ -336,6 +347,18 @@ export function BuildScreen({
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-sm p-4 rounded-xl bg-gray-900 text-white text-xs leading-relaxed shadow-lg" onClick={() => onSetTooltip(null)}>
           {tooltip}
         </div>
+      )}
+
+      {handsFree && (
+        <HandsFreeMode
+          plan={plan}
+          steps={steps}
+          stepIndex={stepIndex}
+          completed={completed}
+          onGoStep={onGoStep}
+          onToggleComplete={onToggleComplete}
+          onClose={() => setHandsFree(false)}
+        />
       )}
     </div>
   );
