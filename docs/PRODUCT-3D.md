@@ -68,11 +68,14 @@ Notes surface as **Brain** chips in the 3D viewer (click peels related layer).
 | Layer | Technique |
 |-------|-----------|
 | Materials | `MeshPhysicalMaterial` presets: bamboo, brass, copper, oled glass, PCB, solar |
-| Lighting | Studio HDRI + key/fill/rim + Lightformer |
+| Lighting | Local studio HDRI (`public/hdri/`, CC0) + key/fill/rim + Lightformer; Lightformer-rig fallback if the HDRI can't load |
+| Post | `@react-three/postprocessing`: N8AO (high tier) · Bloom (emissive OLED/sun) · Vignette · ACES ToneMapping last — composer off entirely on low tier |
+| Screens | Live SSD1306 clock face as CanvasTexture `emissiveMap` (`procedural-maps.ts oled_screen`); PCB silkscreen labels (`silkscreen`) |
 | Geometry | Composite kinds: `bamboo_base`, `oled_module`, `solar_module`, `pcb_module`, `brass_frame` |
-| Shadows | Soft ContactShadows + optional ground disk |
+| Shadows | Soft ContactShadows + matte floor (PCSS SoftShadows / MeshReflectorMaterial stay banned — GPU blackout history, enforced by test) |
 | Selection | cyan Outlines + label chip |
-| Performance | Adaptive dpr/segments; demote tier on FPS decline |
+| Motion | Idle auto-orbit + intro dolly (respect `prefers-reduced-motion`) |
+| Performance | Adaptive dpr/segments/effects; demote tier on FPS decline strips the composer |
 
 Open-source path — no proprietary CAD. Optional AI beauty remains underlay only.  
 
