@@ -14,6 +14,7 @@ import { GlossaryText, ConnectionsTable } from "@/components/step-facts";
 import { WireAndPartsIdentity } from "@/components/build/part-identity-card";
 import { WireDoubleCheck } from "@/components/build/wire-double-check";
 import { diagnose, type SymptomId } from "@/lib/unstick";
+import { encouragement } from "@/lib/steps/buddy";
 import { loadWireChecks, saveWireChecks } from "@/lib/storage";
 
 export function GuidedSteps({
@@ -36,6 +37,7 @@ export function GuidedSteps({
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [current, setCurrent] = useState(0);
   const [showAll, setShowAll] = useState(false);
+  const [rescueOpens, setRescueOpens] = useState(0);
   const autoFired = useRef(false);
 
   useEffect(() => {
@@ -50,6 +52,9 @@ export function GuidedSteps({
 
   const cur = micro[current];
 
+  // Reset the "struggling" signal whenever the builder moves to a new wire.
+  useEffect(() => setRescueOpens(0), [current]);
+
   useEffect(() => {
     onActiveWire?.(showAll ? null : cur ?? null);
     return () => onActiveWire?.(null);
@@ -63,6 +68,13 @@ export function GuidedSteps({
   if (!micro.length) return null;
 
   const doneCount = micro.filter((m) => checked.has(m.id)).length;
+  const buddyLine = encouragement({
+    current,
+    total: micro.length,
+    doneCount,
+    netClass: cur.netClass,
+    struggling: rescueOpens > 1,
+  });
 
   const toggle = (m: MicroStep) => {
     const next = new Set(checked);
@@ -128,6 +140,17 @@ export function GuidedSteps({
         ))}
       </div>
 
+      {/* A buddy who's watching — a warm line at the beats that matter */}
+      {buddyLine && (
+        <p
+          className="flex items-start gap-2 text-xs text-text-secondary bg-accent/5 border border-accent/15 rounded-xl px-3 py-2"
+          role="status"
+        >
+          <span aria-hidden>💬</span>
+          <span>{buddyLine}</span>
+        </p>
+      )}
+
       {/* The wire card: find → do → verify */}
       <div className="p-4 rounded-2xl border border-border bg-surface space-y-3">
         <div className="flex items-start gap-3">
@@ -177,7 +200,12 @@ export function GuidedSteps({
 
         {/* Inline rescue */}
         {rescue && (
-          <details className="group">
+          <details
+            className="group"
+            onToggle={(e) => {
+              if ((e.target as HTMLDetailsElement).open) setRescueOpens((n) => n + 1);
+            }}
+          >
             <summary className="text-xs font-medium text-warning cursor-pointer py-1">
               Doesn&apos;t look right?
             </summary>
