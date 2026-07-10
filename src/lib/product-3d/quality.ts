@@ -12,6 +12,13 @@ export interface QualitySettings {
   segments: number; // cylinder radial segments
   showGround: boolean;
   antialias: boolean;
+  /** Post-processing composer on at all (low tier renders raw for weak GPUs) */
+  effects: boolean;
+  /** Screen-space ambient occlusion pass */
+  ao: boolean;
+  bloomIntensity: number;
+  /** Composer MSAA samples (0 = off) */
+  multisampling: number;
 }
 
 export function qualitySettings(tier: QualityTier): QualitySettings {
@@ -26,6 +33,10 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         segments: 48,
         showGround: true,
         antialias: true,
+        effects: true,
+        ao: true,
+        bloomIntensity: 0.55,
+        multisampling: 4,
       };
     case "medium":
       return {
@@ -37,6 +48,10 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         segments: 32,
         showGround: true,
         antialias: true,
+        effects: true,
+        ao: false,
+        bloomIntensity: 0.4,
+        multisampling: 2,
       };
     case "low":
     default:
@@ -49,6 +64,10 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         segments: 20,
         showGround: false,
         antialias: false,
+        effects: false,
+        ao: false,
+        bloomIntensity: 0,
+        multisampling: 0,
       };
   }
 }

@@ -265,7 +265,7 @@ export function ProductAssemblyApp({
 
   const stageH = expanded
     ? Math.min(1000, typeof window !== "undefined" ? window.innerHeight * 0.92 : 920)
-    : Math.max(height, 880);
+    : Math.max(height, 320);
 
   const phase = frame?.phase;
   const isolating = !!view.isolateNodeId;

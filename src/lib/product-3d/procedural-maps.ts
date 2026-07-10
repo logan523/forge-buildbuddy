@@ -6,39 +6,51 @@ import {
   CanvasTexture,
   LinearFilter,
   LinearSRGBColorSpace,
+  NearestFilter,
   NoColorSpace,
   RepeatWrapping,
+  SRGBColorSpace,
   type Texture,
 } from "three";
 
-export type MapKind = "brushed_normal" | "fr4_roughness" | "pvc_normal" | "copper_normal";
+export type MapKind =
+  | "brushed_normal"
+  | "fr4_roughness"
+  | "pvc_normal"
+  | "copper_normal"
+  | "oled_screen"
+  | "silkscreen";
 
 const cache = new Map<string, CanvasTexture>();
 
-function canvas(size: number): HTMLCanvasElement | OffscreenCanvas {
+function canvasWH(width: number, height: number): HTMLCanvasElement | OffscreenCanvas {
   if (typeof document !== "undefined") {
     const c = document.createElement("canvas");
-    c.width = size;
-    c.height = size;
+    c.width = width;
+    c.height = height;
     return c;
   }
   // Node/test path: OffscreenCanvas when available
   if (typeof OffscreenCanvas !== "undefined") {
-    return new OffscreenCanvas(size, size);
+    return new OffscreenCanvas(width, height);
   }
   // Minimal stub for pure unit tests without canvas
   return {
-    width: size,
-    height: size,
+    width,
+    height,
     getContext: () => null,
   } as unknown as HTMLCanvasElement;
+}
+
+function canvas(size: number): HTMLCanvasElement | OffscreenCanvas {
+  return canvasWH(size, size);
 }
 
 function finalize(
   tex: CanvasTexture,
   repeat = 2,
-  /** Normal maps must NOT use sRGB or materials go black/wrong */
-  kind: "normal" | "data" = "data"
+  /** Normal maps must NOT use sRGB or materials go black/wrong; color = albedo/emissive sRGB */
+  kind: "normal" | "data" | "color" = "data"
 ): CanvasTexture {
   tex.wrapS = RepeatWrapping;
   tex.wrapT = RepeatWrapping;
@@ -46,7 +58,8 @@ function finalize(
   tex.minFilter = LinearFilter;
   tex.magFilter = LinearFilter;
   // three r152+: wrong colorSpace on normals = black PBR
-  tex.colorSpace = kind === "normal" ? NoColorSpace : LinearSRGBColorSpace;
+  tex.colorSpace =
+    kind === "normal" ? NoColorSpace : kind === "color" ? SRGBColorSpace : LinearSRGBColorSpace;
   tex.needsUpdate = true;
   return tex;
 }
@@ -165,6 +178,172 @@ export function makeCopperPadNormal(size = 64): CanvasTexture {
   return cache.get(key)!;
 }
 
+export type OledScreenMode = "clock" | "readout";
+
+export interface OledScreenOpts {
+  mode: OledScreenMode;
+  label?: string;
+  time?: Date;
+  temp?: string;
+}
+
+/**
+ * Redraw an SSD1306-style face onto an existing oled_screen texture in place
+ * (live clock updates call this + set needsUpdate — no new texture allocation).
+ */
+export function drawOledScreen(tex: CanvasTexture, opts: OledScreenOpts): void {
+  const c = tex.image as HTMLCanvasElement | OffscreenCanvas | undefined;
+  const ctx = c?.getContext?.("2d") as CanvasRenderingContext2D | null;
+  if (!c || !ctx) return;
+  const W = c.width;
+  const H = c.height;
+
+  // True-black background — bloom must only pick up the lit pixels
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, W, H);
+
+  const ink = "#dffcff"; // cool OLED white with a cyan cast
+  const dim = "#7ce8f4";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  if (opts.mode === "clock") {
+    const t = opts.time ?? new Date();
+    const hh = String(t.getHours()).padStart(2, "0");
+    const mm = String(t.getMinutes()).padStart(2, "0");
+    ctx.fillStyle = dim;
+    ctx.font = `600 ${Math.round(H * 0.14)}px ui-monospace, monospace`;
+    ctx.fillText(
+      t.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }).toUpperCase(),
+      W / 2,
+      H * 0.14
+    );
+    ctx.fillStyle = ink;
+    ctx.font = `700 ${Math.round(H * 0.46)}px ui-monospace, monospace`;
+    ctx.fillText(`${hh}:${mm}`, W / 2, H * 0.47);
+    ctx.fillStyle = dim;
+    ctx.font = `600 ${Math.round(H * 0.16)}px ui-monospace, monospace`;
+    ctx.fillText(opts.temp ?? "23.4°C  41%", W / 2, H * 0.82);
+  } else {
+    const label = (opts.label || "FORGE").slice(0, 12).toUpperCase();
+    ctx.fillStyle = ink;
+    ctx.font = `700 ${Math.round(H * 0.3)}px ui-monospace, monospace`;
+    ctx.fillText(label, W / 2, H * 0.38);
+    ctx.fillStyle = dim;
+    ctx.font = `600 ${Math.round(H * 0.16)}px ui-monospace, monospace`;
+    ctx.fillText("READY", W / 2, H * 0.72);
+  }
+
+  // SSD1306 pixel-matrix illusion: dark gridlines every 2px (128×64 logical)
+  ctx.strokeStyle = "rgba(0,0,0,0.38)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x <= W; x += 2) {
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, H);
+  }
+  for (let y = 0; y <= H; y += 2) {
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(W, y + 0.5);
+  }
+  ctx.stroke();
+
+  tex.needsUpdate = true;
+}
+
+/** Live OLED face (256×128, sRGB, nearest-filter) — emissiveMap for the glass plane. */
+export function makeOledScreenMap(mode: OledScreenMode = "readout", label = ""): CanvasTexture {
+  const key = `oled_screen_${mode}_${label}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  const c = canvasWH(256, 128);
+  const tex = new CanvasTexture(c as HTMLCanvasElement);
+  drawOledScreen(tex, { mode, label });
+  finalize(tex, 1, "color");
+  tex.magFilter = NearestFilter; // crisp pixel matrix up close
+  tex.needsUpdate = true;
+  cache.set(key, tex);
+  return tex;
+}
+
+/** PCB silkscreen albedo: label, pin-1 dot, pads, trace hints on FR4 green. */
+export function makeSilkscreenMap(label = "PCB"): CanvasTexture {
+  const clean = label.slice(0, 14).toUpperCase();
+  const key = `silkscreen_${clean}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  const S = 256;
+  const c = canvas(S);
+  const ctx = c.getContext("2d") as CanvasRenderingContext2D | null;
+  const tex = new CanvasTexture(c as HTMLCanvasElement);
+  if (!ctx) {
+    cache.set(key, finalize(tex, 1, "color"));
+    return cache.get(key)!;
+  }
+
+  // Solder-mask green fills the whole canvas — UV bleed stays board-colored
+  ctx.fillStyle = "#0f3d24";
+  ctx.fillRect(0, 0, S, S);
+
+  // Faint mask mottle
+  for (let i = 0; i < 260; i++) {
+    const v = Math.random();
+    ctx.fillStyle = v > 0.5 ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.05)";
+    ctx.fillRect(Math.random() * S, Math.random() * S, 2 + Math.random() * 4, 2 + Math.random() * 4);
+  }
+
+  // Trace hints under the mask (slightly darker green)
+  ctx.strokeStyle = "rgba(6,26,15,0.85)";
+  ctx.lineWidth = 3;
+  const traces: Array<[number, number, number, number, number]> = [
+    [30, 200, 120, 200, 120],
+    [40, 60, 40, 150, 96],
+    [200, 40, 200, 130, 226],
+  ];
+  for (const [x0, y0, x1, y1, xe] of traces) {
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.lineTo(xe, y1 + 30);
+    ctx.stroke();
+  }
+
+  // Gold pad rings
+  ctx.strokeStyle = "#c9a86a";
+  ctx.lineWidth = 4;
+  for (const [px, py] of [
+    [36, 36],
+    [220, 36],
+    [36, 220],
+    [220, 220],
+  ]) {
+    ctx.beginPath();
+    ctx.arc(px, py, 9, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // White silkscreen
+  ctx.fillStyle = "#e8f0ec";
+  ctx.strokeStyle = "#e8f0ec";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(14, 14, S - 28, S - 28); // outline frame
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "700 26px ui-monospace, monospace";
+  ctx.fillText(clean, S / 2, S * 0.42);
+  ctx.font = "600 14px ui-monospace, monospace";
+  ctx.fillText("FORGE · REV A", S / 2, S * 0.56);
+  // Pin-1 dot
+  ctx.beginPath();
+  ctx.arc(30, S - 30, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  cache.set(key, finalize(tex, 1, "color"));
+  return cache.get(key)!;
+}
+
 /** Map kind → cached texture. */
 export function getProceduralMap(kind: MapKind, size?: number): Texture {
   switch (kind) {
@@ -176,6 +355,10 @@ export function getProceduralMap(kind: MapKind, size?: number): Texture {
       return makePvcNormal(size ?? 64);
     case "copper_normal":
       return makeCopperPadNormal(size ?? 64);
+    case "oled_screen":
+      return makeOledScreenMap("readout");
+    case "silkscreen":
+      return makeSilkscreenMap("PCB");
     default:
       return makePvcNormal(64);
   }

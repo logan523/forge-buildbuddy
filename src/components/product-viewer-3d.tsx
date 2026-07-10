@@ -1,14 +1,16 @@
 "use client";
 
 import {
+  Component,
   Suspense,
   useMemo,
   useState,
   useEffect,
   useCallback,
   useRef,
+  type ReactNode,
 } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import {
   OrbitControls,
   ContactShadows,
@@ -21,6 +23,14 @@ import {
   Grid,
   Html,
 } from "@react-three/drei";
+import {
+  EffectComposer,
+  Bloom,
+  N8AO,
+  ToneMapping,
+  Vignette,
+} from "@react-three/postprocessing";
+import { ToneMappingMode } from "postprocessing";
 import {
   type Object3D,
   type Material,
@@ -372,6 +382,69 @@ function nodeLayerVisible(node: SceneNode3D, view: LayerViewState): boolean {
   return true;
 }
 
+/** Catch HDRI load failure without killing the canvas — falls back to Lightformer rig. */
+class EnvBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+/** Code-authored studio env — used when the local HDRI is missing/unloadable. */
+function LightformerStudio({ intensity }: { intensity: number }) {
+  return (
+    <Environment resolution={256} environmentIntensity={intensity}>
+      {/* Top softbox */}
+      <Lightformer intensity={4} position={[0, 6, 0]} rotation-x={Math.PI / 2} scale={[9, 9, 1]} form="rect" />
+      {/* Cool left strip / warm right strip — matches the key/fill color story */}
+      <Lightformer intensity={1.6} color="#dce8f6" position={[-6, 2, 0]} rotation-y={Math.PI / 2} scale={[12, 1.2, 1]} form="rect" />
+      <Lightformer intensity={1.3} color="#f6e6d0" position={[6, 1.6, 0]} rotation-y={-Math.PI / 2} scale={[12, 1, 1]} form="rect" />
+      {/* Front fill */}
+      <Lightformer intensity={2.2} position={[0, 3.5, 7]} scale={[10, 2.5, 1]} form="rect" />
+    </Environment>
+  );
+}
+
+/**
+ * HDR post stack — mounts only when quality.effects. Composer buffers are linear HDR;
+ * ACES tone mapping runs as the LAST pass (the composer bypasses gl.toneMapping).
+ */
+function PostFX({ quality }: { quality: ReturnType<typeof qualitySettings> }) {
+  // Two explicit branches: EffectComposer children must be effect elements
+  // (no null / fragments — Children.toArray would hand it a non-effect).
+  if (quality.ao) {
+    return (
+      <EffectComposer multisampling={quality.multisampling}>
+        <N8AO halfRes intensity={2} aoRadius={0.4} distanceFalloff={0.5} />
+        <Bloom
+          mipmapBlur
+          intensity={quality.bloomIntensity}
+          luminanceThreshold={1.0}
+          luminanceSmoothing={0.15}
+        />
+        <Vignette darkness={0.35} offset={0.28} />
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      </EffectComposer>
+    );
+  }
+  return (
+    <EffectComposer multisampling={quality.multisampling}>
+      <Bloom
+        mipmapBlur
+        intensity={quality.bloomIntensity}
+        luminanceThreshold={1.0}
+        luminanceSmoothing={0.15}
+      />
+      <Vignette darkness={0.35} offset={0.28} />
+      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+    </EffectComposer>
+  );
+}
+
 /**
  * CAD modeler scene — stable lights, no Bounds.fit (that blacked out on click),
  * pure cad-frame camera, no remount on select.
@@ -391,6 +464,8 @@ function SceneContent({
   sun,
   showWires,
   harnesses,
+  idleSpin = false,
+  reducedMotion = false,
 }: {
   scene: ProductScene3D;
   view: LayerViewState;
@@ -406,6 +481,9 @@ function SceneContent({
   sun: SunState;
   showWires: boolean;
   harnesses?: import("@/lib/product-3d").WireRoute3D[];
+  /** Slow auto-orbit when the stage is idle (hero/step contexts only) */
+  idleSpin?: boolean;
+  reducedMotion?: boolean;
 }) {
   const selectedRef = useRef<Object3D | null>(null);
   const nodeRefs = useRef<Map<string, Object3D>>(new Map());
@@ -414,12 +492,20 @@ function SceneContent({
   const { camera, gl } = useThree();
   const framedKey = useRef("");
   const isolateFrameKey = useRef<string | null>(null);
+  // Idle auto-orbit + one-shot intro dolly (both skipped under reduced motion)
+  const [idle, setIdle] = useState(true);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dolly = useRef<{ from: Vector3; to: Vector3; t: number } | null>(null);
 
-  // Mild ACES filmic — keep exposure high enough for warehouse env
+  // Mild ACES filmic — the low-tier / composer-off path (PostFX tone-maps otherwise)
   useEffect(() => {
     gl.toneMapping = ACESFilmicToneMapping;
     gl.toneMappingExposure = 1.35;
   }, [gl]);
+
+  useEffect(() => () => {
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+  }, []);
 
   // Stable CAD framing once per scene identity (not on every click)
   useEffect(() => {
@@ -430,11 +516,29 @@ function SceneContent({
     camera.position.set(...frame.position);
     camera.lookAt(...frame.target);
     camera.updateProjectionMatrix();
+    if (!reducedMotion) {
+      // Intro dolly: ease in from 12% farther out
+      const to = new Vector3(...frame.position);
+      const target = new Vector3(...frame.target);
+      const from = target.clone().add(to.clone().sub(target).multiplyScalar(1.12));
+      camera.position.copy(from);
+      dolly.current = { from, to, t: 0 };
+    }
     const t = requestAnimationFrame(() => {
       orbitRef.current?.target?.set(...frame.target);
     });
     return () => cancelAnimationFrame(t);
-  }, [scene.templateId, scene.nodes, scene.rootScale, camera]);
+  }, [scene.templateId, scene.nodes, scene.rootScale, camera, reducedMotion]);
+
+  // Drive the intro dolly (cancelled by user interaction or isolate framing)
+  useFrame((_, delta) => {
+    const d = dolly.current;
+    if (!d) return;
+    d.t = Math.min(1, d.t + delta / 0.8);
+    const k = 1 - Math.pow(1 - d.t, 3); // ease-out cubic
+    camera.position.lerpVectors(d.from, d.to, k);
+    if (d.t >= 1) dolly.current = null;
+  });
 
   // JARVIS isolate: frame extracted part (no Bounds.fit / remount)
   useEffect(() => {
@@ -442,6 +546,7 @@ function SceneContent({
     if (!id) {
       if (isolateFrameKey.current) {
         isolateFrameKey.current = null;
+        dolly.current = null;
         const frame = cadCameraForNodes(scene.nodes, scene.rootScale, 1.4);
         camera.position.set(...frame.position);
         camera.lookAt(...frame.target);
@@ -452,6 +557,7 @@ function SceneContent({
     }
     if (isolateFrameKey.current === id) return;
     isolateFrameKey.current = id;
+    dolly.current = null;
     // Use node with isolate pull applied for framing center
     const pulled = scene.nodes.map((n) => {
       if (n.id !== id) return n;
@@ -505,9 +611,17 @@ function SceneContent({
       <directionalLight position={[-3.2, 2.8, -2.2]} intensity={0.55} color="#b8d0ea" />
       <directionalLight position={[2.4, 1.8, 3.2]} intensity={0.45} color="#ffe4c4" />
       <directionalLight position={[0, 5, 1]} intensity={0.4} color="#ffffff" />
-      {/* preset alone — nesting Lightformer children with preset broke env on some builds */}
-      <Environment preset="warehouse" environmentIntensity={quality.envIntensity * 0.7} />
+      {/* Local studio HDRI (no CDN); Lightformer rig fallback if it can't load */}
+      <EnvBoundary fallback={<LightformerStudio intensity={quality.envIntensity * 0.7} />}>
+        <Suspense fallback={null}>
+          <Environment
+            files="/hdri/studio_small_08_1k.hdr"
+            environmentIntensity={quality.envIntensity * 0.7}
+          />
+        </Suspense>
+      </EnvBoundary>
       <Lightformer intensity={1.1} position={[0, 4.5, 2]} scale={[10, 2.5, 1]} form="rect" />
+      <fog attach="fog" args={["#23282f", 9, 24]} />
 
       {showBeauty && beautySpec && (
         <Suspense fallback={null}>
@@ -556,27 +670,27 @@ function SceneContent({
         />
       )}
 
-      {/* Matte studio floor + contact shadow (safe on all GPUs) */}
+      {/* Matte studio floor — reflector/PCSS stay banned (GPU blackout history, see product-3d.test) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <planeGeometry args={[16, 16]} />
-        <meshStandardMaterial color="#2a3038" metalness={0.12} roughness={0.85} />
+        <meshStandardMaterial color="#262c34" metalness={0.15} roughness={0.78} />
       </mesh>
       <Grid
         position={[0, -0.012, 0]}
         args={[12, 12]}
         cellSize={0.25}
-        cellThickness={0.5}
-        cellColor="#4a5568"
+        cellThickness={0.4}
+        cellColor="#3d4654"
         sectionSize={1}
-        sectionThickness={0.9}
-        sectionColor="#64748b"
+        sectionThickness={0.8}
+        sectionColor="#525f70"
         fadeDistance={9}
         fadeStrength={1.3}
         infiniteGrid
       />
       <ContactShadows
         position={[0, 0.004, 0]}
-        opacity={0.48}
+        opacity={0.58}
         scale={9}
         blur={2.8}
         far={6}
@@ -592,6 +706,19 @@ function SceneContent({
         enablePan
         enableDamping
         dampingFactor={0.08}
+        autoRotate={
+          idleSpin && idle && !reducedMotion && !editMode && !view.isolateNodeId && !view.selectedNodeId
+        }
+        autoRotateSpeed={0.45}
+        onStart={() => {
+          dolly.current = null;
+          setIdle(false);
+          if (idleTimer.current) clearTimeout(idleTimer.current);
+        }}
+        onEnd={() => {
+          if (idleTimer.current) clearTimeout(idleTimer.current);
+          idleTimer.current = setTimeout(() => setIdle(true), 8000);
+        }}
         // Keep orbit alive during select — only pause when actively posing
         enabled={!editMode}
       />
@@ -671,6 +798,11 @@ export function ProductViewer3D({
   const dropQuality = useCallback(() => {
     setQualityTier((t) => (t === "high" ? "medium" : t === "medium" ? "low" : "low"));
   }, []);
+  const [reducedMotion] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  );
   const [sun, setSun] = useState<SunState>(DEFAULT_SUN);
   const [aimSolar, setAimSolar] = useState(true);
   // Wiring is product content — on by default so you can trace pin-to-pin
@@ -1140,8 +1272,11 @@ export function ProductViewer3D({
                 sun={sun}
                 showWires={showWires}
                 harnesses={harnesses}
+                idleSpin={!!hideChrome}
+                reducedMotion={reducedMotion}
               />
             </Suspense>
+            {quality.effects && <PostFX quality={quality} />}
           </Canvas>
           {/* Floating hint */}
           <div className="pointer-events-none absolute bottom-2 left-2 right-2 sm:right-auto flex gap-1.5">

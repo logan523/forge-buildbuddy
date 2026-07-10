@@ -8,6 +8,7 @@ import {
   Component,
   forwardRef,
   Suspense,
+  useEffect,
   useMemo,
   useRef,
   type ErrorInfo,
@@ -35,7 +36,12 @@ import {
   inferMaterialPreset,
   resolvePhysicalMaterial,
 } from "@/lib/product-3d/materials";
-import { getProceduralMap } from "@/lib/product-3d/procedural-maps";
+import {
+  drawOledScreen,
+  getProceduralMap,
+  makeOledScreenMap,
+  makeSilkscreenMap,
+} from "@/lib/product-3d/procedural-maps";
 import { cubeCorners, wireCubeRods } from "@/lib/product-3d/geom-math";
 import { meshPinStubsForNode, pinLocal } from "@/lib/product-3d/sat-pins";
 
@@ -320,6 +326,21 @@ export function NodeMesh({
   const s = rootScale;
   const p = node.geom.params;
   const kind = node.geom.kind;
+
+  // Live OLED face — hooks stay above the early return / switch (rules of hooks).
+  const isOled = kind === "oled_module" || kind === "oled_panel";
+  const oledMode = node.id === "face" ? ("clock" as const) : ("readout" as const);
+  const oledScreenTex = useMemo(
+    () => (isOled ? makeOledScreenMap(oledMode, node.label || node.id) : null),
+    [isOled, oledMode, node.label, node.id]
+  );
+  useEffect(() => {
+    if (!oledScreenTex || oledMode !== "clock") return;
+    const redraw = () => drawOledScreen(oledScreenTex, { mode: "clock", time: new Date() });
+    redraw();
+    const timer = setInterval(redraw, 30_000);
+    return () => clearInterval(timer);
+  }, [oledScreenTex, oledMode]);
 
   if (!visible) return null;
 
@@ -733,7 +754,7 @@ export function NodeMesh({
             <meshPhysicalMaterial color="#0c0c10" metalness={0.35} roughness={0.4} clearcoat={0.12} envMapIntensity={0.75} transparent opacity={opacity} />
             <SelectOutline selected={selected} />
           </RoundedBox>
-          {/* Glass screen — ~0.96" active class within module */}
+          {/* Glass screen — live SSD1306 pixels as emissiveMap (bloom lifts the digits) */}
           <mesh position={[0, h * 0.04, d * 0.38]}>
             <planeGeometry args={[screenW, screenH]} />
             <meshPhysicalMaterial
@@ -742,23 +763,13 @@ export function NodeMesh({
               roughness={0.04}
               clearcoat={1}
               clearcoatRoughness={0.015}
-              transmission={0.12}
-              thickness={0.4}
-              emissive="#0a3d28"
-              emissiveIntensity={0.55}
+              emissive={oledScreenTex ? "#ffffff" : "#0a3d28"}
+              emissiveMap={oledScreenTex || undefined}
+              emissiveIntensity={oledScreenTex ? 2.4 : 0.55}
               envMapIntensity={1.7}
               transparent
               opacity={opacity}
             />
-          </mesh>
-          {/* Soft active-area glow only (no DOM Html — avoids floating UI junk) */}
-          <mesh position={[0, screenH * 0.02, d * 0.42]}>
-            <planeGeometry args={[screenW * 0.72, screenH * 0.55]} />
-            <meshBasicMaterial color="#14532d" transparent opacity={0.35 * opacity} />
-          </mesh>
-          <mesh position={[0, screenH * 0.08, d * 0.43]}>
-            <planeGeometry args={[screenW * 0.5, screenH * 0.08]} />
-            <meshBasicMaterial color="#4ade80" transparent opacity={0.45 * opacity} />
           </mesh>
           {/* 4-pin OLED header — locals from sat-pins (same as harness) */}
           {showPcb &&
@@ -930,16 +941,19 @@ export function NodeMesh({
               opacity={0.9 * opacity}
             />
           </mesh>
-          {/* Silkscreen top + FR4 roughness map */}
+          {/* Silkscreen top — printed label, pin-1 dot, pads (canvas albedo) */}
           <mesh position={[0, 0, d * 0.52]}>
             <planeGeometry args={[w * 0.92, h * 0.92]} />
             <meshPhysicalMaterial
-              color="#1a5c32"
+              color="#ffffff"
+              map={makeSilkscreenMap(
+                isEsp ? "ESP32-C3" : isTp ? "TP4056" : node.label || node.ref || "PCB"
+              )}
               metalness={0.04}
               roughness={0.68}
               roughnessMap={getProceduralMap("fr4_roughness")}
               transparent
-              opacity={0.55 * opacity}
+              opacity={0.92 * opacity}
             />
           </mesh>
           {/* Faint copper pour suggestion */}

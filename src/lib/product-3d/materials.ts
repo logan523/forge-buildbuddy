@@ -52,9 +52,9 @@ const PRESETS: Record<MaterialPresetId, PhysicalMatProps> = {
   brass: {
     color: "#d4a84b",
     metalness: 0.97,
-    roughness: 0.14,
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.12,
+    roughness: 0.09,
+    clearcoat: 0.25,
+    clearcoatRoughness: 0.2,
     envMapIntensity: 1.65,
   },
   copper: {
@@ -75,7 +75,7 @@ const PRESETS: Record<MaterialPresetId, PhysicalMatProps> = {
     thickness: 0.45,
     ior: 1.5,
     emissive: "#0a3d32",
-    emissiveIntensity: 0.55,
+    emissiveIntensity: 0.4,
     envMapIntensity: 1.7,
   },
   oled_bezel: {
@@ -94,10 +94,10 @@ const PRESETS: Record<MaterialPresetId, PhysicalMatProps> = {
     envMapIntensity: 0.55,
   },
   solar_cell: {
-    color: "#0a101c",
+    color: "#070b14",
     metalness: 0.62,
-    roughness: 0.22,
-    clearcoat: 0.65,
+    roughness: 0.12,
+    clearcoat: 0.6,
     clearcoatRoughness: 0.08,
     envMapIntensity: 1.35,
   },
