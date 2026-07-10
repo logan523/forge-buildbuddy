@@ -38,6 +38,7 @@ import {
   toggleIsolate,
 } from "@/lib/product-3d/assembly-view";
 import { meshPinStubsForNode } from "@/lib/product-3d/sat-pins";
+import { explainNode } from "@/lib/steps/explain-part";
 import { deriveStepPresence } from "@/lib/product-3d/step-presence";
 import { ProductViewer3D } from "@/components/product-viewer-3d";
 
@@ -405,6 +406,23 @@ export function ProductAssemblyApp({
     return wiresForPart(harnesses, focusId);
   }, [harnesses, focusId]);
 
+  const labelById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const n of baseScene.nodes) m.set(n.id, n.label);
+    return m;
+  }, [baseScene.nodes]);
+
+  // Tap-a-Pin: a plain-English self-explanation for the selected part.
+  const explanation = useMemo(() => {
+    if (!focusId || !inspected.node) return null;
+    const wires = incidentWires.map((w) => ({
+      netClass: w.netClass,
+      netName: w.netName,
+      otherLabel: labelById.get(w.fromNodeId === focusId ? w.toNodeId : w.fromNodeId) || "another part",
+    }));
+    return explainNode(focusId, inspected.node.label, wires);
+  }, [focusId, inspected.node, incidentWires, labelById]);
+
   const pinStubs = useMemo(() => {
     if (!focusId) return [];
     return meshPinStubsForNode(focusId);
@@ -661,6 +679,16 @@ export function ProductAssemblyApp({
             <p className="text-[9px] text-white/35 mt-0.5">
               Double-click part to isolate · Esc reassemble
             </p>
+            {explanation && (
+              <div className="mt-1.5 space-y-0.5">
+                <p className="text-[11px] text-white/90 leading-snug">{explanation.headline}</p>
+                {explanation.points.map((pt, i) => (
+                  <p key={i} className="text-[10px] text-white/60 leading-snug">
+                    {pt}
+                  </p>
+                ))}
+              </div>
+            )}
             {pinStubs.length > 0 && (
               <p className="text-[10px] text-white/50 mt-1 truncate">
                 Pins: {pinStubs.map((p) => p.name).join(" · ")}
