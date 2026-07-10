@@ -45,6 +45,23 @@ test("golden: step 6 derives the I2C bus with authority colors", () => {
   }
 });
 
+test("golden: step 6 camera focus is the parts it wires — structured, not prose", () => {
+  const plan = demo();
+  const s6 = plan.steps.find((s) => s.stepNumber === 6)!;
+  const focus = s6.compiled?.focusPartIds ?? [];
+  // The I2C bus step frames EXACTLY the MCU + its I2C devices + the touch
+  // signal — its signal nets. The shared ground star also legs from the MCU
+  // to the battery/solar/charger, but those must NOT drag the camera out to
+  // the whole board (that was the "zooms to a random item" feel).
+  assert.deepEqual(
+    [...focus].sort(),
+    ["esp32c3", "oled-display", "sht31d", "touch-switch"].sort()
+  );
+  // Join integrity: every focus id resolves to a real plan part.
+  const partIds = new Set((plan.parts || []).map((p) => p.id));
+  for (const id of focus) assert.ok(partIds.has(id), `${id} is a real part id`);
+});
+
 test("golden: multi-member GND net renders as derived star legs", () => {
   const plan = demo();
   const all = plan.steps.flatMap((s) => s.compiled?.connections || []);

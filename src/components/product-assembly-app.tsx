@@ -6,7 +6,7 @@
  * Thin chrome only: scrub bar + collapsible tree + selection card.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { BuildPlan } from "@/lib/types";
+import type { BuildPlan, CompiledStepFacts } from "@/lib/types";
 import {
   buildProductScene3D,
   getRecipeForTemplate,
@@ -17,6 +17,7 @@ import {
   wiresForPart,
   wireLegend,
   buildAssemblyTree,
+  frameForNodeIds,
   type BeautyMeshSpec,
   type LayerViewState,
   type WireRoute3D,
@@ -105,7 +106,13 @@ export function ProductAssemblyApp({
 }: {
   plan: BuildPlan;
   stepIndex?: number | "prep";
-  step?: { title?: string; description?: string; mediaKind?: string; stepNumber?: number };
+  step?: {
+    title?: string;
+    description?: string;
+    mediaKind?: string;
+    stepNumber?: number;
+    compiled?: CompiledStepFacts;
+  };
   height?: number;
   expandable?: boolean;
   onPlanPatch?: (patch: Partial<BuildPlan>) => void;
@@ -126,6 +133,11 @@ export function ProductAssemblyApp({
   const initialScrub = useMemo(() => {
     if (!recipe) return maxPhase;
     if (stepIndex === "prep") return maxPhase;
+    // A wiring step happens on the fully-assembled product — every part is
+    // mounted before you connect it. Show the whole board present, then the
+    // focus camera zooms to exactly the parts being wired. (Without this the
+    // regex phase can land early, leaving the wired parts not yet present.)
+    if (step?.compiled?.focusPartIds?.length) return maxPhase;
     return phaseIndexForStep(
       recipe,
       step,
@@ -217,6 +229,25 @@ export function ProductAssemblyApp({
     for (const n of baseScene.nodes) m[n.id] = presentNodeIds.has(n.id);
     return m;
   }, [baseScene.nodes, presentNodeIds]);
+
+  // Structured camera focus: frame EXACTLY the parts this step wires, resolved
+  // from the compiled connections (partId join, not title keywords). This is
+  // what stops the camera zooming to an unrelated item on wiring steps; it
+  // overrides the recipe phase's authored hint whenever we have this truth.
+  const focusCamera = useMemo(() => {
+    if (!stepChrome) return null;
+    const focusIds = step?.compiled?.focusPartIds;
+    if (!focusIds?.length) return null;
+    const idSet = new Set(focusIds);
+    const nodeIds = baseScene.nodes
+      .filter((n) => n.partId && idSet.has(n.partId))
+      .map((n) => n.id);
+    if (!nodeIds.length) return null;
+    // Frame against the ASSEMBLED positions (framedNodes), not baseScene —
+    // base positions are pre-assembly, so framing those aims at empty space.
+    const f = frameForNodeIds(framedNodes, nodeIds, baseScene.rootScale, 1.35);
+    return { position: f.position, target: f.target };
+  }, [stepChrome, step, baseScene.nodes, framedNodes, baseScene.rootScale]);
 
   const [view, setView] = useState<AssemblyViewState>(() =>
     defaultAssemblyView(baseScene.nodes)
@@ -420,7 +451,7 @@ export function ProductAssemblyApp({
           harnesses={harnesses}
           sceneNodesOverride={displayNodes}
           onIsolatePart={(id) => setView((v) => toggleIsolate(v, id))}
-          phaseCamera={stepChrome ? (frame?.cameraHint ?? null) : null}
+          phaseCamera={stepChrome ? (focusCamera ?? frame?.cameraHint ?? null) : null}
           idleSpin={stepChrome ? false : undefined}
           transientEpoch={expandEpoch}
           onBeautyMeshChange={(mesh: BeautyMeshSpec) => {

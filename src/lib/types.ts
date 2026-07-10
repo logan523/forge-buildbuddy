@@ -129,6 +129,13 @@ export interface CompiledCheck {
 export interface CompiledStepFacts {
   connections: CompiledConnection[];
   checks: CompiledCheck[];
+  /**
+   * Plan part ids this step actually touches, resolved from the connection
+   * refs via the electrical model (NOT prose keywords). The 3D view frames
+   * and highlights exactly these parts — the fix for "camera zooms to an
+   * unrelated item," which came from title-regex phase guessing.
+   */
+  focusPartIds?: string[];
 }
 
 export interface StepContentIssue {

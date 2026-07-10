@@ -184,6 +184,37 @@ export function checksFor(
 }
 
 /**
+ * Plan part ids a step's connections touch, resolved via the electrical
+ * model's ref→partId map. Deterministic structured focus for the 3D camera —
+ * replaces the title-regex guessing that framed unrelated parts.
+ */
+export function focusPartIdsFor(
+  connections: CompiledConnection[],
+  refToPartId: Map<string, string>
+): string[] {
+  // Shared power/ground rails fan out from the MCU hub to nearly every part,
+  // so a step that mentions the MCU would otherwise "focus" the whole board.
+  // A step's signal/data nets are its real visual subject; fall back to all
+  // connections only when a step is purely power/ground (e.g. battery wiring).
+  const RAIL = /^(gnd|ground|power)$/i;
+  const signal = connections.filter((c) => !RAIL.test(c.netClass));
+  const use = signal.length ? signal : connections;
+
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const c of use) {
+    for (const ref of [c.fromRef, c.toRef]) {
+      const partId = refToPartId.get(ref);
+      if (partId && !seen.has(partId)) {
+        seen.add(partId);
+        ids.push(partId);
+      }
+    }
+  }
+  return ids;
+}
+
+/**
  * Attach derived facts to every step + plan-level status. Never throws —
  * a compiler failure degrades to status "failed" (banner, diagnostics),
  * and the plan still loads (eng F1).
@@ -195,6 +226,7 @@ export function attachCompiledFacts(plan: BuildPlan): BuildPlan {
   }
   const edges = edgesFromModel(plan, model);
   const { byStep, unassigned } = assignEdges(plan.steps || [], edges);
+  const refToPartId = new Map(model.components.map((c) => [c.ref, c.partId]));
 
   const steps = (plan.steps || []).map((s): BuildStep => {
     const connections = byStep.get(s.stepNumber);
@@ -206,9 +238,11 @@ export function attachCompiledFacts(plan: BuildPlan): BuildPlan {
       }
       return s;
     }
+    const focusPartIds = focusPartIdsFor(connections, refToPartId);
     const compiled: CompiledStepFacts = {
       connections,
       checks: checksFor(connections, model),
+      ...(focusPartIds.length ? { focusPartIds } : {}),
     };
     return { ...s, compiled };
   });
