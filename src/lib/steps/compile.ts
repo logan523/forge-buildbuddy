@@ -256,7 +256,7 @@ export function attachCompiledFacts(plan: BuildPlan): BuildPlan {
     const compiled: CompiledStepFacts = {
       connections,
       checks,
-      microSteps: buildMicroSteps(connections, checks),
+      microSteps: buildMicroSteps(connections, checks, refToPartId),
       ...(focusPartIds.length ? { focusPartIds } : {}),
     };
     return { ...s, compiled };

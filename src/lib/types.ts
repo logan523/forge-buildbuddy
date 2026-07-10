@@ -150,6 +150,12 @@ export interface MicroStep {
   total: number;
   colorName: string;
   colorHex: string;
+  netName: string;
+  // Plan part ids for the 3D "show me" drill-down: resolve part → scene node,
+  // then match the wire by node pair (harness + compiler name nets/pins
+  // differently, but agree on which two parts a wire connects).
+  fromPartId?: string;
+  toPartId?: string;
   fromLabel: string;
   fromPin: string;
   toLabel: string;

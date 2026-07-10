@@ -29,7 +29,8 @@ function rescueFor(netClass: string): SymptomId | undefined {
 
 export function buildMicroSteps(
   connections: CompiledConnection[],
-  checks: CompiledCheck[]
+  checks: CompiledCheck[],
+  refToPartId?: Map<string, string>
 ): MicroStep[] {
   const ordered = [...connections].sort((a, b) => rank(a.netClass) - rank(b.netClass));
   const total = ordered.length;
@@ -47,6 +48,9 @@ export function buildMicroSteps(
       total,
       colorName: c.colorName,
       colorHex: c.colorHex,
+      netName: c.netName,
+      fromPartId: refToPartId?.get(c.fromRef),
+      toPartId: refToPartId?.get(c.toRef),
       fromLabel: c.fromLabel,
       fromPin: c.fromPin,
       toLabel: c.toLabel,

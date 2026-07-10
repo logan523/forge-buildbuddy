@@ -30,6 +30,7 @@ const micro = (id: string, netClass: string, index: number, showTechnique: boole
   total: 2,
   colorName: "blue",
   colorHex: "#2563eb",
+  netName: id === "w1" ? "GND" : "SDA",
   fromLabel: "ESP32-C3",
   fromPin: "GPIO4",
   toLabel: "OLED",
