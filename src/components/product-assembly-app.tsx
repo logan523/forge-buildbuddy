@@ -230,22 +230,42 @@ export function ProductAssemblyApp({
   // overrides the recipe phase's authored hint whenever we have this truth.
   const focusCamera = useMemo(() => {
     if (!stepChrome) return null;
-    const focusIds = step?.compiled?.focusPartIds;
-    if (!focusIds?.length) return null;
-    const idSet = new Set(focusIds);
-    const nodeIds = baseScene.nodes
-      .filter((n) => n.partId && idSet.has(n.partId))
-      .map((n) => n.id);
+    let nodeIds: string[] = [];
+    let tight = true;
+
+    // 1. Wiring step: frame the exact parts being wired (from the connections).
+    const wf = step?.compiled?.focusPartIds;
+    if (wf?.length) {
+      const set = new Set(wf);
+      nodeIds = baseScene.nodes.filter((n) => n.partId && set.has(n.partId)).map((n) => n.id);
+    }
+
+    // 2. Other recipe steps: frame the part(s) THIS phase introduces — the
+    //    step's actual subject. The hand-authored phase cameraHints aimed too
+    //    low (targeted Y~1.0 while parts sit at Y~1.4-1.7), so the camera looked
+    //    below the item. addsParts → the real item, targeted correctly.
+    if (!nodeIds.length && recipe && frame?.phase?.addsParts?.length) {
+      const wanted = new Set(
+        frame.phase.addsParts
+          .map((pid) => recipe.parts.find((p) => p.id === pid)?.nodeId)
+          .filter((id): id is string => !!id)
+      );
+      nodeIds = baseScene.nodes.filter((n) => wanted.has(n.id)).map((n) => n.id);
+    }
+
+    // 3. Fallback (final-assembly steps with no adds): frame the whole present
+    //    product, looser so it doesn't crop.
+    if (!nodeIds.length) {
+      nodeIds = [...presentNodeIds];
+      tight = false;
+    }
     if (!nodeIds.length) return null;
-    // Frame against the ASSEMBLED positions (framedNodes), not baseScene —
-    // base positions are pre-assembly, so framing those aims at empty space.
-    // Tight focus: the diagnostic showed dist to FILL the frame ≈ 0.83 (margin
-    // ~0.8); the default loose margin left the small cube far away with the
-    // stand/ground filling the space below it. 0.95 fills the frame with a
-    // little padding (dist ≈ 1.0 vs the old 1.47).
-    const f = frameForNodeIds(framedNodes, nodeIds, baseScene.rootScale, 0.95);
+
+    // Frame against ASSEMBLED positions (framedNodes). Tight item focus fills
+    // the frame (margin 0.95 ≈ dist 1.0); the whole-product fallback stays loose.
+    const f = frameForNodeIds(framedNodes, nodeIds, baseScene.rootScale, tight ? 0.95 : 1.25);
     return { position: f.position, target: f.target };
-  }, [stepChrome, step, baseScene.nodes, framedNodes, baseScene.rootScale]);
+  }, [stepChrome, step, recipe, frame, presentNodeIds, baseScene.nodes, framedNodes, baseScene.rootScale]);
 
   const [view, setView] = useState<AssemblyViewState>(() =>
     defaultAssemblyView(baseScene.nodes)
@@ -449,7 +469,7 @@ export function ProductAssemblyApp({
           harnesses={harnesses}
           sceneNodesOverride={displayNodes}
           onIsolatePart={(id) => setView((v) => toggleIsolate(v, id))}
-          phaseCamera={stepChrome ? (focusCamera ?? frame?.cameraHint ?? null) : null}
+          phaseCamera={stepChrome ? focusCamera : null}
           idleSpin={stepChrome ? false : undefined}
           transientEpoch={expandEpoch}
           onBeautyMeshChange={(mesh: BeautyMeshSpec) => {
