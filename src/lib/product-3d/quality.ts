@@ -78,7 +78,11 @@ export function detectQualityTier(): QualityTier {
   const cores = navigator.hardwareConcurrency || 4;
   const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
   const w = window.innerWidth;
-  if (w < 640 || cores <= 4 || (mem != null && mem <= 4)) return "low";
+  // Narrow viewport ≠ weak GPU (eng V3): phones default to "medium" (bloom,
+  // no AO) so the kitchen-table device gets the graphics; genuinely low-end
+  // hardware still starts low, and the monitor demotes honestly at runtime.
+  if (cores <= 4 || (mem != null && mem <= 4)) return "low";
+  if (w < 640) return "medium";
   if (cores >= 8 && w >= 1200 && (mem == null || mem >= 8)) return "high";
   return "medium";
 }

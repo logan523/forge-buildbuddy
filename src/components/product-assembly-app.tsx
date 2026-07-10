@@ -155,6 +155,13 @@ export function ProductAssemblyApp({
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  // Expand quadruples the canvas area — pause the perf monitor through it
+  // so the resize dip can't strip effects permanently (eng V3).
+  const [expandEpoch, setExpandEpoch] = useState(0);
+  useEffect(() => {
+    setExpandEpoch((e) => e + 1);
+  }, [expanded]);
+
   useEffect(() => {
     setScrub(initialScrub);
   }, [initialScrub]);
@@ -397,6 +404,9 @@ export function ProductAssemblyApp({
           harnesses={harnesses}
           sceneNodesOverride={displayNodes}
           onIsolatePart={(id) => setView((v) => toggleIsolate(v, id))}
+          phaseCamera={stepChrome ? (frame?.cameraHint ?? null) : null}
+          idleSpin={stepChrome ? false : undefined}
+          transientEpoch={expandEpoch}
           onBeautyMeshChange={(mesh: BeautyMeshSpec) => {
             onPlanPatch?.({ beautyMesh: mesh });
           }}

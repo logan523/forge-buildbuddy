@@ -466,6 +466,10 @@ function SceneContent({
   harnesses,
   idleSpin = false,
   reducedMotion = false,
+  phaseCamera = null,
+  monitorActive = true,
+  onQualityRise,
+  onTransient,
 }: {
   scene: ProductScene3D;
   view: LayerViewState;
@@ -484,6 +488,12 @@ function SceneContent({
   /** Slow auto-orbit when the stage is idle (hero/step contexts only) */
   idleSpin?: boolean;
   reducedMotion?: boolean;
+  /** Recipe phase camera hint — step framing lerps position AND target (eng V2) */
+  phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
+  /** Suspend the PerformanceMonitor during known-transient churn (eng V3) */
+  monitorActive?: boolean;
+  onQualityRise?: () => void;
+  onTransient?: () => void;
 }) {
   const selectedRef = useRef<Object3D | null>(null);
   const nodeRefs = useRef<Map<string, Object3D>>(new Map());
@@ -538,6 +548,56 @@ function SceneContent({
     const k = 1 - Math.pow(1 - d.t, 3); // ease-out cubic
     camera.position.lerpVectors(d.from, d.to, k);
     if (d.t >= 1) dolly.current = null;
+  });
+
+  // Camera-intent arbiter, step framing (eng V2): exactly one writer at a
+  // time; phase hints lerp position AND target together (OrbitControls'
+  // target would otherwise re-aim every frame and yaw the lerp); user
+  // interaction cancels instantly via onStart below.
+  const stepLerp = useRef<{
+    fromP: Vector3;
+    toP: Vector3;
+    fromT: Vector3;
+    toT: Vector3;
+    t: number;
+  } | null>(null);
+  const phaseKey = phaseCamera
+    ? `${phaseCamera.position.join(",")}|${phaseCamera.target.join(",")}`
+    : null;
+  useEffect(() => {
+    if (!phaseCamera || view.isolateNodeId) return;
+    const toP = new Vector3(...phaseCamera.position);
+    const toT = new Vector3(...phaseCamera.target);
+    if (reducedMotion) {
+      camera.position.copy(toP);
+      camera.lookAt(toT);
+      orbitRef.current?.target?.set(toT.x, toT.y, toT.z);
+      return;
+    }
+    dolly.current = null;
+    const fromT =
+      (orbitRef.current?.target as Vector3 | undefined)?.clone?.() ?? toT.clone();
+    stepLerp.current = {
+      fromP: camera.position.clone(),
+      toP,
+      fromT,
+      toT,
+      t: 0,
+    };
+    onTransient?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phaseKey, view.isolateNodeId]);
+
+  useFrame((_, delta) => {
+    const s = stepLerp.current;
+    if (!s) return;
+    s.t = Math.min(1, s.t + delta / 0.9);
+    const k = 1 - Math.pow(1 - s.t, 3);
+    camera.position.lerpVectors(s.fromP, s.toP, k);
+    const tgt = new Vector3().lerpVectors(s.fromT, s.toT, k);
+    orbitRef.current?.target?.set(tgt.x, tgt.y, tgt.z);
+    camera.lookAt(tgt);
+    if (s.t >= 1) stepLerp.current = null;
   });
 
   // JARVIS isolate: frame extracted part (no Bounds.fit / remount)
@@ -596,7 +656,11 @@ function SceneContent({
 
   return (
     <>
-      <PerformanceMonitor onDecline={onQualityDrop} />
+      {/* Suspended during camera lerps / canvas resizes — a transient dip must
+          not permanently strip effects (eng V3); sustained headroom promotes. */}
+      {monitorActive && (
+        <PerformanceMonitor onDecline={onQualityDrop} onIncline={onQualityRise} />
+      )}
       {/* Always-on fills so the stage never reads as pure black */}
       <ambientLight intensity={0.62} color="#eef2f6" />
       <hemisphereLight args={["#f0f4f8", "#3a4550", 0.75]} />
@@ -697,10 +761,10 @@ function SceneContent({
         color="#0a0c10"
       />
 
+      {/* target intentionally uncontrolled — writers set it explicitly (eng V2) */}
       <OrbitControls
         ref={orbitRef as never}
         makeDefault
-        target={scene.cameraHint.target}
         minDistance={0.9}
         maxDistance={16}
         enablePan
@@ -712,6 +776,7 @@ function SceneContent({
         autoRotateSpeed={0.45}
         onStart={() => {
           dolly.current = null;
+          stepLerp.current = null; // user input wins instantly (eng V2)
           setIdle(false);
           if (idleTimer.current) clearTimeout(idleTimer.current);
         }}
@@ -755,6 +820,9 @@ export function ProductViewer3D({
   sceneNodesOverride,
   /** JARVIS: double-click part to isolate (parent owns state) */
   onIsolatePart,
+  phaseCamera = null,
+  idleSpin: idleSpinProp,
+  transientEpoch = 0,
 }: {
   plan: BuildPlan;
   /** Prefer this layer (solo-ish highlight) */
@@ -776,6 +844,12 @@ export function ProductViewer3D({
   harnesses?: import("@/lib/product-3d").WireRoute3D[];
   sceneNodesOverride?: SceneNode3D[] | null;
   onIsolatePart?: (nodeId: string) => void;
+  /** Recipe phase camera hint (step context) — lerped by the arbiter */
+  phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
+  /** Override idle auto-orbit (step variant disables it — eng V2) */
+  idleSpin?: boolean;
+  /** Bump on canvas-size transitions (expand) to pause the perf monitor */
+  transientEpoch?: number;
 }) {
   const [poses, setPoses] = useState<PoseLayout3D>(() => {
     if (initialPoses) return initialPoses;
@@ -795,8 +869,38 @@ export function ProductViewer3D({
     typeof window !== "undefined" ? detectQualityTier() : "medium"
   );
   const quality = useMemo(() => qualitySettings(qualityTier), [qualityTier]);
+  // Demotion is no longer a one-way ratchet (eng V3): sustained headroom
+  // re-promotes one tier (hysteresis: ≥60s between changes, capped at the
+  // device's detected tier), and known-transient churn pauses the monitor.
+  const initialTierRef = useRef<QualityTier>(qualityTier);
+  const lastTierChange = useRef(0);
   const dropQuality = useCallback(() => {
+    lastTierChange.current = Date.now();
     setQualityTier((t) => (t === "high" ? "medium" : t === "medium" ? "low" : "low"));
+  }, []);
+  const riseQuality = useCallback(() => {
+    if (Date.now() - lastTierChange.current < 60_000) return;
+    const order: QualityTier[] = ["low", "medium", "high"];
+    setQualityTier((t) => {
+      const idx = order.indexOf(t);
+      const cap = order.indexOf(initialTierRef.current);
+      if (idx >= cap) return t;
+      lastTierChange.current = Date.now();
+      return order[idx + 1];
+    });
+  }, []);
+  const [monitorCalm, setMonitorCalm] = useState(true);
+  const calmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markTransient = useCallback(() => {
+    setMonitorCalm(false);
+    if (calmTimer.current) clearTimeout(calmTimer.current);
+    calmTimer.current = setTimeout(() => setMonitorCalm(true), 1500);
+  }, []);
+  useEffect(() => {
+    if (transientEpoch > 0) markTransient();
+  }, [transientEpoch, markTransient]);
+  useEffect(() => () => {
+    if (calmTimer.current) clearTimeout(calmTimer.current);
   }, []);
   const [reducedMotion] = useState(
     () =>
@@ -1272,8 +1376,12 @@ export function ProductViewer3D({
                 sun={sun}
                 showWires={showWires}
                 harnesses={harnesses}
-                idleSpin={!!hideChrome}
+                idleSpin={idleSpinProp ?? !!hideChrome}
                 reducedMotion={reducedMotion}
+                phaseCamera={phaseCamera}
+                monitorActive={monitorCalm}
+                onQualityRise={riseQuality}
+                onTransient={markTransient}
               />
             </Suspense>
             {quality.effects && <PostFX quality={quality} />}
