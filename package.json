@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "npx tsx --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
     "test:3d": "npx tsx --test src/lib/product-3d/product-3d.test.ts src/lib/product-3d/real-parts.test.ts src/lib/product-3d/assembly-view.test.ts src/lib/product-3d/assembly-story.test.ts src/lib/product-3d/geom-math.test.ts src/lib/product-3d/cad-frame.test.ts src/lib/product-3d/procedural-maps.test.ts",
+    "eval:photo-check": "npx tsx scripts/eval-photo-check.mjs",
     "generate:parts": "node scripts/generate-part-glbs.mjs",
     "generate:parts:ready": "node scripts/generate-part-glbs.mjs --ready"
   },

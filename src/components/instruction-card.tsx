@@ -24,6 +24,7 @@ import {
   ConnectionsTable,
   GlossaryText,
 } from "@/components/step-facts";
+import { PhotoCheck } from "@/components/build/photo-check";
 
 const TIME_BY_KIND: Record<ReturnType<typeof stepKind>, string> = {
   wiring: "≈15 min",
@@ -136,6 +137,10 @@ export function InstructionCard({
       {step.compiled && <ConnectionsTable compiled={step.compiled} />}
 
       <CheckYourWorkCard step={step} />
+
+      {/* Eval-gated (self-hides unless public/photo-check.pass.json + a
+          reference photo for this step both exist — see Tension C). */}
+      {planId && <PhotoCheck step={step} planId={planId} />}
 
       {detailLevel === "quick" && !step.actions?.length && step.quickSummary && (
         <p className="text-xs text-text-muted">{step.quickSummary}</p>
