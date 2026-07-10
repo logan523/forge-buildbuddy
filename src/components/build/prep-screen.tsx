@@ -5,6 +5,7 @@ import { estimateBom, formatUsdRange, type CartStrategy } from "@/lib/cart";
 import { filterStepsForMode, modeLabel, type BuildMode } from "@/lib/modes";
 import { presentErc } from "@/lib/electrical/present";
 import { PartRow, SafetyPanel, partIcon } from "@/components/build-ui";
+import { PartsIdentifyWalk } from "@/components/build/parts-identify-walk";
 import { ProductHero } from "@/components/product-hero";
 import type { ProductVisual } from "@/lib/product-visual";
 import type { FirmwarePackage } from "@/lib/firmware";
@@ -187,6 +188,7 @@ export function PrepScreen({
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-text uppercase tracking-wider">Parts ({plan.parts.length})</h3>
             </div>
+            <PartsIdentifyWalk parts={plan.parts} />
             <div className="space-y-2">
               {plan.parts.map((p) => (
                 <PartRow key={p.id} part={p} showImage onTooltip={onSetTooltip} strategy={cartStrategy} />

@@ -98,6 +98,24 @@ export function confidenceLabel(part: Part): { label: string; known: boolean } {
   return { label: "Best guess — check specs", known: false };
 }
 
+/**
+ * Up to two plain-English "how to spot it in the pile" tells for a part — its
+ * size vs a familiar object, then the one gotcha (or a spec clause). Powers the
+ * parts-identification walk.
+ */
+export function spotTells(part: Part): string[] {
+  const tells: string[] = [];
+  const real = realPartForPart(part);
+  if (real) tells.push(sizeComparison(real.bboxMm).phrase);
+  const gun = keyFootgun(part);
+  if (gun) tells.push(gun);
+  else if (part.specification) {
+    const clause = part.specification.split(/[.;]/)[0]!.trim();
+    if (clause) tells.push(clause);
+  }
+  return tells.slice(0, 2);
+}
+
 /** CSS reference px per mm (96dpi / 25.4). Life-size on a standard display. */
 export const CSS_PX_PER_MM = 96 / 25.4;
 

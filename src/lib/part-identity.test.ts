@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import satLine from "@/data/sat-line.json";
 import type { BuildPlan, Part } from "@/lib/types";
 import { applyTrustPipeline } from "@/lib/trust";
-import { partCatalogId, realPartForPart, sizeLabel, bestBuyLink, keyFootgun, sizeComparison, buyGuidance, confidenceLabel } from "./part-identity";
+import { partCatalogId, realPartForPart, sizeLabel, bestBuyLink, keyFootgun, sizeComparison, buyGuidance, confidenceLabel, spotTells } from "./part-identity";
 
 const part = (over: Partial<Part>): Part => ({
   id: "p",
@@ -76,6 +76,16 @@ test("confidenceLabel is honest, never 'verified'", () => {
   assert.deepEqual(confidenceLabel(part({ matchConfidence: "high" })), { label: "Exact match", known: true });
   assert.equal(confidenceLabel(part({ matchConfidence: "low" })).known, false);
   assert.match(confidenceLabel(part({})).label, /best guess/i);
+});
+
+test("spotTells: size first, then the gotcha — max two, to spot it in the pile", () => {
+  const t = spotTells(part({ name: "ESP32-C3", footguns: ["USB-C, not micro-USB"] }));
+  assert.ok(t.length <= 2);
+  assert.match(t[0]!, /quarter|fingernail|size|smaller|bigger/i, "leads with a size tell");
+  assert.ok(t.some((x) => /USB-C/.test(x)), "includes the distinguishing gotcha");
+  // No real match, no footgun → falls back to a spec clause.
+  const t2 = spotTells(part({ name: "widget", specification: "green PCB with a button" }));
+  assert.ok(t2.length >= 1 && /green PCB/.test(t2[0]!));
 });
 
 test("integration: most demo BOM parts resolve to a physical spec", () => {
