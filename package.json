@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx --test src/lib/catalog.test.ts src/lib/validators.test.ts src/lib/cart.test.ts src/lib/unstick.test.ts src/lib/firmware.test.ts src/lib/storage.test.ts src/lib/pipeline/pipeline.test.ts src/lib/pcb/pcb.test.ts src/lib/enclosure/enclosure.test.ts src/lib/electrical/electrical.test.ts src/lib/electrical/schema.test.ts src/lib/electrical/present.test.ts src/lib/electrical/golden.test.ts src/lib/product-visual/product-visual.test.ts src/lib/product-visual/formspec/formspec.test.ts src/lib/steps/instruction.test.ts src/lib/step-media/step-media.test.ts src/lib/product-3d/product-3d.test.ts src/lib/product-3d/assembly-view.test.ts src/lib/product-3d/assembly-story.test.ts src/lib/product-3d/geom-math.test.ts src/lib/product-3d/cad-frame.test.ts",
+    "test": "npx tsx --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
     "test:3d": "npx tsx --test src/lib/product-3d/product-3d.test.ts src/lib/product-3d/real-parts.test.ts src/lib/product-3d/assembly-view.test.ts src/lib/product-3d/assembly-story.test.ts src/lib/product-3d/geom-math.test.ts src/lib/product-3d/cad-frame.test.ts src/lib/product-3d/procedural-maps.test.ts",
     "generate:parts": "node scripts/generate-part-glbs.mjs",
     "generate:parts:ready": "node scripts/generate-part-glbs.mjs --ready"
@@ -34,12 +34,16 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
