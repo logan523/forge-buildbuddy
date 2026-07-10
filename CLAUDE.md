@@ -27,8 +27,14 @@ User describes project → /api/analyze (Claude single pass) → BuildPlan JSON
 | `src/app/page.tsx` | Homepage: generate plan, demos, your builds |
 | `src/app/build/[id]/page.tsx` | Session route — resume plan by id |
 | `src/app/build/import/page.tsx` | Import shared plan from URL hash |
-| `src/components/build-session.tsx` | Prep + build + trust/buy/unstick/firmware UI |
-| `src/components/build-ui.tsx` | Part rows, diagrams, drawers |
+| `src/components/build-session.tsx` | Orchestrator: state → PrepScreen/BuildScreen/BuildDrawers |
+| `src/components/build/` | prep-screen, build-screen, build-drawers, step-hero, use-build-state (pure reducer) |
+| `src/components/build-ui.tsx` | Part rows, safety panel, firmware/unstick drawers |
+| `src/components/step-facts.tsx` | ConnectionsTable / CheckYourWorkCard / ActionChecklist / GlossaryText (render step.compiled) |
+| `src/lib/steps/` | classify (THE step classifier), compile (netlist → per-step facts), validate (content vs truth), instruction resolvers |
+| `src/lib/wire-colors.ts` | THE wire-color authority (text + 2D + 3D + legend; class wins, SDA blue / SCL yellow) |
+| `src/lib/glossary.ts` | Beginner jargon definitions (step popovers + part tooltips) |
+| `src/lib/diag.ts` | Local diagnostics ring buffer (every rescue path logs here) |
 | `src/app/api/analyze/route.ts` | Claude → plan → trust pipeline (+ optional Nexar) |
 | `src/lib/trust.ts` | Catalog match + safety validators + BOM estimate |
 | `src/lib/catalog.ts` / `modules-catalog.json` | Module ground truth |
@@ -59,7 +65,7 @@ We built a 14-component architecture, 3-pass AI pipeline with research agents, c
 We stripped everything to 165 lines with no demo project, no wiring diagrams, no mark-complete, no prep screen. The user lost all their existing projects. **Refine, don't destroy.** Before removing anything, ask: did the user ask for this to be removed? Does it serve the North Star?
 
 ### 3. Broken visuals
-We tried Higgsfield AI (CLI tool, execSync, paid credits) for step images. It never worked. We tried Fritzing SVGs (template-based). It was half-baked. **Kroki Mermaid diagrams via POST are the one thing that actually works for wiring steps.** Stick with what's proven.
+We tried Higgsfield AI (CLI tool, execSync, paid credits) for step images. It never worked. We tried Fritzing SVGs (template-based). It was half-baked. Kroki Mermaid was proven for a while, then its renderer went unused (dead code) and was deleted. **Wiring truth now renders from the instruction compiler** (`src/lib/steps/compile.ts` → ConnectionsTable, derived from the netlist — colors/pins can never disagree with the 3D view), plus local hand-authored technique SVGs (`src/lib/step-media/`). No network dependency for step visuals. Stick with derived-from-data over LLM-drawn.
 
 ### 4. Vague shopping search queries
 "Battery Level Indicator" returns garbage. "1S 3.7V Li-ion battery capacity indicator LED bar module 4-segment" finds the right product. The AI prompt MUST enforce precision: voltage, interface, form factor, key spec.

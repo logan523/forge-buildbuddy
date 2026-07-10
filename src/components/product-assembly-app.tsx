@@ -33,6 +33,7 @@ import {
   toggleIsolate,
 } from "@/lib/product-3d/assembly-view";
 import { meshPinStubsForNode } from "@/lib/product-3d/sat-pins";
+import { deriveStepPresence } from "@/lib/product-3d/step-presence";
 import { ProductViewer3D } from "@/components/product-viewer-3d";
 
 function TreeRows({
@@ -104,7 +105,7 @@ export function ProductAssemblyApp({
 }: {
   plan: BuildPlan;
   stepIndex?: number | "prep";
-  step?: { title?: string; description?: string; mediaKind?: string };
+  step?: { title?: string; description?: string; mediaKind?: string; stepNumber?: number };
   height?: number;
   expandable?: boolean;
   onPlanPatch?: (patch: Partial<BuildPlan>) => void;
@@ -191,10 +192,25 @@ export function ProductAssemblyApp({
     return applyFrameToNodes(baseScene.nodes, recipe, frame, 0);
   }, [baseScene.nodes, recipe, frame]);
 
-  const presentNodeIds = useMemo(
-    () => new Set(frame?.presentNodeIds || baseScene.nodes.map((n) => n.id)),
-    [frame, baseScene.nodes]
-  );
+  // Recipe-less templates: derive per-step presence from step text so the
+  // stage builds up over the walk instead of showing the finished product on
+  // step 1. Weak matching → null → full product (never wrongly hide).
+  const derivedPresence = useMemo(() => {
+    if (recipe || stepIndex === "prep") return null;
+    return deriveStepPresence(plan, plan.steps || [], baseScene.nodes);
+  }, [recipe, stepIndex, plan, baseScene.nodes]);
+
+  const presentNodeIds = useMemo(() => {
+    if (frame?.presentNodeIds) return new Set(frame.presentNodeIds);
+    if (derivedPresence && step?.stepNumber != null) {
+      const fullIndex = (plan.steps || []).findIndex(
+        (s) => s.stepNumber === step.stepNumber
+      );
+      const set = derivedPresence.presentByStep.get(fullIndex);
+      if (set) return set;
+    }
+    return new Set(baseScene.nodes.map((n) => n.id));
+  }, [frame, derivedPresence, step?.stepNumber, plan.steps, baseScene.nodes]);
 
   const presentMap = useMemo(() => {
     const m: Record<string, boolean> = {};
@@ -397,7 +413,7 @@ export function ProductAssemblyApp({
           height={stageH}
           showLayerPanel={false}
           compact={false}
-          editable
+          editable={!stepChrome}
           hideChrome
           controlledView={layerView}
           onViewChange={onViewChange}

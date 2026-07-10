@@ -26,6 +26,7 @@ export interface BuildDrawersProps {
   plan: BuildPlan;
   step: BuildStep | undefined;
   stepIndex: number;
+  onBuyAll: (parts: BuildPlan["parts"]) => void;
   firmware: FirmwarePackage | null;
   pcb: PcbPackage | null;
   enclosure: EnclosurePackage;
@@ -48,6 +49,7 @@ export function BuildDrawers({
   plan,
   step,
   stepIndex,
+  onBuyAll,
   firmware,
   pcb,
   enclosure,
@@ -106,9 +108,17 @@ export function BuildDrawers({
         <>
           <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
           <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-surface border-l border-border shadow-raised z-50 overflow-y-auto">
-            <div className="sticky top-0 bg-surface border-b border-border-subtle px-5 py-4 flex items-center justify-between">
+            <div className="sticky top-0 bg-surface border-b border-border-subtle px-5 py-4 flex items-center justify-between gap-2">
               <h3 className="font-semibold text-text">Parts ({plan.parts.length})</h3>
-              <button onClick={onClose} className="text-text-muted text-lg cursor-pointer">×</button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onBuyAll(plan.parts)}
+                  className="text-xs px-3 py-1.5 min-h-9 rounded-lg bg-accent text-white font-medium hover:bg-accent-soft cursor-pointer"
+                >
+                  Buy all →
+                </button>
+                <button onClick={onClose} className="text-text-muted text-lg cursor-pointer min-w-9 min-h-9" aria-label="Close parts">×</button>
+              </div>
             </div>
             <div className="p-5 space-y-3">
               {plan.parts.map((p) => (

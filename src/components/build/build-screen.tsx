@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { BuildPlan, BuildStep, Part } from "@/lib/types";
 import type { FirmwarePackage } from "@/lib/firmware";
 import type { ProductVisual } from "@/lib/product-visual";
@@ -35,6 +36,105 @@ export interface BuildScreenProps {
   onNext: () => void;
   onPrev: () => void;
   onSetTooltip: (t: string | null) => void;
+}
+
+/** Everything a builder doesn't need mid-step folds into one overflow menu. */
+function ToolbarOverflow({
+  detailLevel,
+  onSetDetailLevel,
+  hasFirmware,
+  hasPcb,
+  ercBlocksPcb,
+  onOpenPrep,
+  onOpenDrawer,
+  onShare,
+}: {
+  detailLevel: DetailLevel;
+  onSetDetailLevel: (level: DetailLevel) => void;
+  hasFirmware: boolean;
+  hasPcb: boolean;
+  ercBlocksPcb: boolean;
+  onOpenPrep: () => void;
+  onOpenDrawer: (drawer: DrawerId, fwSketchId?: string | null) => void;
+  onShare: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const item =
+    "w-full text-left text-sm px-3 py-2 min-h-[40px] rounded-lg text-text-secondary hover:bg-surface-overlay cursor-pointer";
+  const act = (fn: () => void) => () => {
+    setOpen(false);
+    fn();
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label="More options"
+        className={`text-sm px-2.5 py-1.5 min-h-[36px] min-w-[36px] rounded-lg cursor-pointer ${open ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
+      >
+        ⋯
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-40 w-52 rounded-xl border border-border bg-surface shadow-raised p-1.5">
+          <div className="px-3 py-1.5 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+              Detail
+            </span>
+            <span className="flex gap-1">
+              {(["quick", "standard", "deep"] as const).map((lvl) => (
+                <button
+                  key={lvl}
+                  onClick={() => onSetDetailLevel(lvl)}
+                  title={lvl}
+                  className={`text-xs px-2 py-1 rounded-md cursor-pointer ${detailLevel === lvl ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
+                >
+                  {lvl === "quick" ? "⚡" : lvl === "deep" ? "🔬" : "📖"}
+                </button>
+              ))}
+            </span>
+          </div>
+          <div className="h-px bg-border-subtle my-1" />
+          <button className={item} onClick={act(onOpenPrep)}>Prep &amp; parts list</button>
+          {hasFirmware && (
+            <button className={item} onClick={act(() => onOpenDrawer("firmware", null))}>
+              Code package
+            </button>
+          )}
+          {hasPcb && (
+            <button
+              className={item}
+              onClick={act(() => onOpenDrawer(ercBlocksPcb ? "pcbBlocked" : "pcb"))}
+            >
+              PCB package{ercBlocksPcb ? " ⚠" : ""}
+            </button>
+          )}
+          <button className={item} onClick={act(() => onOpenDrawer("case"))}>3D case</button>
+          <button className={item} onClick={act(onShare)}>Share link</button>
+          <button className={item} onClick={act(() => onOpenDrawer("publish"))}>
+            Publish as kit
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function BuildScreen({
@@ -73,66 +173,23 @@ export function BuildScreen({
           <span className="text-sm font-medium text-text truncate max-w-[160px] lg:max-w-[220px]">{plan.title}</span>
           <span className="text-xs text-text-muted hidden sm:inline">{plan.estimatedCost}</span>
         </div>
-        <div className="flex items-center gap-1 lg:gap-2 shrink-0 flex-wrap justify-end">
-          {(["quick", "standard", "deep"] as const).map((lvl) => (
-            <button
-              key={lvl}
-              onClick={() => onSetDetailLevel(lvl)}
-              className={`text-xs px-2 py-1 rounded-lg cursor-pointer ${detailLevel === lvl ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
-            >
-              {lvl === "quick" ? "⚡" : lvl === "deep" ? "🔬" : "📖"}
-            </button>
-          ))}
-          <span className="w-px h-4 bg-border mx-0.5 hidden sm:block" />
-          <button onClick={onOpenPrep} className="text-xs px-2 py-1.5 rounded-lg text-text-muted hover:text-text cursor-pointer">Prep</button>
-          {firmware && (
-            <button
-              onClick={() => onOpenDrawer("firmware", null)}
-              className={`text-xs px-2 py-1.5 rounded-lg cursor-pointer ${activeDrawer === "firmware" ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
-            >
-              Code
-            </button>
-          )}
-          {hasPcb && (
-            <button
-              onClick={() => (ercBlocksPcb ? onOpenDrawer("pcbBlocked") : onOpenDrawer("pcb"))}
-              title={ercBlocksPcb ? "See why PCB export is blocked — and how to unlock it" : "PCB package"}
-              className={`text-xs px-2 py-1.5 rounded-lg cursor-pointer ${
-                ercBlocksPcb
-                  ? "text-warning hover:bg-warning-soft"
-                  : activeDrawer === "pcb"
-                    ? "bg-accent text-white"
-                    : "text-text-muted hover:text-text"
-              }`}
-            >
-              PCB{ercBlocksPcb ? " ⚠" : ""}
-            </button>
-          )}
-          <button
-            onClick={() => onOpenDrawer("case")}
-            className={`text-xs px-2 py-1.5 rounded-lg cursor-pointer ${activeDrawer === "case" ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
-          >
-            Case
-          </button>
-          <button
-            onClick={() => onOpenDrawer("publish")}
-            className="text-xs px-2 py-1.5 rounded-lg text-text-muted hover:text-text cursor-pointer"
-          >
-            Publish
-          </button>
+        <div className="flex items-center gap-1 lg:gap-2 shrink-0">
           <button
             onClick={() => (activeDrawer === "parts" ? onCloseDrawer() : onOpenDrawer("parts"))}
-            className={`text-xs px-2 py-1.5 rounded-lg cursor-pointer ${activeDrawer === "parts" ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
+            className={`text-xs px-2.5 py-1.5 min-h-[36px] rounded-lg cursor-pointer ${activeDrawer === "parts" ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
           >
             Parts
           </button>
-          <button onClick={onShare} className="text-xs px-2 py-1.5 rounded-lg text-text-muted hover:text-text cursor-pointer">Share</button>
-          <button
-            onClick={() => onBuyAll(plan.parts)}
-            className="text-xs px-2 py-1.5 rounded-lg bg-accent text-white font-medium hover:bg-accent-soft cursor-pointer"
-          >
-            Buy
-          </button>
+          <ToolbarOverflow
+            detailLevel={detailLevel}
+            onSetDetailLevel={onSetDetailLevel}
+            hasFirmware={!!firmware}
+            hasPcb={hasPcb}
+            ercBlocksPcb={ercBlocksPcb}
+            onOpenPrep={onOpenPrep}
+            onOpenDrawer={onOpenDrawer}
+            onShare={onShare}
+          />
         </div>
       </div>
       {shareMsg && <div className="text-center text-xs py-1 bg-success-soft text-success">{shareMsg}</div>}
@@ -213,6 +270,31 @@ export function BuildScreen({
               >
                 I&apos;m stuck — help me debug
               </button>
+
+              {stepIndex === steps.length - 1 && completed.has(s?.stepNumber || 0) && (
+                <div className="mt-4 p-5 rounded-2xl border border-success/25 bg-success-soft/50 text-center space-y-3">
+                  <div aria-hidden className="text-3xl motion-safe:animate-bounce">🎉</div>
+                  <h3 className="text-lg font-bold font-serif text-text">You built it.</h3>
+                  <p className="text-sm text-text-secondary">
+                    {steps.length} steps, every connection checked. Show it off — or turn it
+                    into a kit someone else can build.
+                  </p>
+                  <div className="space-y-2">
+                    <button
+                      onClick={onShare}
+                      className="w-full py-2.5 min-h-11 rounded-xl bg-accent text-white text-sm font-semibold cursor-pointer btn-spring"
+                    >
+                      Share your build
+                    </button>
+                    <button
+                      onClick={() => onOpenDrawer("publish")}
+                      className="w-full py-2.5 min-h-11 rounded-xl border border-border bg-surface text-sm text-text-secondary cursor-pointer"
+                    >
+                      Publish as a kit
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

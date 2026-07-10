@@ -202,3 +202,5 @@ export {
 } from "./beauty-mesh";
 export { mapMeshyStatus, startBeautyGeneration, pollBeautyGeneration } from "./beauty-generate";
 export type { BeautyTaskStatus } from "./beauty-generate";
+export { deriveStepPresence } from "./step-presence";
+export type { StepPresence } from "./step-presence";

@@ -61,15 +61,36 @@ function useStageHeight(): number {
 }
 
 function PhotoCard({ planId, stepNumber }: { planId: string; stepNumber: number }) {
-  const [available, setAvailable] = useState(true);
+  // Renders nothing until a real photo decodes — a missing file must never
+  // flash a ghost card. Probing with img.decode() is timing-proof: it
+  // resolves even for cached images whose load event fired before React
+  // attached listeners, and rejects on 404s (which can hang before erroring
+  // in dev).
+  const [loaded, setLoaded] = useState(false);
   const [lightbox, setLightbox] = useState(false);
   useOverlay(() => setLightbox(false), lightbox);
   const src = `/build-photos/${planId}/step-${stepNumber}.jpg`;
 
-  // Reset availability when the step changes.
-  useEffect(() => setAvailable(true), [planId, stepNumber]);
+  useEffect(() => {
+    setLoaded(false);
+    let alive = true;
+    const probe = new Image();
+    // Handlers attach BEFORE src so a cache-synchronous load can't slip past;
+    // (img.decode() hangs in some embedders, so no reliance on it).
+    probe.onload = () => {
+      if (alive && probe.naturalWidth > 0) setLoaded(true);
+    };
+    probe.onerror = () => {
+      if (alive) setLoaded(false);
+    };
+    probe.src = src;
+    if (probe.complete && probe.naturalWidth > 0) setLoaded(true);
+    return () => {
+      alive = false;
+    };
+  }, [src]);
 
-  if (!available) return null;
+  if (!loaded) return null;
   return (
     <>
       <button
@@ -83,8 +104,6 @@ function PhotoCard({ planId, stepNumber }: { planId: string; stepNumber: number 
           src={src}
           alt={`Bench photo — step ${stepNumber}`}
           className="w-full h-24 object-cover"
-          loading="lazy"
-          onError={() => setAvailable(false)}
         />
         <span className="absolute left-2 bottom-1.5 text-[8px] font-bold tracking-[0.12em] text-white/90 uppercase drop-shadow">
           Your bench · step {stepNumber}
@@ -135,6 +154,7 @@ export function StepHero({
     title: step.title,
     description: step.description,
     mediaKind: step.mediaKind,
+    stepNumber: step.stepNumber,
   };
   const hasTechnique = media.kind !== "generic_checklist";
 

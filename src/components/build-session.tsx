@@ -166,6 +166,7 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
         plan={plan}
         step={s}
         stepIndex={state.stepIndex}
+        onBuyAll={buyAllParts}
         firmware={firmware}
         pcb={pcb}
         enclosure={enclosure}
