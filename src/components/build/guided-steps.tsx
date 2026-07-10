@@ -15,6 +15,7 @@ import { WireAndPartsIdentity } from "@/components/build/part-identity-card";
 import { WireDoubleCheck } from "@/components/build/wire-double-check";
 import { diagnose, type SymptomId } from "@/lib/unstick";
 import { encouragement } from "@/lib/steps/buddy";
+import { recordStruggle, preemptiveRock, frictionCount, type Rock } from "@/lib/steps/friction";
 import { loadWireChecks, saveWireChecks } from "@/lib/storage";
 
 export function GuidedSteps({
@@ -54,6 +55,23 @@ export function GuidedSteps({
 
   // Reset the "struggling" signal whenever the builder moves to a new wire.
   useEffect(() => setRescueOpens(0), [current]);
+
+  // The Rock: net classes in this step, and the pre-empt callout if this builder
+  // has tripped on a matching rock before (computed post-mount to avoid a
+  // hydration mismatch — the ledger is client-only localStorage).
+  const stepNetClasses = useMemo(
+    () => [...new Set((step.compiled?.connections ?? []).map((c) => c.netClass))],
+    [step.compiled]
+  );
+  const [preempt, setPreempt] = useState<{ rock: Rock; count: number } | null>(null);
+  useEffect(() => {
+    setPreempt(preemptiveRock({ kind: "wiring", netClasses: stepNetClasses }, frictionCount));
+  }, [stepNetClasses, step.stepNumber]);
+  // Opening the rescue a second time on one wire = struggling → record it, so the
+  // callout is there next time this kind of step comes up.
+  useEffect(() => {
+    if (rescueOpens === 2) recordStruggle({ kind: "wiring", netClasses: stepNetClasses });
+  }, [rescueOpens, stepNetClasses]);
 
   useEffect(() => {
     onActiveWire?.(showAll ? null : cur ?? null);
@@ -112,6 +130,17 @@ export function GuidedSteps({
 
   return (
     <div className="space-y-3">
+      {/* The Rock: a heads-up on the mistake THIS builder tripped on before */}
+      {preempt && (
+        <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning-soft/40 px-3 py-2">
+          <span aria-hidden className="mt-0.5">⚑</span>
+          <p className="text-xs text-text leading-relaxed">
+            <span className="font-semibold">Heads up — you hit this last time.</span>{" "}
+            {preempt.rock.callout}
+          </p>
+        </div>
+      )}
+
       {/* Progress header */}
       <div className="flex items-center justify-between">
         <p className="text-xs font-mono text-text-muted">
