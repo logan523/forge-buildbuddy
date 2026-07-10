@@ -183,6 +183,11 @@ export function BuildScreen({
                   totalSteps={steps.length}
                   kindLabel={kindLabel(stepKind(s))}
                   detailLevel={detailLevel}
+                  planId={plan.id}
+                  stepCompleted={completed.has(s.stepNumber)}
+                  onAutoComplete={() => {
+                    if (!completed.has(s.stepNumber)) onToggleComplete(s.stepNumber);
+                  }}
                 />
               )}
 

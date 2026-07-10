@@ -5,6 +5,7 @@ import { stripDerived } from "./steps/compile";
 const PLANS_KEY = "forge-plans";
 const STEPS_PREFIX = "forge-steps-";
 const META_PREFIX = "forge-meta-";
+const ACTIONS_PREFIX = "forge-actions-";
 
 export interface PlanMeta {
   lastOpenedAt: string;
@@ -84,6 +85,30 @@ export function saveCompletedSteps(id: string, steps: Set<number>): void {
     saveMeta(id, meta);
   } catch {
     /* */
+  }
+}
+
+/** Per-action checkbox state for one step (F4 semantics live in the UI). */
+export function loadActionChecks(planId: string, stepNumber: number): Set<number> {
+  if (!browser()) return new Set();
+  try {
+    return new Set(
+      JSON.parse(localStorage.getItem(`${ACTIONS_PREFIX}${planId}-${stepNumber}`) || "[]")
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveActionChecks(planId: string, stepNumber: number, checked: Set<number>): void {
+  if (!browser()) return;
+  try {
+    localStorage.setItem(
+      `${ACTIONS_PREFIX}${planId}-${stepNumber}`,
+      JSON.stringify([...checked])
+    );
+  } catch {
+    /* quota — progress warning surfaces via diag elsewhere */
   }
 }
 
