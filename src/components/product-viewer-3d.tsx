@@ -288,6 +288,7 @@ function WireSpars({
   visible,
   harnesses,
   highlightNodeId,
+  activeWireId,
 }: {
   edges: SceneEdge3D[];
   nodes: SceneNode3D[];
@@ -297,6 +298,8 @@ function WireSpars({
   /** Pin-to-pin routed harnesses (preferred over straight spars) */
   harnesses?: import("@/lib/product-3d").WireRoute3D[];
   highlightNodeId?: string | null;
+  /** "Show me" drill-down: light exactly ONE wire (by route id), dim the rest. */
+  activeWireId?: string | null;
 }) {
   if (!visible) return null;
 
@@ -305,11 +308,13 @@ function WireSpars({
     return (
       <group>
         {harnesses.map((w) => {
-          const hi = !!(
-            highlightNodeId &&
-            (w.fromNodeId === highlightNodeId || w.toNodeId === highlightNodeId)
-          );
-          const dim = !!(highlightNodeId && !hi);
+          const hi = activeWireId
+            ? w.id === activeWireId
+            : !!(
+                highlightNodeId &&
+                (w.fromNodeId === highlightNodeId || w.toNodeId === highlightNodeId)
+              );
+          const dim = activeWireId ? w.id !== activeWireId : !!(highlightNodeId && !hi);
           return (
             <group key={w.id}>
               <WireTubeRoute
@@ -467,6 +472,7 @@ function SceneContent({
   idleSpin = false,
   reducedMotion = false,
   phaseCamera = null,
+  activeWireId = null,
   monitorActive = true,
   onQualityRise,
   onTransient,
@@ -490,6 +496,8 @@ function SceneContent({
   reducedMotion?: boolean;
   /** Recipe phase camera hint — step framing lerps position AND target (eng V2) */
   phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
+  /** "Show me" drill-down: the one wire route to light (others dim). */
+  activeWireId?: string | null;
   /** Suspend the PerformanceMonitor during known-transient churn (eng V3) */
   monitorActive?: boolean;
   onQualityRise?: () => void;
@@ -704,6 +712,7 @@ function SceneContent({
         visible={showWires}
         harnesses={harnesses}
         highlightNodeId={view.isolateNodeId || view.selectedNodeId}
+        activeWireId={activeWireId}
       />
 
       {/* Never remount on select — keeps materials/lights stable */}
@@ -824,6 +833,7 @@ export function ProductViewer3D({
   /** JARVIS: double-click part to isolate (parent owns state) */
   onIsolatePart,
   phaseCamera = null,
+  activeWireId = null,
   idleSpin: idleSpinProp,
   transientEpoch = 0,
 }: {
@@ -849,6 +859,8 @@ export function ProductViewer3D({
   onIsolatePart?: (nodeId: string) => void;
   /** Recipe phase camera hint (step context) — lerped by the arbiter */
   phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
+  /** "Show me" drill-down: light exactly one wire route. */
+  activeWireId?: string | null;
   /** Override idle auto-orbit (step variant disables it — eng V2) */
   idleSpin?: boolean;
   /** Bump on canvas-size transitions (expand) to pause the perf monitor */
@@ -1379,6 +1391,7 @@ export function ProductViewer3D({
                 sun={sun}
                 showWires={showWires}
                 harnesses={harnesses}
+                activeWireId={activeWireId}
                 idleSpin={idleSpinProp ?? !!hideChrome}
                 reducedMotion={reducedMotion}
                 phaseCamera={phaseCamera}

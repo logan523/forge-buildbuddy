@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BuildPlan, BuildStep, Part } from "@/lib/types";
+import type { BuildPlan, BuildStep, Part, MicroStep } from "@/lib/types";
 import type { FirmwarePackage } from "@/lib/firmware";
 import type { ProductVisual } from "@/lib/product-visual";
 import { InstructionCard } from "@/components/instruction-card";
@@ -170,6 +170,15 @@ export function BuildScreen({
 }: BuildScreenProps) {
   const [handsFree, setHandsFree] = useState(false);
   useOverlay(() => setHandsFree(false), handsFree);
+
+  // "Show me": the guided wire the builder tapped drives the 3D (zoom to pin +
+  // light the wire). Owned here so StepHero (the 3D) and InstructionCard (the
+  // guided cards) share it. Reset on step change so a stale wire never lingers.
+  const [activeWire, setActiveWire] = useState<MicroStep | null>(null);
+  useEffect(() => {
+    setActiveWire(null);
+  }, [stepIndex]);
+
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col">
       <div className="shrink-0 px-4 lg:px-6 py-3 border-b border-border-subtle flex items-center justify-between gap-2">
@@ -222,7 +231,7 @@ export function BuildScreen({
             </div>
           )}
           <div className="flex-1 min-h-0 overflow-hidden">
-            {s ? <StepHero step={s} plan={plan} stepIndex={stepIndex} /> : null}
+            {s ? <StepHero step={s} plan={plan} stepIndex={stepIndex} focusWire={activeWire} /> : null}
           </div>
         </div>
 
@@ -242,6 +251,7 @@ export function BuildScreen({
                   onAutoComplete={() => {
                     if (!completed.has(s.stepNumber)) onToggleComplete(s.stepNumber);
                   }}
+                  onActiveWire={setActiveWire}
                 />
               )}
 

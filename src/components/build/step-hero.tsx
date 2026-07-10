@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { BuildPlan, BuildStep } from "@/lib/types";
+import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { resolveStepMedia } from "@/lib/step-media";
 import { ProductAssemblyApp } from "@/components/product-assembly-app";
 import { useOverlay } from "./use-overlay";
@@ -108,10 +108,13 @@ export function StepHero({
   step,
   plan,
   stepIndex,
+  focusWire = null,
 }: {
   step: BuildStep;
   plan: BuildPlan;
   stepIndex: number;
+  /** "Show me" drill-down: the active guided wire to zoom to + light in the 3D. */
+  focusWire?: MicroStep | null;
 }) {
   const media = resolveStepMedia(step);
   const [expanded, setExpanded] = useState(false);
@@ -154,6 +157,7 @@ export function StepHero({
           variant="step"
           expanded={expanded}
           onExpandedChange={setExpanded}
+          focusWire={focusWire}
         />
         {expanded && (
           <button

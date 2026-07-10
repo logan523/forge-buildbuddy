@@ -6,7 +6,7 @@
  * Thin chrome only: scrub bar + collapsible tree + selection card.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { BuildPlan, CompiledStepFacts } from "@/lib/types";
+import type { BuildPlan, CompiledStepFacts, MicroStep } from "@/lib/types";
 import {
   buildProductScene3D,
   getRecipeForTemplate,
@@ -17,6 +17,8 @@ import {
   wireLegend,
   buildAssemblyTree,
   frameForNodeIds,
+  frameForPin,
+  wireRouteForNodes,
   scrubForStep,
   type BeautyMeshSpec,
   type LayerViewState,
@@ -103,6 +105,7 @@ export function ProductAssemblyApp({
   variant = "full",
   expanded: expandedProp,
   onExpandedChange,
+  focusWire = null,
 }: {
   plan: BuildPlan;
   stepIndex?: number | "prep";
@@ -122,6 +125,8 @@ export function ProductAssemblyApp({
   /** Controlled expand (StepHero owns it for Back/Esc semantics). */
   expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
+  /** "Show me" drill-down: the active guided wire to zoom to + light. */
+  focusWire?: MicroStep | null;
 }) {
   const baseScene = useMemo(() => buildProductScene3D(plan), [plan]);
   const recipe = useMemo(
@@ -321,6 +326,28 @@ export function ProductAssemblyApp({
     return wires;
   }, [recipe, frame, baseScene, displayNodes, plan, maxPhase, view.isolateNodeId]);
 
+  const partIdToNode = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const n of baseScene.nodes) if (n.partId) m.set(n.partId, n.id);
+    return m;
+  }, [baseScene.nodes]);
+
+  // "Show me" drill-down: when a guided wire is active, zoom the camera to its
+  // destination pin and light exactly that wire. The zoom rides the existing
+  // phaseCamera snap (verified geometry); the glow reuses WireTubeRoute.
+  const wireFocus = useMemo(() => {
+    if (!stepChrome || !focusWire) return null;
+    const toNodeId = focusWire.toPartId ? partIdToNode.get(focusWire.toPartId) : undefined;
+    const fromNodeId = focusWire.fromPartId ? partIdToNode.get(focusWire.fromPartId) : undefined;
+    const destNode = toNodeId ? framedNodes.find((n) => n.id === toNodeId) : undefined;
+    const cam = destNode
+      ? frameForPin(destNode, focusWire.toPin, layerView, baseScene.rootScale, 0.55)
+      : null;
+    const wireId = wireRouteForNodes(harnesses, fromNodeId, toNodeId)?.id ?? null;
+    if (!cam && !wireId) return null;
+    return { pinCamera: cam, wireId };
+  }, [stepChrome, focusWire, partIdToNode, framedNodes, layerView, baseScene.rootScale, harnesses]);
+
   const onViewChange = useCallback((lv: LayerViewState) => {
     setView((v) => ({
       ...v,
@@ -469,7 +496,8 @@ export function ProductAssemblyApp({
           harnesses={harnesses}
           sceneNodesOverride={displayNodes}
           onIsolatePart={(id) => setView((v) => toggleIsolate(v, id))}
-          phaseCamera={stepChrome ? focusCamera : null}
+          phaseCamera={stepChrome ? (wireFocus?.pinCamera ?? focusCamera) : null}
+          activeWireId={wireFocus?.wireId ?? null}
           idleSpin={stepChrome ? false : undefined}
           transientEpoch={expandEpoch}
           onBeautyMeshChange={(mesh: BeautyMeshSpec) => {

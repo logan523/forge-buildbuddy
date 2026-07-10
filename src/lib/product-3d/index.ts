@@ -62,6 +62,8 @@ export {
 export { SAT_CLOCK_RECIPE, getRecipeForTemplate } from "./sat-clock-recipe";
 export { auditPlanRender, auditStepRender, scrubForStep } from "./step-render-audit";
 export type { StepRenderFinding } from "./step-render-audit";
+export { pinWorldPositionMm, frameForPin, resolvePinLocal } from "./pin-focus";
+export { wireRouteForNodes } from "./micro-wire-bridge";
 export {
   SAT_PIN_LOCALS,
   SAT_PIN_NODE_IDS,
