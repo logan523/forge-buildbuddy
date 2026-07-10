@@ -35,10 +35,12 @@ export const NET_CLASS_HEX: Record<string, string> = {
   power: WIRE_NAME_HEX.red,
   i2c: WIRE_NAME_HEX.blue,
   spi: WIRE_NAME_HEX.purple,
-  uart: WIRE_NAME_HEX.green,
+  uart: WIRE_NAME_HEX.orange,
+  // Buyable-wire palette: beginners own red/black/blue/yellow/green/orange
+  // jumper kits, so classes map to colors they can physically grab.
   analog: "#d97706",
-  digital: "#0891b2",
-  signal: "#0891b2",
+  digital: WIRE_NAME_HEX.green,
+  signal: WIRE_NAME_HEX.green,
   other: WIRE_NAME_HEX.grey,
 };
 

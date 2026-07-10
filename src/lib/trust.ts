@@ -3,6 +3,9 @@ import { enrichParts } from "./catalog";
 import { attachBuyData, estimateBom } from "./cart";
 import { applySafetyToPlan, validatePlan } from "./validators";
 import { attachElectrical, ercToSafetyFindings } from "./electrical";
+import { attachCompiledFacts } from "./steps/compile";
+import { validateStepContent, stepIssuesToSafetyFindings } from "./steps/validate";
+import { diagLog } from "./diag";
 
 /**
  * Post-LLM trust + electrical + buy pipeline (pure TypeScript):
@@ -28,12 +31,35 @@ export function applyTrustPipeline(plan: BuildPlan): BuildPlan {
   };
 
   const withElectrical = attachElectrical(withParts);
-  const report = validatePlan(withElectrical);
+
+  // Instruction compiler + content validator — NEVER blocks plan load (F1).
+  // On failure the plan renders without derived facts, with a visible banner
+  // (compiledFacts.status === "failed") and a diagnostics entry.
+  let withFacts = withElectrical;
+  try {
+    withFacts = attachCompiledFacts(withElectrical);
+    const issues = validateStepContent(withFacts);
+    withFacts = {
+      ...withFacts,
+      compiledFacts: { ...withFacts.compiledFacts!, issues },
+    };
+  } catch (e) {
+    diagLog("compile_error", `instruction compiler failed: ${String(e)}`);
+    withFacts = {
+      ...withElectrical,
+      compiledFacts: { status: "failed", unassigned: [], issues: [] },
+    };
+  }
+
+  const report = validatePlan(withFacts);
 
   // Merge ERC violations into safety report (errors → critical)
-  const ercFindings = withElectrical.electrical
-    ? ercToSafetyFindings(withElectrical.electrical.erc)
+  const ercFindings = withFacts.electrical
+    ? ercToSafetyFindings(withFacts.electrical.erc)
     : [];
+  // Only genuine step-safety contradictions cross into the safety channel;
+  // coverage/pin/color issues stay in compiledFacts.issues (Tension A).
+  ercFindings.push(...stepIssuesToSafetyFindings(withFacts.compiledFacts?.issues || []));
   const mergedIds = new Set(report.findings.map((f) => f.id));
   for (const f of ercFindings) {
     if (!mergedIds.has(f.id)) {
@@ -44,13 +70,13 @@ export function applyTrustPipeline(plan: BuildPlan): BuildPlan {
   report.requiresAttention =
     report.requiresAttention ||
     report.findings.some((f) => f.severity === "critical") ||
-    !(withElectrical.electrical?.erc.clean ?? true);
+    !(withFacts.electrical?.erc.clean ?? true);
 
   // Severity sort
   const rank = { critical: 0, warning: 1, info: 2 };
   report.findings.sort((a, b) => rank[a.severity] - rank[b.severity]);
 
-  const withSafety = applySafetyToPlan(withElectrical, report);
+  const withSafety = applySafetyToPlan(withFacts, report);
   const bom = estimateBom(withSafety.parts, "split");
 
   return {

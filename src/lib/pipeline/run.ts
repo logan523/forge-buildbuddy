@@ -37,7 +37,11 @@ function posesFromLlm(raw: Partial<BuildPlan>): BuildPlan["scenePoses"] {
 
 const SYNTH_SYSTEM = `You are a hardware build plan generator for beginners. Output ONLY valid JSON BuildPlan fields.
 You are the definitive reference — never say "as shown in the video."
-Every step needs exact dimensions, pin numbers, wire colors, both ends of connections.
+Every step needs exact dimensions and silkscreen pin labels (3V3, SDA, GPIO4).
+Do NOT enumerate pin-to-pin connection lists or wire colors in step prose — the app
+renders an exact connections table derived from structuredNets. Spend step prose on
+technique, order, and common mistakes. Never claim physical pin positions
+("pin 2", "leftmost pin"): vendor pin order varies — silkscreen labels only.
 Include verification, whyThisWorks, beforeState, afterState, commonMistakes where useful.
 
 CRITICAL — structuredNets is the electrical authority (not free text alone):

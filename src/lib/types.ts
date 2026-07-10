@@ -98,6 +98,57 @@ export interface StepAction {
   caution?: string;
 }
 
+/**
+ * A wiring connection DERIVED from the electrical netlist by the instruction
+ * compiler (src/lib/steps/compile.ts) — never authored by the LLM. Pins are
+ * silkscreen labels only (no physical positions: vendor pin order varies).
+ * grade "consistent" = a 2-member net rendered as-is; "derived" = one leg of
+ * a 3+-member net (star from a hub — physically may be daisy-chained).
+ */
+export interface CompiledConnection {
+  netName: string;
+  netClass: string;
+  fromRef: string;
+  fromPin: string;
+  fromLabel: string;
+  toRef: string;
+  toPin: string;
+  toLabel: string;
+  colorHex: string;
+  colorName: string;
+  grade: "consistent" | "derived";
+}
+
+export interface CompiledCheck {
+  kind: "multimeter" | "visual";
+  instruction: string;
+  expected: string;
+}
+
+/** Per-step derived facts — recomputed on every load, stripped before share/persist. */
+export interface CompiledStepFacts {
+  connections: CompiledConnection[];
+  checks: CompiledCheck[];
+}
+
+export interface StepContentIssue {
+  id:
+    | "STEP_UNKNOWN_PIN"
+    | "STEP_COLOR_MISMATCH"
+    | "STEP_SAFETY_CONTRADICTION"
+    | "STEP_NET_UNCOVERED";
+  severity: "error" | "warning";
+  stepNumber?: number;
+  detail: string;
+}
+
+/** Plan-level compiler status — instruction-coverage channel, NOT the safety banner. */
+export interface CompiledPlanFacts {
+  status: "ok" | "failed" | "unavailable";
+  unassigned: CompiledConnection[];
+  issues: StepContentIssue[];
+}
+
 export interface BuildStep {
   stepNumber: number;
   title: string;
@@ -132,6 +183,8 @@ export interface BuildStep {
    * When omitted, inferred from title/description.
    */
   mediaKind?: import("./step-media/types").StepMediaKind;
+  /** Derived by the instruction compiler on load — never serialized. */
+  compiled?: CompiledStepFacts;
 }
 
 export interface WiringConnection {
@@ -156,6 +209,8 @@ export interface BuildPlan {
    * When present, ERC/netlist prefer this over free-text wiringConnections.
    */
   structuredNets?: StructuredNet[];
+  /** Instruction-compiler status + coverage issues. Derived; never serialized. */
+  compiledFacts?: CompiledPlanFacts;
   /**
    * Physical product look (FormSpec) — hero SVG authority.
    * Resolved from demo golden, template match, or LLM.

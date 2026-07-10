@@ -1,4 +1,5 @@
 import type { BuildPlan } from "./types";
+import { stripDerived } from "./steps/compile";
 
 /**
  * Shareable plan payload (no server).
@@ -7,7 +8,9 @@ import type { BuildPlan } from "./types";
  */
 
 export function encodePlanShare(plan: BuildPlan): string {
-  const json = JSON.stringify(plan);
+  // Derived facts recompile on import (trust pipeline runs on every load) —
+  // never ship them in a URL that is already ~61KB (eng 1A).
+  const json = JSON.stringify(stripDerived(plan));
   if (typeof Buffer !== "undefined") {
     return Buffer.from(json, "utf8")
       .toString("base64")

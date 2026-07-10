@@ -44,6 +44,12 @@ test("wireColorName round-trips the palette for step text", () => {
   assert.equal(wireColorName("#123456"), "colored");
 });
 
+test("classes resolve to buyable wire colors (no unbuyable 'teal' prose)", () => {
+  assert.equal(wireColorName(netColorFor("digital")), "green");
+  assert.equal(wireColorName(netColorFor("power")), "red");
+  assert.equal(wireColorName(netColorFor("uart")), "orange");
+});
+
 test("legend derives from the same authority values", () => {
   const legend = wireLegend();
   const sda = legend.find((l) => l.meaning.includes("SDA"));

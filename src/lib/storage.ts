@@ -1,5 +1,6 @@
 import type { BuildPlan } from "./types";
 import type { CartStrategy } from "./cart";
+import { stripDerived } from "./steps/compile";
 
 const PLANS_KEY = "forge-plans";
 const STEPS_PREFIX = "forge-steps-";
@@ -30,7 +31,9 @@ export function savePlan(plan: BuildPlan): void {
   if (!browser()) return;
   try {
     const plans = loadAllPlans();
-    plans[plan.id] = plan;
+    // Derived facts (step.compiled / compiledFacts) recompute on load —
+    // persisting them would only bloat storage and risk staleness (eng 1A).
+    plans[plan.id] = stripDerived(plan);
     localStorage.setItem(PLANS_KEY, JSON.stringify(plans));
   } catch {
     /* quota */

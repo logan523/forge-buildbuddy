@@ -503,7 +503,7 @@
     {
       "stepNumber": 4,
       "title": "Prepare the battery",
-      "description": "Take the 16340 Li-ion battery (3.7V, typically 800mAh). Using a hobby knife, carefully score along the seam of the plastic shrink-wrap casing. Peel the casing off entirely  -  you'll expose the metal battery can. The positive terminal is the raised button top. The negative terminal is the entire flat bottom and the outer can. CAUTION: Never let anything metal touch both the positive and negative terminals at the same time  -  this creates a short circuit that can cause fire or burns. Once the casing is removed, use fine sandpaper to lightly scuff the metal surface where you'll solder. This helps the solder bond.",
+      "description": "Take the 16340 Li-ion battery (3.7V, typically 800mAh). Keep the plastic shrink-wrap casing ON  -  it insulates the can against dead shorts and protects any built-in protection circuit. The positive terminal is the raised button top. The negative terminal is the flat bottom. CAUTION: Never let anything metal touch both the positive and negative terminals at the same time  -  this creates a short circuit that can cause fire or burns. If you must solder directly (no solder tags), use fine sandpaper to lightly scuff ONLY the exposed terminal tips, never the wrapped sides.",
       "quickSummary": "Identify 16340 polarity; keep cell isolated; measure voltage before any wiring.",
       "whyThisWorks": "Li-ion cells store a lot of energy. A short can dump high current and cause fire. Charge only through TP4056 or the solar controller protection path.",
       "beforeState": "16340 cell, multimeter, electrical tape or heat-shrink, non-conductive work surface.",
@@ -607,7 +607,7 @@
     {
       "stepNumber": 6,
       "title": "Wire all electronic components",
-      "description": "Connect every component following the wiring diagram exactly. Use red wires for all VCC/3.3V power connections, black wires for all GND connections, and color-coded wires for signal lines (blue=SDA, yellow=SCL, green=aux SDA, orange=touch signal). Solder each connection and insulate with heat-shrink tubing or electrical tape. After every 3 connections, pause and tug-test each wire gently  -  a cold solder joint now will cause hours of debugging later. Double-check: ESP32-C3 Pin 2 (3.3V) powers BOTH the OLED and SHT31D. ESP32-C3 GPIO4 is SDA for BOTH devices (I2C bus sharing). ESP32-C3 GPIO5 is SCL for BOTH devices. The touch switch SIG goes to GPIO0.",
+      "description": "Connect every component following the wiring diagram exactly. Use red wires for all VCC/3.3V power connections, black wires for all GND connections, and color-coded wires for signal lines (blue=SDA, yellow=SCL, green=touch signal). Solder each connection and insulate with heat-shrink tubing or electrical tape. After every 3 connections, pause and tug-test each wire gently  -  a cold solder joint now will cause hours of debugging later. Double-check: the ESP32-C3 pin labeled 3V3 powers BOTH the OLED and SHT31D. ESP32-C3 GPIO4 is SDA for BOTH devices (I2C bus sharing). ESP32-C3 GPIO5 is SCL for BOTH devices. The touch switch SIG goes to GPIO0.",
       "quickSummary": "Wire OLED and SHT31D on I2C GPIO4/5; touch on GPIO0; battery only via charge path.",
       "whyThisWorks": "I2C is a shared two-wire bus: multiple chips share SDA and SCL with different addresses. Color coding prevents SDA/SCL swaps - the most common blank-screen cause. Shared GND is mandatory.",
       "beforeState": "All modules prepared, iron hot, multimeter, wiring list open. Prefer battery disconnected until rails are checked.",
@@ -950,7 +950,7 @@
     {
       "from": "ESP32-C3 GPIO4 (SDA)",
       "to": "SHT31D SDA",
-      "wireColor": "green"
+      "wireColor": "blue"
     },
     {
       "from": "ESP32-C3 GPIO5 (SCL)",
@@ -960,7 +960,7 @@
     {
       "from": "ESP32-C3 GPIO0 (Touch)",
       "to": "Touch Switch Signal",
-      "wireColor": "orange"
+      "wireColor": "green"
     },
     {
       "from": "Solar Panel +",
@@ -1105,7 +1105,7 @@
     {
       "name": "TOUCH",
       "netClass": "signal",
-      "wireColor": "orange",
+      "wireColor": "green",
       "members": [
         {
           "ref": "U2",
