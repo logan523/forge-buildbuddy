@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { GlossaryText, ConnectionsTable } from "@/components/step-facts";
 import { WireAndPartsIdentity } from "@/components/build/part-identity-card";
+import { WireDoubleCheck } from "@/components/build/wire-double-check";
 import { diagnose, type SymptomId } from "@/lib/unstick";
 import { loadWireChecks, saveWireChecks } from "@/lib/storage";
 
@@ -163,6 +164,8 @@ export function GuidedSteps({
             <WireAndPartsIdentity micro={cur} plan={plan} />
           </div>
         </details>
+
+        {step.compiled && <WireDoubleCheck compiled={step.compiled} />}
 
         {/* Verify it */}
         <div className="rounded-xl bg-success-soft/50 border border-success/25 p-3 space-y-1.5">
