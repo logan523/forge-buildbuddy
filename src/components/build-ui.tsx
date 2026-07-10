@@ -27,6 +27,7 @@ const VENDOR_LABEL: Record<string, string> = {
 // Beginner glossary lives in src/lib/glossary.ts (one authority; step text
 // popovers and part-row tooltips share it).
 import { glossaryTip } from "@/lib/glossary";
+import { IsolationWalkPanel } from "@/components/build/isolation-walk-panel";
 
 // ── Part category icons ──
 export function partIcon(name: string, spec: string): string {
@@ -352,6 +353,7 @@ export function UnstickDrawer({
                   </button>
                 ))}
               </div>
+              <IsolationWalkPanel plan={plan} />
             </>
           )}
 
