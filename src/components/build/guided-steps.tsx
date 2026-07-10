@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { GlossaryText, ConnectionsTable } from "@/components/step-facts";
+import { WireAndPartsIdentity } from "@/components/build/part-identity-card";
 import { diagnose, type SymptomId } from "@/lib/unstick";
 import { loadWireChecks, saveWireChecks } from "@/lib/storage";
 
@@ -152,6 +153,16 @@ export function GuidedSteps({
             This wire is lit up in the 3D — zoomed to where it lands.
           </span>
         </div>
+
+        {/* "Is this the part I'm holding?" — wire + both parts, on demand */}
+        <details className="group">
+          <summary className="text-xs font-medium text-accent cursor-pointer py-1 min-h-[24px]">
+            What am I connecting? See both parts
+          </summary>
+          <div className="mt-2">
+            <WireAndPartsIdentity micro={cur} plan={plan} />
+          </div>
+        </details>
 
         {/* Verify it */}
         <div className="rounded-xl bg-success-soft/50 border border-success/25 p-3 space-y-1.5">

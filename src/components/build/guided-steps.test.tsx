@@ -87,6 +87,32 @@ test("guided: 'show all' reveals the connections table, then back", async () => 
   assert.ok(screen.getAllByText(/GPIO4/).length > 0);
 });
 
+test("guided: 'What am I connecting?' shows the wire + both part identity cards", () => {
+  const parts = [
+    {
+      id: "esp",
+      name: "ESP32-C3 SuperMini",
+      specification: "RISC-V Wi-Fi MCU",
+      quantity: 1,
+      footguns: ["USB-C, not micro-USB"],
+      shoppingLinks: [{ vendor: "Amazon", label: "buy", url: "http://x", kind: "product" }],
+    },
+    { id: "oled", name: '0.96" OLED SSD1306', specification: "128x64 I2C", quantity: 1 },
+  ];
+  const m: MicroStep = { ...micro("w2", "i2c", 1, false), fromPartId: "esp", toPartId: "oled" };
+  const s: BuildStep = { ...step, compiled: { ...step.compiled!, microSteps: [m] } };
+  const p = { id: "t", steps: [s], parts } as unknown as BuildPlan;
+
+  render(<GuidedSteps step={s} plan={p} planId="t" />);
+  assert.ok(screen.getByText(/What am I connecting/i), "the disclosure summary is present");
+  // <details> content is in the DOM even collapsed — assert both part cards render.
+  assert.ok(screen.getAllByText(/ESP32-C3 SuperMini/).length > 0, "from part card names the part");
+  assert.ok(screen.getByText(/OLED SSD1306/), "to part card names the part");
+  assert.ok(screen.getAllByText(/About .* mm/).length >= 2, "physical size shown for both parts");
+  assert.ok(screen.getByText(/USB-C, not micro-USB/), "the footgun shows");
+  assert.ok(screen.getByText(/See what it looks like/i), "a buy link to see a photo");
+});
+
 test("guided: progress persists by wire id across remounts", async () => {
   const u = userEvent.setup();
   const { unmount } = render(<GuidedSteps step={step} plan={plan} planId="test-plan" />);
