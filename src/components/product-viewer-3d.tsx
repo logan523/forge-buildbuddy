@@ -40,6 +40,7 @@ import {
   Vector3,
   ACESFilmicToneMapping,
   Vector2,
+  BackSide,
 } from "three";
 import type { BuildPlan } from "@/lib/types";
 import {
@@ -748,7 +749,21 @@ function SceneContent({
       </EnvBoundary>
       {/* (removed the standalone visible Lightformer rect — it read as a
           bright "block of sun" in-frame; the HDRI IBL now covers reflections) */}
-      <fog attach="fog" args={["#23282f", 9, 24]} />
+      <fog attach="fog" args={["#06080f", 14, 120]} />
+      {/* Orbital-void sky — a large inverted sphere carrying the baked
+          navy→black gradient + starfield. renderOrder -1 + depthWrite off keep
+          it behind everything; fog off + toneMapped off keep the star cores
+          crisp (drei <Stars> washed out to nothing under the ACES composer). */}
+      <mesh renderOrder={-1} frustumCulled={false}>
+        <sphereGeometry args={[60, 40, 24]} />
+        <meshBasicMaterial
+          map={getProceduralMap("space_backdrop")}
+          side={BackSide}
+          depthWrite={false}
+          fog={false}
+          toneMapped={false}
+        />
+      </mesh>
 
       {showBeauty && beautySpec && (
         <Suspense fallback={null}>
@@ -802,22 +817,23 @@ function SceneContent({
         />
       )}
 
-      {/* Matte studio floor — reflector/PCSS stay banned (GPU blackout history, see product-3d.test) */}
+      {/* Matte deck — dark enough to melt into the void, still catches shadow.
+          Reflector/PCSS stay banned (GPU blackout history, see product-3d.test) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <planeGeometry args={[16, 16]} />
-        <meshStandardMaterial color="#262c34" metalness={0.15} roughness={0.78} />
+        <meshStandardMaterial color="#0a0e16" metalness={0.15} roughness={0.82} />
       </mesh>
       <Grid
         position={[0, -0.012, 0]}
         args={[12, 12]}
         cellSize={0.25}
         cellThickness={0.4}
-        cellColor="#3d4654"
+        cellColor="#1b2331"
         sectionSize={1}
         sectionThickness={0.8}
-        sectionColor="#525f70"
-        fadeDistance={9}
-        fadeStrength={1.3}
+        sectionColor="#2b3a4e"
+        fadeDistance={7}
+        fadeStrength={1.5}
         infiniteGrid
       />
       <ContactShadows
@@ -1432,8 +1448,8 @@ export function ProductViewer3D({
                 }));
             }}
           >
-            {/* Studio slate — never pure black */}
-            <color attach="background" args={["#23282f"]} />
+            {/* Orbital void — deep space navy so the lit hardware + blue PV pop */}
+            <color attach="background" args={["#06080f"]} />
             <Suspense fallback={null}>
               <SceneContent
                 scene={scene}

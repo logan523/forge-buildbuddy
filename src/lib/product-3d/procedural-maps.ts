@@ -22,7 +22,8 @@ export type MapKind =
   | "oled_screen"
   | "silkscreen"
   | "solar_cells"
-  | "solar_roughness";
+  | "solar_roughness"
+  | "space_backdrop";
 
 const cache = new Map<string, CanvasTexture>();
 
@@ -502,6 +503,60 @@ export function makeSolarCellRoughness(cols = 6, rows = 5): CanvasTexture {
   return cache.get(key)!;
 }
 
+/**
+ * Orbital-void backdrop for a large inverted sky sphere: a navy→black vertical
+ * gradient with a deterministic scatter of crisp stars (bright cores so they
+ * survive ACES tone mapping — drei's <Stars> washed out under the composer).
+ */
+export function makeSpaceBackdrop(): CanvasTexture {
+  const key = "space_backdrop";
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  const W = 1024;
+  const H = 512;
+  const c = canvasWH(W, H);
+  const ctx = c.getContext("2d") as CanvasRenderingContext2D | null;
+  const tex = new CanvasTexture(c as HTMLCanvasElement);
+  if (!ctx) {
+    cache.set(key, finalize(tex, 1, "color"));
+    return cache.get(key)!;
+  }
+
+  // Vertical gradient — faint navy up top, near-black at the base
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#0b1430");
+  g.addColorStop(0.5, "#070c1c");
+  g.addColorStop(1, "#04060e");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Deterministic star scatter (LCG — stable across renders + tests)
+  let seed = 1337;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  for (let i = 0; i < 2600; i++) {
+    const x = rnd() * W;
+    const y = rnd() * H;
+    // Mostly fine crisp dots; a few slightly larger bright ones for depth.
+    const big = rnd() > 0.9;
+    const r = big ? 1.4 + rnd() * 1.0 : 0.6 + rnd() * 0.9;
+    const b = big ? 0.85 + rnd() * 0.15 : 0.5 + rnd() * 0.4;
+    const t = rnd();
+    ctx.beginPath();
+    ctx.fillStyle =
+      t > 0.9 ? `rgba(190,210,255,${b})` : t < 0.08 ? `rgba(255,236,214,${b})` : `rgba(255,255,255,${b})`;
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Tile stars horizontally around the sphere for in-view density; the vertical
+  // gradient stays 1× (repeat.y = 1) so there's no banding.
+  const out = finalize(tex, 1, "color");
+  out.repeat.set(3, 1);
+  out.needsUpdate = true;
+  cache.set(key, out);
+  return out;
+}
+
 /** Map kind → cached texture. */
 export function getProceduralMap(kind: MapKind, size?: number): Texture {
   switch (kind) {
@@ -523,6 +578,8 @@ export function getProceduralMap(kind: MapKind, size?: number): Texture {
       return makeSolarCellMap();
     case "solar_roughness":
       return makeSolarCellRoughness();
+    case "space_backdrop":
+      return makeSpaceBackdrop();
     default:
       return makePvcNormal(64);
   }
