@@ -311,6 +311,7 @@ function WireSpars({
   harnesses,
   highlightNodeId,
   activeWireId,
+  onWireTap,
 }: {
   edges: SceneEdge3D[];
   nodes: SceneNode3D[];
@@ -322,6 +323,8 @@ function WireSpars({
   highlightNodeId?: string | null;
   /** "Show me" drill-down: light exactly ONE wire (by route id), dim the rest. */
   activeWireId?: string | null;
+  /** Hero tap-to-trace: click a wire tube to light it (toggle); null clears. */
+  onWireTap?: (id: string | null) => void;
 }) {
   if (!visible) return null;
 
@@ -338,7 +341,22 @@ function WireSpars({
               );
           const dim = activeWireId ? w.id !== activeWireId : !!(highlightNodeId && !hi);
           return (
-            <group key={w.id}>
+            <group
+              key={w.id}
+              onClick={(e) => {
+                if (!onWireTap) return;
+                e.stopPropagation();
+                onWireTap(activeWireId === w.id ? null : w.id);
+              }}
+              onPointerOver={(e) => {
+                if (!onWireTap) return;
+                e.stopPropagation();
+                if (typeof document !== "undefined") document.body.style.cursor = "pointer";
+              }}
+              onPointerOut={() => {
+                if (onWireTap && typeof document !== "undefined") document.body.style.cursor = "";
+              }}
+            >
               <WireTubeRoute
                 path={w.path}
                 color={w.color}
@@ -544,6 +562,7 @@ function SceneContent({
   reducedMotion = false,
   phaseCamera = null,
   activeWireId = null,
+  onWireTap,
   connectionPads = null,
   monitorActive = true,
   onQualityRise,
@@ -570,6 +589,8 @@ function SceneContent({
   phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
   /** "Show me" drill-down: the one wire route to light (others dim). */
   activeWireId?: string | null;
+  /** Hero tap-to-trace: click a wire to light it (bubbles from WireSpars). */
+  onWireTap?: (id: string | null) => void;
   /** Wiring-map: labeled net-colored pads at each wire endpoint. */
   connectionPads?: import("@/lib/product-3d").ConnectionPad[] | null;
   /** Suspend the PerformanceMonitor during known-transient churn (eng V3) */
@@ -801,6 +822,7 @@ function SceneContent({
         harnesses={harnesses}
         highlightNodeId={view.isolateNodeId || view.selectedNodeId}
         activeWireId={activeWireId}
+        onWireTap={onWireTap}
       />
 
       {connectionPads && connectionPads.length > 0 && (
@@ -927,6 +949,7 @@ export function ProductViewer3D({
   onIsolatePart,
   phaseCamera = null,
   activeWireId = null,
+  onWireTap,
   connectionPads = null,
   idleSpin: idleSpinProp,
   transientEpoch = 0,
@@ -955,6 +978,8 @@ export function ProductViewer3D({
   phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
   /** "Show me" drill-down: light exactly one wire route. */
   activeWireId?: string | null;
+  /** Hero tap-to-trace: click a wire tube in the Full view to light it. */
+  onWireTap?: (id: string | null) => void;
   /** Wiring-map: labeled net-colored pads at each wire endpoint. */
   connectionPads?: import("@/lib/product-3d").ConnectionPad[] | null;
   /** Override idle auto-orbit (step variant disables it — eng V2) */
@@ -1461,12 +1486,14 @@ export function ProductViewer3D({
               toneMappingExposure: 1.35,
             }}
             onPointerMissed={() => {
-              if (!editMode)
+              if (!editMode) {
                 setView((v) => ({
                   ...v,
                   selectedNodeId: null,
                   soloLayerId: null,
                 }));
+                onWireTap?.(null);
+              }
             }}
           >
             {/* Orbital void — deep space navy so the lit hardware + blue PV pop */}
@@ -1488,6 +1515,7 @@ export function ProductViewer3D({
                 showWires={showWires}
                 harnesses={harnesses}
                 activeWireId={activeWireId}
+                onWireTap={onWireTap}
                 connectionPads={connectionPads}
                 idleSpin={idleSpinProp ?? !!hideChrome}
                 reducedMotion={reducedMotion}
