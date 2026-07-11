@@ -534,7 +534,7 @@ export function makeSpaceBackdrop(): CanvasTexture {
   // Deterministic star scatter (LCG — stable across renders + tests)
   let seed = 1337;
   const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
-  for (let i = 0; i < 2600; i++) {
+  for (let i = 0; i < 5000; i++) {
     const x = rnd() * W;
     const y = rnd() * H;
     // Mostly fine crisp dots; a few slightly larger bright ones for depth.
@@ -548,10 +548,10 @@ export function makeSpaceBackdrop(): CanvasTexture {
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
   }
-  // Tile stars horizontally around the sphere for in-view density; the vertical
-  // gradient stays 1× (repeat.y = 1) so there's no banding.
+  // 1× wrap: a 2:1 texture on the sphere gives ~square texels → round stars.
+  // (Prior 3× horizontal tiling compressed the dots into vertical streaks.)
   const out = finalize(tex, 1, "color");
-  out.repeat.set(3, 1);
+  out.repeat.set(1, 1);
   out.needsUpdate = true;
   cache.set(key, out);
   return out;

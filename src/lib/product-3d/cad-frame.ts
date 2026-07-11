@@ -87,10 +87,10 @@ export function cadCameraForNodes(
 ): CadFrame {
   const b = sceneWorldBounds(nodes, rootScale);
   const dist = Math.max(minDist, b.radius * 2.1 * margin);
-  // Standard CAD isometric-ish diagonal (right, up, front). High `up`
-  // component so the camera starts well ABOVE the object looking down (~45°),
-  // not low looking up — the tall stand otherwise pulls the bbox center down.
-  const dir: [number, number, number] = [0.66, 1.12, 0.78];
+  // Hero 3/4 — a low ~22° elevation so the satellite LOOMS and its brass
+  // silhouette reads against the void, instead of a top-down CAD plan view.
+  // (Azimuth preserved ~40°; the tall stand still centers via the bbox.)
+  const dir: [number, number, number] = [0.78, 0.49, 0.92];
   const len = Math.hypot(...dir) || 1;
   const ux = dir[0] / len;
   const uy = dir[1] / len;

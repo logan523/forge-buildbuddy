@@ -22,6 +22,8 @@ export interface QualitySettings {
   bloomIntensity: number;
   /** Composer MSAA samples (0 = off) */
   multisampling: number;
+  /** Depth-of-field bokeh pass (high tier only — the per-frame cost is real) */
+  dof: boolean;
 }
 
 export function qualitySettings(tier: QualityTier): QualitySettings {
@@ -40,8 +42,9 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         ao: true,
         aoIntensity: 2,
         aoRadius: 0.4,
-        bloomIntensity: 0.55,
+        bloomIntensity: 0.9,
         multisampling: 4,
+        dof: true,
       };
     case "medium":
       return {
@@ -60,8 +63,9 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         ao: true,
         aoIntensity: 1.1,
         aoRadius: 0.32,
-        bloomIntensity: 0.4,
+        bloomIntensity: 0.7,
         multisampling: 2,
+        dof: false,
       };
     case "low":
     default:
@@ -80,6 +84,7 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         aoRadius: 0,
         bloomIntensity: 0,
         multisampling: 0,
+        dof: false,
       };
   }
 }

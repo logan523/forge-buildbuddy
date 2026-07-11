@@ -27,6 +27,7 @@ import {
   EffectComposer,
   Bloom,
   N8AO,
+  DepthOfField,
   ToneMapping,
   Vignette,
 } from "@react-three/postprocessing";
@@ -65,7 +66,7 @@ import {
   type SceneEdge3D,
   type SceneNode3D,
 } from "@/lib/product-3d";
-import { cadCameraForNodes, frameForNodeIds } from "@/lib/product-3d/cad-frame";
+import { cadCameraForNodes, frameForNodeIds, sceneWorldBounds } from "@/lib/product-3d/cad-frame";
 import { getProceduralMap } from "@/lib/product-3d/procedural-maps";
 import {
   detectQualityTier,
@@ -526,9 +527,34 @@ function LightformerStudio({ intensity }: { intensity: number }) {
  * HDR post stack — mounts only when quality.effects. Composer buffers are linear HDR;
  * ACES tone mapping runs as the LAST pass (the composer bypasses gl.toneMapping).
  */
-function PostFX({ quality }: { quality: ReturnType<typeof qualitySettings> }) {
-  // Two explicit branches: EffectComposer children must be effect elements
-  // (no null / fragments — Children.toArray would hand it a non-effect).
+function PostFX({
+  quality,
+  focus,
+}: {
+  quality: ReturnType<typeof qualitySettings>;
+  focus: Vector3;
+}) {
+  // Explicit branches: EffectComposer children must be effect elements (no null
+  // / fragments — Children.toArray would hand it a non-effect). High tier adds a
+  // DepthOfField bokeh pass; medium/low skip it (the per-frame cost would trip
+  // the PerformanceMonitor down to low and strip the whole composer).
+  if (quality.dof) {
+    return (
+      <EffectComposer multisampling={quality.multisampling}>
+        <N8AO halfRes intensity={quality.aoIntensity} aoRadius={quality.aoRadius} distanceFalloff={0.5} />
+        <DepthOfField target={focus} focalLength={0.03} bokehScale={4} height={480} />
+        <Bloom
+          mipmapBlur
+          intensity={quality.bloomIntensity}
+          luminanceThreshold={0.95}
+          luminanceSmoothing={0.2}
+          radius={0.85}
+        />
+        <Vignette darkness={0.45} offset={0.32} />
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      </EffectComposer>
+    );
+  }
   if (quality.ao) {
     return (
       <EffectComposer multisampling={quality.multisampling}>
@@ -536,10 +562,11 @@ function PostFX({ quality }: { quality: ReturnType<typeof qualitySettings> }) {
         <Bloom
           mipmapBlur
           intensity={quality.bloomIntensity}
-          luminanceThreshold={1.0}
-          luminanceSmoothing={0.15}
+          luminanceThreshold={0.95}
+          luminanceSmoothing={0.2}
+          radius={0.85}
         />
-        <Vignette darkness={0.35} offset={0.28} />
+        <Vignette darkness={0.45} offset={0.32} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       </EffectComposer>
     );
@@ -549,10 +576,11 @@ function PostFX({ quality }: { quality: ReturnType<typeof qualitySettings> }) {
       <Bloom
         mipmapBlur
         intensity={quality.bloomIntensity}
-        luminanceThreshold={1.0}
-        luminanceSmoothing={0.15}
+        luminanceThreshold={0.95}
+        luminanceSmoothing={0.2}
+        radius={0.85}
       />
-      <Vignette darkness={0.35} offset={0.28} />
+      <Vignette darkness={0.45} offset={0.32} />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
     </EffectComposer>
   );
@@ -653,9 +681,12 @@ function SceneContent({
     const key = `${scene.templateId}|${scene.nodes.map((n) => n.id).join(",")}|${scene.rootScale}`;
     if (framedKey.current === key) return;
     framedKey.current = key;
-    const frame = cadCameraForNodes(scene.nodes, scene.rootScale, 1.4);
+    const frame = cadCameraForNodes(scene.nodes, scene.rootScale, 1.2);
     camera.position.set(...frame.position);
     camera.lookAt(...frame.target);
+    if ("fov" in camera && typeof (camera as { fov?: number }).fov === "number") {
+      (camera as { fov: number }).fov = 34; // hero telephoto — survives inspect round-trips
+    }
     camera.updateProjectionMatrix();
     if (!reducedMotion) {
       // Intro dolly: ease in from 12% farther out
@@ -726,9 +757,12 @@ function SceneContent({
       if (isolateFrameKey.current) {
         isolateFrameKey.current = null;
         dolly.current = null;
-        const frame = cadCameraForNodes(scene.nodes, scene.rootScale, 1.4);
+        const frame = cadCameraForNodes(scene.nodes, scene.rootScale, 1.2);
         camera.position.set(...frame.position);
         camera.lookAt(...frame.target);
+        if ("fov" in camera && typeof (camera as { fov?: number }).fov === "number") {
+          (camera as { fov: number }).fov = 34;
+        }
         camera.updateProjectionMatrix();
         orbitRef.current?.target?.set(...frame.target);
       }
@@ -786,11 +820,11 @@ function SceneContent({
           do more work (envIntensity multiplier 0.7 → 1.0). A floor of ambient
           keeps the stage off pure black. Shadow map bump is gated to `high`
           so mid/low devices don't pay the memory. */}
-      <ambientLight intensity={0.36} color="#eef2f6" />
-      <hemisphereLight args={["#f0f4f8", "#3a4550", 0.5]} />
+      <ambientLight intensity={0.26} color="#eef2f6" />
+      <hemisphereLight args={["#f0f4f8", "#3a4550", 0.4]} />
       <directionalLight
         position={sunPos}
-        intensity={1.4}
+        intensity={1.55}
         castShadow
         color="#fff6ea"
         shadow-mapSize={quality.tier === "high" ? [2048, 2048] : [1024, 1024]}
@@ -798,7 +832,10 @@ function SceneContent({
       />
       <directionalLight position={[-3.2, 2.8, -2.2]} intensity={0.32} color="#b8d0ea" />
       <directionalLight position={[2.4, 1.8, 3.2]} intensity={0.26} color="#ffe4c4" />
-      <directionalLight position={[0, 5, 1]} intensity={0.22} color="#ffffff" />
+      <directionalLight position={[0, 5, 1]} intensity={0.14} color="#ffffff" />
+      {/* Cinematic cool RIM behind-above — carves the brass silhouette out of the
+          void and throws a free specular glint along the top/back rods. */}
+      <directionalLight position={[-2.6, 3.4, -4.2]} intensity={2.6} color="#bcd4ff" />
       {/* Local studio HDRI (no CDN); Lightformer rig fallback if it can't load */}
       <EnvBoundary fallback={<LightformerStudio intensity={quality.envIntensity} />}>
         <Suspense fallback={null}>
@@ -1108,6 +1145,13 @@ export function ProductViewer3D({
     };
   }, [posedScene, sun, aimSolar]);
   const layers = useMemo(() => uniqueLayers(scene), [scene]);
+  // DoF focus = scene bbox center = the OrbitControls target, so autoRotate
+  // spins the camera around the focus point and the subject stays sharp with
+  // zero per-frame tracking.
+  const dofFocus = useMemo(
+    () => new Vector3(...sceneWorldBounds(scene.nodes, scene.rootScale).center),
+    [scene.nodes, scene.rootScale]
+  );
   const beautyResolved = useMemo(() => resolveBeautyMesh(planForBeauty), [planForBeauty]);
   const beautySpec = beautyResolved.spec;
   const [internalView, setInternalView] = useState<LayerViewState>(() => defaultLayerView(scene.nodes));
@@ -1488,10 +1532,10 @@ export function ProductViewer3D({
           <Canvas
             camera={{
               position: (() => {
-                const f = cadCameraForNodes(scene.nodes, scene.rootScale, 1.4);
+                const f = cadCameraForNodes(scene.nodes, scene.rootScale, 1.2);
                 return f.position;
               })(),
-              fov: 40,
+              fov: 34,
               near: 0.05,
               far: 100,
             }}
@@ -1544,7 +1588,7 @@ export function ProductViewer3D({
                 onTransient={markTransient}
               />
             </Suspense>
-            {quality.effects && <PostFX quality={quality} />}
+            {quality.effects && <PostFX quality={quality} focus={dofFocus} />}
           </Canvas>
           {/* Floating hint */}
           <div className="pointer-events-none absolute bottom-2 left-2 right-2 sm:right-auto flex gap-1.5">
