@@ -193,7 +193,7 @@ function WireTubeRoute({
   const pvcNormal = useMemo(() => getProceduralMap("pvc_normal"), []);
   const pvcNScale = useMemo(() => new Vector2(0.45, 0.45), []);
 
-  const tube = useMemo(() => {
+  const geo = useMemo(() => {
     if (path.length < 2) return null;
     const pts = path.map(([x, y, z]) => new Vector3(x * s, y * s, z * s));
     // Dedupe near-collinear points that can zero-length the curve
@@ -204,14 +204,28 @@ function WireTubeRoute({
     if (cleaned.length < 2) return null;
     const curve = new CatmullRomCurve3(cleaned, false, "catmullrom", 0.35);
     const tubular = Math.min(96, Math.max(28, cleaned.length * 10));
-    return new TubeGeometry(curve, tubular, r, highlight ? 12 : 10, false);
+    return { tube: new TubeGeometry(curve, tubular, r, highlight ? 12 : 10, false), curve };
   }, [path, s, r, highlight]);
+  const tube = geo?.tube ?? null;
+  const curve = geo?.curve ?? null;
 
   useEffect(() => {
     return () => {
       tube?.dispose();
     };
   }, [tube]);
+
+  // Follow-the-Net: a bright bead of light rides the ACTIVE wire from source to
+  // destination, so a beginner can see exactly where that one wire goes. Only
+  // the highlighted wire animates; the emissive core blooms for free.
+  const beadRef = useRef<Mesh>(null);
+  const beadT = useRef(0);
+  useFrame((_, delta) => {
+    if (!highlight || !curve || !beadRef.current) return;
+    beadT.current = (beadT.current + delta * 0.33) % 1;
+    const p = curve.getPointAt(beadT.current);
+    beadRef.current.position.set(p.x, p.y, p.z);
+  });
 
   const ends = useMemo(() => {
     if (path.length < 2) return null;
@@ -277,6 +291,13 @@ function WireTubeRoute({
           </mesh>
         </group>
       ))}
+      {highlight && (
+        <mesh ref={beadRef}>
+          <sphereGeometry args={[Math.max(r * 2.6, 0.018), 16, 16]} />
+          {/* HDR emissive so the composer Bloom flares the travelling bead */}
+          <meshStandardMaterial color="#0a1018" emissive={color} emissiveIntensity={3.2} toneMapped={false} />
+        </mesh>
+      )}
     </group>
   );
 }
