@@ -67,6 +67,8 @@ export { pinWorldPositionMm, frameForPin, resolvePinLocal } from "./pin-focus";
 export { wireRouteForNodes } from "./micro-wire-bridge";
 export { connectionPads } from "./connection-pads";
 export type { ConnectionPad } from "./connection-pads";
+export { auditHarnessRoutes, auditPlanHarness } from "./harness-conformance";
+export type { HarnessConformanceReport } from "./harness-conformance";
 export {
   SAT_PIN_LOCALS,
   SAT_PIN_NODE_IDS,
