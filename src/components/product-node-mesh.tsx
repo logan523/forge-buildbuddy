@@ -89,6 +89,8 @@ function PhysMat({
       emissive={m.emissive || "#000000"}
       emissiveIntensity={m.emissiveIntensity ?? 0}
       envMapIntensity={m.envMapIntensity ?? 0.8}
+      anisotropy={m.anisotropy ?? 0}
+      anisotropyRotation={m.anisotropyRotation ?? 0}
       transmission={m.transmission ?? 0}
       thickness={m.thickness ?? 0}
       ior={m.ior ?? 1.5}

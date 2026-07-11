@@ -35,6 +35,9 @@ export interface PhysicalMatProps {
   transmission?: number;
   thickness?: number;
   envMapIntensity?: number;
+  /** Brushed/machined metal: stretches the highlight into a streak (three r158+). 0 = isotropic. */
+  anisotropy?: number;
+  anisotropyRotation?: number;
 }
 
 const PRESETS: Record<MaterialPresetId, PhysicalMatProps> = {
@@ -56,6 +59,8 @@ const PRESETS: Record<MaterialPresetId, PhysicalMatProps> = {
     clearcoat: 0.25,
     clearcoatRoughness: 0.2,
     envMapIntensity: 1.65,
+    // Machined brass: the highlight stretches into a streak, not a plastic dot.
+    anisotropy: 0.55,
   },
   copper: {
     color: "#c47a3a",
@@ -64,6 +69,7 @@ const PRESETS: Record<MaterialPresetId, PhysicalMatProps> = {
     clearcoat: 0.28,
     clearcoatRoughness: 0.18,
     envMapIntensity: 1.45,
+    anisotropy: 0.45,
   },
   oled_glass: {
     color: "#060c14",
