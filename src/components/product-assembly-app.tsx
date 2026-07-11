@@ -40,6 +40,7 @@ import {
 import { meshPinStubsForNode } from "@/lib/product-3d/sat-pins";
 import { explainNode } from "@/lib/steps/explain-part";
 import { deriveStepPresence } from "@/lib/product-3d/step-presence";
+import { ConformanceSeal } from "@/components/build/conformance-seal";
 import { ProductViewer3D } from "@/components/product-viewer-3d";
 
 /** Wiring-map spread amount (fraction of full explode; baked into displayNodes). */
@@ -556,6 +557,9 @@ export function ProductAssemblyApp({
             onPlanPatch?.({ beautyMesh: mesh });
           }}
         />
+
+        {/* Conformance seal — proof the render equals the verified netlist */}
+        {stepChrome && !inspected.node && <ConformanceSeal plan={plan} />}
 
         {/* Wiring-map toggle — spread the parts + label every connection point */}
         {stepChrome && harnesses.length > 0 && (
