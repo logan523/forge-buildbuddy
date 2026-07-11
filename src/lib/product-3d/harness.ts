@@ -510,7 +510,21 @@ export function buildHarnesses(
     ? [frame.position[0], frame.position[1], frame.position[2]]
     : undefined;
 
-  let bias = 0;
+  // Deterministic lane routing (Cage-Rail Raceways): instead of a random per-wire
+  // side jitter that sends jumpers on drunk paths through the middle, each net
+  // class gets its OWN raceway direction and its wires fan into ordered parallel
+  // lanes — so power / ground / I²C read as grouped, color-sorted ribbons.
+  const CLASS_LANE: Record<string, [number, number, number]> = {
+    power: [1, 0.35, 0.15], // reds ride the right rail, lifted
+    gnd: [-1, -0.25, 0.15], // grounds hug the left rail, low
+    i2c: [0.15, 0.7, 0.9], // data climbs up-and-back
+    signal: [0.15, 0.7, 0.9],
+    digital: [0.15, 0.7, 0.9],
+    analog: [0.85, 0.1, -0.85], // solar/analog to the far corner
+  };
+  const DEFAULT_LANE: [number, number, number] = [0.3, 0.45, 0.35];
+  const laneCount: Record<string, number> = {};
+  const LANE_PITCH = 2.0;
   for (const p of pairs) {
     if (present && (!present.has(p.from) || !present.has(p.to))) continue;
     if (hints && hints.length > 0) {
@@ -542,11 +556,16 @@ export function buildHarnesses(
     const wb = worldAnchor(nb, partB, toA);
     const meta = metaForClass(p.netClass);
     const droop = p.netClass === "power" || p.netClass === "gnd" ? 4.5 : 8.5;
-    bias += 1;
+    // This wire's raceway: its class direction, offset into an ordered lane so
+    // co-routed wires run parallel instead of crossing. Deterministic — same
+    // plan always routes the same way.
+    const laneDir = CLASS_LANE[p.netClass] ?? DEFAULT_LANE;
+    const lane = laneCount[p.netClass] = (laneCount[p.netClass] ?? 0) + 1;
+    const laneOffset = ((lane - 1) % 4) * LANE_PITCH - 1.5 * LANE_PITCH; // fan lanes ±
     const side: [number, number, number] = [
-      ((bias * 2.1) % 7) - 3.5,
-      0,
-      ((bias * 1.7) % 6) - 3,
+      laneDir[0] * 3.0 + laneOffset * 0.55,
+      laneDir[1] * 2.4,
+      laneDir[2] * 3.0 + laneOffset * 0.35,
     ];
     const exitFrom = pinExitDir(na, partA, fromA);
     const exitTo = pinExitDir(nb, partB, toA);
