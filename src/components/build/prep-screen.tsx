@@ -6,6 +6,7 @@ import { filterStepsForMode, modeLabel, type BuildMode } from "@/lib/modes";
 import { presentErc } from "@/lib/electrical/present";
 import { PartRow, SafetyPanel, partIcon } from "@/components/build-ui";
 import { PartsIdentifyWalk } from "@/components/build/parts-identify-walk";
+import { PowerCheck } from "@/components/build/power-check";
 import { ProductHero } from "@/components/product-hero";
 import type { ProductVisual } from "@/lib/product-visual";
 import type { FirmwarePackage } from "@/lib/firmware";
@@ -116,6 +117,11 @@ export function PrepScreen({
           </div>
 
           {plan.electrical && <ErcPanel electrical={plan.electrical} />}
+          {plan.electrical && (
+            <div className="mb-6">
+              <PowerCheck plan={plan} />
+            </div>
+          )}
 
           {plan.safetyReport && <SafetyPanel report={plan.safetyReport} />}
 
