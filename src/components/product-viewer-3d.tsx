@@ -179,6 +179,7 @@ function WireTubeRoute({
   rootScale,
   highlight,
   dim,
+  selectable,
 }: {
   path: [number, number, number][];
   color: string;
@@ -186,6 +187,8 @@ function WireTubeRoute({
   rootScale: number;
   highlight: boolean;
   dim?: boolean;
+  /** Add an invisible fat tube as a comfortable tap/hover target (hero view). */
+  selectable?: boolean;
 }) {
   const s = rootScale;
   const r = Math.max(0.00045, gaugeMm * s * (highlight ? 1.5 : dim ? 0.7 : 1.08));
@@ -193,6 +196,9 @@ function WireTubeRoute({
   const pvcNormal = useMemo(() => getProceduralMap("pvc_normal"), []);
   const pvcNScale = useMemo(() => new Vector2(0.45, 0.45), []);
 
+  // Fat invisible tap target — a fingertip on a phone can't hit a 0.8 mm wire,
+  // so raycast against a ~5.5× tube (built only when the wire is selectable).
+  const hitR = Math.max(gaugeMm * s * 5.5, 0.014);
   const geo = useMemo(() => {
     if (path.length < 2) return null;
     const pts = path.map(([x, y, z]) => new Vector3(x * s, y * s, z * s));
@@ -204,16 +210,22 @@ function WireTubeRoute({
     if (cleaned.length < 2) return null;
     const curve = new CatmullRomCurve3(cleaned, false, "catmullrom", 0.35);
     const tubular = Math.min(96, Math.max(28, cleaned.length * 10));
-    return { tube: new TubeGeometry(curve, tubular, r, highlight ? 12 : 10, false), curve };
-  }, [path, s, r, highlight]);
+    return {
+      tube: new TubeGeometry(curve, tubular, r, highlight ? 12 : 10, false),
+      hitTube: selectable ? new TubeGeometry(curve, tubular, hitR, 6, false) : null,
+      curve,
+    };
+  }, [path, s, r, hitR, highlight, selectable]);
   const tube = geo?.tube ?? null;
+  const hitTube = geo?.hitTube ?? null;
   const curve = geo?.curve ?? null;
 
   useEffect(() => {
     return () => {
       tube?.dispose();
+      hitTube?.dispose();
     };
-  }, [tube]);
+  }, [tube, hitTube]);
 
   // Follow-the-Net: a bright bead of light rides the ACTIVE wire from source to
   // destination, so a beginner can see exactly where that one wire goes. Only
@@ -242,6 +254,12 @@ function WireTubeRoute({
   const solderR = r * 2.1;
   return (
     <group>
+      {hitTube && (
+        // Invisible, non-occluding, draws nothing — purely a raycast target.
+        <mesh geometry={hitTube} renderOrder={-1}>
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+        </mesh>
+      )}
       <mesh geometry={tube} castShadow={!dim} receiveShadow={false}>
         <meshPhysicalMaterial
           color={color}
@@ -364,6 +382,7 @@ function WireSpars({
                 rootScale={rootScale}
                 highlight={hi}
                 dim={dim}
+                selectable={!!onWireTap}
               />
               {hi && !dim && w.path.length >= 2 && (
                 <Html
