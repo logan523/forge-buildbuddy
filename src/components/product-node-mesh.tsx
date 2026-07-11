@@ -431,6 +431,7 @@ export function NodeMesh({
         length: rod.length * s,
       }));
       const brassNormal = getProceduralMap("brushed_normal");
+      const brassRough = getProceduralMap("brushed_roughness");
       const brassNScale = new Vector2(0.65, 0.65);
       inner = (
         <group onClick={onClick}>
@@ -446,6 +447,8 @@ export function NodeMesh({
                 envMapIntensity={1.7}
                 normalMap={brassNormal}
                 normalScale={brassNScale}
+                roughnessMap={brassRough}
+                anisotropy={0.5}
                 transparent
                 opacity={opacity}
               />
@@ -468,6 +471,9 @@ export function NodeMesh({
                 envMapIntensity={1.8}
                 normalMap={brassNormal}
                 normalScale={brassNScale}
+                roughnessMap={brassRough}
+                anisotropy={0.6}
+                anisotropyRotation={Math.PI / 2}
                 transparent
                 opacity={opacity}
               />
@@ -795,76 +801,40 @@ export function NodeMesh({
       const h = (p.height || 36) * s;
       // Real thin laminate — not a thick white slab
       const d = Math.max((p.depth || 2.4) * s, s * 1.8);
-      const cells = Math.min(8, Math.max(2, Math.round(p.cells || 6)));
-      const cellW = (w * 0.88) / cells;
-      const cellH = h * 0.84;
       const frameT = Math.min(d * 0.9, s * 1.2);
+      const solarMap = getProceduralMap("solar_cells");
+      const solarRough = getProceduralMap("solar_roughness");
       inner = (
         <group onClick={onClick}>
-          {/* Dark anodized frame */}
+          {/* Dark anodized frame — matte enough that its backside doesn't
+              blow out into a chrome mirror of the studio HDRI. */}
           <RoundedBox args={[w, h, d]} radius={d * 0.2} smoothness={3} castShadow>
             <meshPhysicalMaterial
               color="#3d4654"
-              metalness={0.85}
-              roughness={0.32}
-              envMapIntensity={1.1}
+              metalness={0.55}
+              roughness={0.42}
+              envMapIntensity={0.5}
               transparent
               opacity={opacity}
             />
             <SelectOutline selected={selected} />
           </RoundedBox>
-          {/* Deep navy cell body (reads dark blue-black in product photos) */}
+          {/* Monocrystalline laminate — one baked plane reads as real cells at
+              any distance; moderate roughness + low env keep it deep blue,
+              not a chrome mirror of the studio HDRI. */}
           <mesh position={[0, 0, d * 0.42]} castShadow>
-            <planeGeometry args={[w - frameT * 2.2, h - frameT * 2.2]} />
+            <planeGeometry args={[w - frameT * 2.0, h - frameT * 2.0]} />
             <meshPhysicalMaterial
-              color="#0b1428"
-              metalness={0.55}
-              roughness={0.14}
-              clearcoat={1}
-              clearcoatRoughness={0.04}
-              envMapIntensity={1.6}
+              map={solarMap}
+              roughnessMap={solarRough}
+              roughness={0.55}
+              metalness={0.3}
+              clearcoat={0.45}
+              clearcoatRoughness={0.28}
+              envMapIntensity={0.35}
               transparent
               opacity={opacity}
             />
-          </mesh>
-          {Array.from({ length: cells }).map((_, i) => {
-            const x = -w * 0.4 + cellW * 0.5 + i * cellW;
-            return (
-              <mesh key={i} position={[x, 0, d * 0.44]}>
-                <planeGeometry args={[cellW * 0.9, cellH]} />
-                <meshPhysicalMaterial
-                  color="#111d36"
-                  metalness={0.5}
-                  roughness={0.22}
-                  transparent
-                  opacity={0.96 * opacity}
-                />
-              </mesh>
-            );
-          })}
-          {/* Silver busbars */}
-          {Array.from({ length: cells - 1 }).map((_, i) => {
-            const x = -w * 0.4 + cellW * (i + 1);
-            return (
-              <mesh key={`b${i}`} position={[x, 0, d * 0.46]}>
-                <boxGeometry args={[s * 0.18, cellH * 0.96, s * 0.08]} />
-                <meshPhysicalMaterial color="#e8edf2" metalness={0.96} roughness={0.12} transparent opacity={opacity} />
-              </mesh>
-            );
-          })}
-          {Array.from({ length: 5 }).map((_, i) => {
-            const y = -cellH * 0.38 + i * (cellH * 0.19);
-            return (
-              <mesh key={`f${i}`} position={[0, y, d * 0.47]}>
-                <boxGeometry args={[w * 0.84, s * 0.07, s * 0.05]} />
-                <meshPhysicalMaterial color="#c5ced8" metalness={0.92} roughness={0.18} transparent opacity={0.85 * opacity} />
-              </mesh>
-            );
-          })}
-          {/* Specular glass strip */}
-          <mesh position={[0, h * 0.22, d * 0.5]}>
-            <planeGeometry args={[w * 0.55, h * 0.1]} />
-            <meshBasicMaterial color="#dbeafe" transparent opacity={0.18 * opacity} />
           </mesh>
           {/* PV lead pads — same local mm as sat-pins / harness */}
           {meshPinStubsForNode(node.id).map((pin) => (
