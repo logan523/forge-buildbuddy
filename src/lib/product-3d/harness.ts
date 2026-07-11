@@ -9,6 +9,7 @@ import type { ElectricalModel } from "@/lib/electrical/types";
 import type { ProductScene3D, SceneNode3D } from "./types";
 import type { AssemblyRecipe, PartDef } from "./assembly-recipe";
 import { mapRefToNodeId } from "./connection-spars";
+import { pickHub } from "@/lib/electrical/hub";
 import { netColorFor } from "@/lib/wire-colors";
 
 export type WireInsulation = "pvc" | "enamel" | "silicone";
@@ -375,13 +376,19 @@ export function buildHarnesses(
   const pairs: PairDef[] = [];
 
   const model: ElectricalModel | null | undefined = plan.electrical;
+  // Every scene node the netlist references — used to keep the netlist as the
+  // authority on wiring and fall the teaching defaults back only to nodes it
+  // can't see (e.g. solar-r, which the model folds into solar-l).
+  const electricalNodes = new Set<string>();
   if (model?.nets?.length) {
     for (const net of model.nets) {
       const members = net.members || [];
-      const nodePins: { nodeId: string; pin: string; role?: string }[] = [];
+      type NodePin = { nodeId: string; pin: string; role?: string };
+      const nodePins: NodePin[] = [];
       for (const m of members) {
         const id = mapRefToNodeId(m.ref, scene.nodes, plan);
         if (!id) continue;
+        electricalNodes.add(id);
         const pin = (m as { pin?: string }).pin || m.ref;
         const role = (m as { role?: string }).role;
         // Keep first pin per node (electrical may list BATT and OUT on same ref)
@@ -389,20 +396,32 @@ export function buildHarnesses(
           nodePins.push({ nodeId: id, pin, role });
         }
       }
-      // Only honest 2-node nets from electrical — star topology is teaching-wrong
-      if (nodePins.length !== 2) continue;
-      const [a, b] = nodePins;
-      pairs.push({
-        from: a!.nodeId,
-        to: b!.nodeId,
-        netName: net.name,
-        netClass: net.netClass,
-        color: netColorFor(net.netClass, (net as { wireColor?: string }).wireColor, net.name),
-        fromPin: a!.pin,
-        toPin: b!.pin,
-        fromRole: a!.role,
-        toRole: b!.role,
-      });
+      if (nodePins.length < 2) continue;
+      const color = netColorFor(net.netClass, (net as { wireColor?: string }).wireColor, net.name);
+      const leg = (from: NodePin, to: NodePin) =>
+        pairs.push({
+          from: from.nodeId,
+          to: to.nodeId,
+          netName: net.name,
+          netClass: net.netClass,
+          color,
+          fromPin: from.pin,
+          toPin: to.pin,
+          fromRole: from.role,
+          toRole: to.role,
+        });
+      if (nodePins.length === 2) {
+        leg(nodePins[0]!, nodePins[1]!);
+      } else {
+        // A multi-member net is a hyperedge. Fan it hub→spoke, picking the SAME
+        // hub the instruction compiler does (shared pickHub), so the rendered
+        // tubes equal the compiled step edges and "Show me" stays aligned.
+        const hubNodeId = mapRefToNodeId(pickHub(members).ref, scene.nodes, plan);
+        const hub = nodePins.find((np) => np.nodeId === hubNodeId) ?? nodePins[0]!;
+        for (const np of nodePins) {
+          if (np.nodeId !== hub.nodeId) leg(hub, np);
+        }
+      }
     }
   }
 
@@ -436,8 +455,14 @@ export function buildHarnesses(
     ["solar-l", "charger", "PV_L_GND", "gnd", "-", "IN-", "gnd", "gnd"],
     ["solar-r", "charger", "PV_R_GND", "gnd", "-", "IN-", "gnd", "gnd"],
   ];
+  const electricalPresent = !!model?.nets?.length;
   for (const [a, b, name, cls, pa, pb, ra, rb] of defaults) {
     if (!byId.has(a) || !byId.has(b)) continue;
+    // With a netlist present, IT owns the wiring — the generated stars above
+    // already cover every net-referenced node. Keep a teaching default only for
+    // a node the netlist can't see (solar-r). Absent a netlist, the full
+    // teaching table is the fallback (non-sat templates, tests with no model).
+    if (electricalPresent && electricalNodes.has(a) && electricalNodes.has(b)) continue;
     // Skip if we already have same ends + class (electrical 2-member already covered)
     const already = pairs.some(
       (p) =>
