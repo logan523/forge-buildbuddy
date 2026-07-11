@@ -25,9 +25,10 @@ import type {
   CompiledCheck,
   CompiledStepFacts,
 } from "@/lib/types";
-import type { ElectricalModel, ElectricalNet, NetMember } from "@/lib/electrical/types";
+import type { ElectricalModel, ElectricalNet } from "@/lib/electrical/types";
 import { netColorFor, wireColorName } from "@/lib/wire-colors";
 import { domainForNet } from "@/lib/electrical/voltage-domains";
+import { pickHub } from "@/lib/electrical/hub";
 import { stepKind } from "./classify";
 import { buildMicroSteps } from "./micro-steps";
 
@@ -53,11 +54,6 @@ function wireColorByNetName(plan: BuildPlan): Map<string, string> {
   return map;
 }
 
-function pickHub(members: NetMember[]): NetMember {
-  return (
-    members.find((m) => /source|out|power/i.test(m.role || "")) || members[0]
-  );
-}
 
 /** Build the full connection list from the netlist. Skips malformed nets. */
 export function edgesFromModel(plan: BuildPlan, model: ElectricalModel): CompiledConnection[] {

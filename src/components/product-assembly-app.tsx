@@ -344,6 +344,14 @@ export function ProductAssemblyApp({
     return m;
   }, [baseScene.nodes]);
 
+  // Hero-view tap-to-trace: click any wire tube in the Full 3D to light it and
+  // ride the bead (extends the guided "Show me" beyond stepped builds). Cleared
+  // on step change so a stale tap never lingers into the next step's focus.
+  const [tappedWireId, setTappedWireId] = useState<string | null>(null);
+  useEffect(() => {
+    setTappedWireId(null);
+  }, [stepIndex]);
+
   // "Show me" drill-down: when a guided wire is active, zoom the camera to its
   // destination pin and light exactly that wire. The zoom rides the existing
   // phaseCamera snap (verified geometry); the glow reuses WireTubeRoute.
@@ -550,7 +558,8 @@ export function ProductAssemblyApp({
               : null
           }
           connectionPads={connectionPadList}
-          activeWireId={wireFocus?.wireId ?? null}
+          activeWireId={wireFocus?.wireId ?? tappedWireId ?? null}
+          onWireTap={setTappedWireId}
           idleSpin={stepChrome ? false : undefined}
           transientEpoch={expandEpoch}
           onBeautyMeshChange={(mesh: BeautyMeshSpec) => {

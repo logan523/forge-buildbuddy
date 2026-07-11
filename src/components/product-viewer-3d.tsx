@@ -40,6 +40,7 @@ import {
   Vector3,
   ACESFilmicToneMapping,
   Vector2,
+  BackSide,
 } from "three";
 import type { BuildPlan } from "@/lib/types";
 import {
@@ -178,6 +179,7 @@ function WireTubeRoute({
   rootScale,
   highlight,
   dim,
+  selectable,
 }: {
   path: [number, number, number][];
   color: string;
@@ -185,6 +187,8 @@ function WireTubeRoute({
   rootScale: number;
   highlight: boolean;
   dim?: boolean;
+  /** Add an invisible fat tube as a comfortable tap/hover target (hero view). */
+  selectable?: boolean;
 }) {
   const s = rootScale;
   const r = Math.max(0.00045, gaugeMm * s * (highlight ? 1.5 : dim ? 0.7 : 1.08));
@@ -192,7 +196,10 @@ function WireTubeRoute({
   const pvcNormal = useMemo(() => getProceduralMap("pvc_normal"), []);
   const pvcNScale = useMemo(() => new Vector2(0.45, 0.45), []);
 
-  const tube = useMemo(() => {
+  // Fat invisible tap target — a fingertip on a phone can't hit a 0.8 mm wire,
+  // so raycast against a ~5.5× tube (built only when the wire is selectable).
+  const hitR = Math.max(gaugeMm * s * 5.5, 0.014);
+  const geo = useMemo(() => {
     if (path.length < 2) return null;
     const pts = path.map(([x, y, z]) => new Vector3(x * s, y * s, z * s));
     // Dedupe near-collinear points that can zero-length the curve
@@ -203,14 +210,34 @@ function WireTubeRoute({
     if (cleaned.length < 2) return null;
     const curve = new CatmullRomCurve3(cleaned, false, "catmullrom", 0.35);
     const tubular = Math.min(96, Math.max(28, cleaned.length * 10));
-    return new TubeGeometry(curve, tubular, r, highlight ? 12 : 10, false);
-  }, [path, s, r, highlight]);
+    return {
+      tube: new TubeGeometry(curve, tubular, r, highlight ? 12 : 10, false),
+      hitTube: selectable ? new TubeGeometry(curve, tubular, hitR, 6, false) : null,
+      curve,
+    };
+  }, [path, s, r, hitR, highlight, selectable]);
+  const tube = geo?.tube ?? null;
+  const hitTube = geo?.hitTube ?? null;
+  const curve = geo?.curve ?? null;
 
   useEffect(() => {
     return () => {
       tube?.dispose();
+      hitTube?.dispose();
     };
-  }, [tube]);
+  }, [tube, hitTube]);
+
+  // Follow-the-Net: a bright bead of light rides the ACTIVE wire from source to
+  // destination, so a beginner can see exactly where that one wire goes. Only
+  // the highlighted wire animates; the emissive core blooms for free.
+  const beadRef = useRef<Mesh>(null);
+  const beadT = useRef(0);
+  useFrame((_, delta) => {
+    if (!highlight || !curve || !beadRef.current) return;
+    beadT.current = (beadT.current + delta * 0.33) % 1;
+    const p = curve.getPointAt(beadT.current);
+    beadRef.current.position.set(p.x, p.y, p.z);
+  });
 
   const ends = useMemo(() => {
     if (path.length < 2) return null;
@@ -227,6 +254,12 @@ function WireTubeRoute({
   const solderR = r * 2.1;
   return (
     <group>
+      {hitTube && (
+        // Invisible, non-occluding, draws nothing — purely a raycast target.
+        <mesh geometry={hitTube} renderOrder={-1}>
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+        </mesh>
+      )}
       <mesh geometry={tube} castShadow={!dim} receiveShadow={false}>
         <meshPhysicalMaterial
           color={color}
@@ -276,6 +309,13 @@ function WireTubeRoute({
           </mesh>
         </group>
       ))}
+      {highlight && (
+        <mesh ref={beadRef}>
+          <sphereGeometry args={[Math.max(r * 2.6, 0.018), 16, 16]} />
+          {/* HDR emissive so the composer Bloom flares the travelling bead */}
+          <meshStandardMaterial color="#0a1018" emissive={color} emissiveIntensity={3.2} toneMapped={false} />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -289,6 +329,7 @@ function WireSpars({
   harnesses,
   highlightNodeId,
   activeWireId,
+  onWireTap,
 }: {
   edges: SceneEdge3D[];
   nodes: SceneNode3D[];
@@ -300,6 +341,8 @@ function WireSpars({
   highlightNodeId?: string | null;
   /** "Show me" drill-down: light exactly ONE wire (by route id), dim the rest. */
   activeWireId?: string | null;
+  /** Hero tap-to-trace: click a wire tube to light it (toggle); null clears. */
+  onWireTap?: (id: string | null) => void;
 }) {
   if (!visible) return null;
 
@@ -316,7 +359,22 @@ function WireSpars({
               );
           const dim = activeWireId ? w.id !== activeWireId : !!(highlightNodeId && !hi);
           return (
-            <group key={w.id}>
+            <group
+              key={w.id}
+              onClick={(e) => {
+                if (!onWireTap) return;
+                e.stopPropagation();
+                onWireTap(activeWireId === w.id ? null : w.id);
+              }}
+              onPointerOver={(e) => {
+                if (!onWireTap) return;
+                e.stopPropagation();
+                if (typeof document !== "undefined") document.body.style.cursor = "pointer";
+              }}
+              onPointerOut={() => {
+                if (onWireTap && typeof document !== "undefined") document.body.style.cursor = "";
+              }}
+            >
               <WireTubeRoute
                 path={w.path}
                 color={w.color}
@@ -324,6 +382,7 @@ function WireSpars({
                 rootScale={rootScale}
                 highlight={hi}
                 dim={dim}
+                selectable={!!onWireTap}
               />
               {hi && !dim && w.path.length >= 2 && (
                 <Html
@@ -522,6 +581,7 @@ function SceneContent({
   reducedMotion = false,
   phaseCamera = null,
   activeWireId = null,
+  onWireTap,
   connectionPads = null,
   monitorActive = true,
   onQualityRise,
@@ -548,6 +608,8 @@ function SceneContent({
   phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
   /** "Show me" drill-down: the one wire route to light (others dim). */
   activeWireId?: string | null;
+  /** Hero tap-to-trace: click a wire to light it (bubbles from WireSpars). */
+  onWireTap?: (id: string | null) => void;
   /** Wiring-map: labeled net-colored pads at each wire endpoint. */
   connectionPads?: import("@/lib/product-3d").ConnectionPad[] | null;
   /** Suspend the PerformanceMonitor during known-transient churn (eng V3) */
@@ -748,7 +810,21 @@ function SceneContent({
       </EnvBoundary>
       {/* (removed the standalone visible Lightformer rect — it read as a
           bright "block of sun" in-frame; the HDRI IBL now covers reflections) */}
-      <fog attach="fog" args={["#23282f", 9, 24]} />
+      <fog attach="fog" args={["#06080f", 14, 120]} />
+      {/* Orbital-void sky — a large inverted sphere carrying the baked
+          navy→black gradient + starfield. renderOrder -1 + depthWrite off keep
+          it behind everything; fog off + toneMapped off keep the star cores
+          crisp (drei <Stars> washed out to nothing under the ACES composer). */}
+      <mesh renderOrder={-1} frustumCulled={false}>
+        <sphereGeometry args={[60, 40, 24]} />
+        <meshBasicMaterial
+          map={getProceduralMap("space_backdrop")}
+          side={BackSide}
+          depthWrite={false}
+          fog={false}
+          toneMapped={false}
+        />
+      </mesh>
 
       {showBeauty && beautySpec && (
         <Suspense fallback={null}>
@@ -765,6 +841,7 @@ function SceneContent({
         harnesses={harnesses}
         highlightNodeId={view.isolateNodeId || view.selectedNodeId}
         activeWireId={activeWireId}
+        onWireTap={onWireTap}
       />
 
       {connectionPads && connectionPads.length > 0 && (
@@ -802,22 +879,23 @@ function SceneContent({
         />
       )}
 
-      {/* Matte studio floor — reflector/PCSS stay banned (GPU blackout history, see product-3d.test) */}
+      {/* Matte deck — dark enough to melt into the void, still catches shadow.
+          Reflector/PCSS stay banned (GPU blackout history, see product-3d.test) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <planeGeometry args={[16, 16]} />
-        <meshStandardMaterial color="#262c34" metalness={0.15} roughness={0.78} />
+        <meshStandardMaterial color="#0a0e16" metalness={0.15} roughness={0.82} />
       </mesh>
       <Grid
         position={[0, -0.012, 0]}
         args={[12, 12]}
         cellSize={0.25}
         cellThickness={0.4}
-        cellColor="#3d4654"
+        cellColor="#1b2331"
         sectionSize={1}
         sectionThickness={0.8}
-        sectionColor="#525f70"
-        fadeDistance={9}
-        fadeStrength={1.3}
+        sectionColor="#2b3a4e"
+        fadeDistance={7}
+        fadeStrength={1.5}
         infiniteGrid
       />
       <ContactShadows
@@ -890,6 +968,7 @@ export function ProductViewer3D({
   onIsolatePart,
   phaseCamera = null,
   activeWireId = null,
+  onWireTap,
   connectionPads = null,
   idleSpin: idleSpinProp,
   transientEpoch = 0,
@@ -918,6 +997,8 @@ export function ProductViewer3D({
   phaseCamera?: { position: [number, number, number]; target: [number, number, number] } | null;
   /** "Show me" drill-down: light exactly one wire route. */
   activeWireId?: string | null;
+  /** Hero tap-to-trace: click a wire tube in the Full view to light it. */
+  onWireTap?: (id: string | null) => void;
   /** Wiring-map: labeled net-colored pads at each wire endpoint. */
   connectionPads?: import("@/lib/product-3d").ConnectionPad[] | null;
   /** Override idle auto-orbit (step variant disables it — eng V2) */
@@ -1424,16 +1505,18 @@ export function ProductViewer3D({
               toneMappingExposure: 1.35,
             }}
             onPointerMissed={() => {
-              if (!editMode)
+              if (!editMode) {
                 setView((v) => ({
                   ...v,
                   selectedNodeId: null,
                   soloLayerId: null,
                 }));
+                onWireTap?.(null);
+              }
             }}
           >
-            {/* Studio slate — never pure black */}
-            <color attach="background" args={["#23282f"]} />
+            {/* Orbital void — deep space navy so the lit hardware + blue PV pop */}
+            <color attach="background" args={["#06080f"]} />
             <Suspense fallback={null}>
               <SceneContent
                 scene={scene}
@@ -1451,6 +1534,7 @@ export function ProductViewer3D({
                 showWires={showWires}
                 harnesses={harnesses}
                 activeWireId={activeWireId}
+                onWireTap={onWireTap}
                 connectionPads={connectionPads}
                 idleSpin={idleSpinProp ?? !!hideChrome}
                 reducedMotion={reducedMotion}

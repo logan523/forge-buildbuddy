@@ -15,11 +15,15 @@ import {
 
 export type MapKind =
   | "brushed_normal"
+  | "brushed_roughness"
   | "fr4_roughness"
   | "pvc_normal"
   | "copper_normal"
   | "oled_screen"
-  | "silkscreen";
+  | "silkscreen"
+  | "solar_cells"
+  | "solar_roughness"
+  | "space_backdrop";
 
 const cache = new Map<string, CanvasTexture>();
 
@@ -117,6 +121,41 @@ export function makeFr4Roughness(size = 128): CanvasTexture {
   }
   ctx.putImageData(img, 0, 0);
   cache.set(key, finalize(tex, 4, "data"));
+  return cache.get(key)!;
+}
+
+/**
+ * Brushed-metal roughness: horizontal machined streaks so the specular highlight
+ * breaks into a grain instead of one uniform "CG metal" dot. Multiplies the
+ * material roughness; kept mid-bright so metals stay shiny, just varied.
+ */
+export function makeBrushedRoughness(size = 128): CanvasTexture {
+  const key = `brushed_rough_${size}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  const c = canvas(size);
+  const ctx = c.getContext("2d") as CanvasRenderingContext2D | null;
+  const tex = new CanvasTexture(c as HTMLCanvasElement);
+  if (!ctx) {
+    cache.set(key, finalize(tex, 3, "data"));
+    return cache.get(key)!;
+  }
+  const clamp = (n: number) => Math.max(95, Math.min(235, Math.round(n)));
+  for (let y = 0; y < size; y++) {
+    const base = clamp(165 + Math.sin(y * 0.9) * 28 + (Math.random() * 34 - 17));
+    ctx.fillStyle = `rgb(${base},${base},${base})`;
+    ctx.fillRect(0, y, size, 1);
+    // Occasional fine along-grain scratch (locally shinier or rougher).
+    if (y % 2 === 0) {
+      const x0 = Math.floor(Math.random() * size);
+      const w = 24 + Math.floor(Math.random() * 64);
+      const s = clamp(base + (Math.random() > 0.5 ? 28 : -28));
+      ctx.fillStyle = `rgb(${s},${s},${s})`;
+      ctx.fillRect(x0, y, w, 1);
+    }
+  }
+  cache.set(key, finalize(tex, 3, "data"));
   return cache.get(key)!;
 }
 
@@ -344,11 +383,187 @@ export function makeSilkscreenMap(label = "PCB"): CanvasTexture {
   return cache.get(key)!;
 }
 
+/**
+ * Monocrystalline PV albedo: a grid of chamfered deep-blue cells (the signature
+ * cut corners let the near-black backsheet show through), a soft crystalline
+ * sheen per cell, and the silver busbar + finger grid. Baked once so the panel
+ * reads as real cells at ANY distance — where the old ~15 inline meshes
+ * dissolved to a flat sheet and mirror-blew-out the studio HDRI.
+ */
+export function makeSolarCellMap(cols = 6, rows = 5): CanvasTexture {
+  const key = `solar_cells_${cols}x${rows}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  const S = 512;
+  const c = canvas(S);
+  const ctx = c.getContext("2d") as CanvasRenderingContext2D | null;
+  const tex = new CanvasTexture(c as HTMLCanvasElement);
+  if (!ctx) {
+    cache.set(key, finalize(tex, 1, "color"));
+    return cache.get(key)!;
+  }
+
+  // Backsheet / inter-cell seam — near-black navy shows in gaps + cut corners
+  ctx.fillStyle = "#05070f";
+  ctx.fillRect(0, 0, S, S);
+
+  const gap = S * 0.012;
+  const cw = (S - gap) / cols;
+  const ch = (S - gap) / rows;
+  const cham = Math.min(cw, ch) * 0.15; // monocrystalline corner cut
+
+  for (let r = 0; r < rows; r++) {
+    for (let col = 0; col < cols; col++) {
+      const x = gap + col * cw + gap * 0.5;
+      const y = gap + r * ch + gap * 0.5;
+      const w = cw - gap;
+      const h = ch - gap;
+
+      // Chamfered octagon cell
+      ctx.beginPath();
+      ctx.moveTo(x + cham, y);
+      ctx.lineTo(x + w - cham, y);
+      ctx.lineTo(x + w, y + cham);
+      ctx.lineTo(x + w, y + h - cham);
+      ctx.lineTo(x + w - cham, y + h);
+      ctx.lineTo(x + cham, y + h);
+      ctx.lineTo(x, y + h - cham);
+      ctx.lineTo(x, y + cham);
+      ctx.closePath();
+
+      // Crystalline sheen: center a shade brighter than the edges, subtle
+      // per-cell tonal variation so the array isn't a flat wash.
+      const tint = ((col * 7 + r * 13) % 13) - 6;
+      const g = ctx.createRadialGradient(
+        x + w * 0.5, y + h * 0.4, w * 0.04,
+        x + w * 0.5, y + h * 0.5, w * 0.9
+      );
+      g.addColorStop(0, `rgb(${34 + tint},${64 + tint},${118 + tint})`);
+      g.addColorStop(0.5, "#12295a");
+      g.addColorStop(1, "#0a1838");
+      ctx.fillStyle = g;
+      ctx.fill();
+
+      // Fine finger lines — silver grid bright enough to read at distance
+      ctx.strokeStyle = "rgba(200,216,238,0.5)";
+      ctx.lineWidth = 1.4;
+      const nF = 8;
+      for (let f = 1; f < nF; f++) {
+        const fy = y + (h * f) / nF;
+        ctx.beginPath();
+        ctx.moveTo(x + cham * 0.5, fy);
+        ctx.lineTo(x + w - cham * 0.5, fy);
+        ctx.stroke();
+      }
+      // Two bright vertical busbars — the panel's signature grid
+      ctx.fillStyle = "rgba(224,232,246,0.92)";
+      for (const bx of [x + w * 0.34, x + w * 0.66]) {
+        ctx.fillRect(bx - S * 0.005, y + cham * 0.3, S * 0.01, h - cham * 0.6);
+      }
+    }
+  }
+  cache.set(key, finalize(tex, 1, "color"));
+  return cache.get(key)!;
+}
+
+/**
+ * PV roughness companion: matte backsheet seams (bright = rough), semi-glossy
+ * cell glass (mid), so the specular highlight breaks along the cell grid
+ * instead of smearing the whole panel into one chrome sheet.
+ */
+export function makeSolarCellRoughness(cols = 6, rows = 5): CanvasTexture {
+  const key = `solar_rough_${cols}x${rows}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  const S = 256;
+  const c = canvas(S);
+  const ctx = c.getContext("2d") as CanvasRenderingContext2D | null;
+  const tex = new CanvasTexture(c as HTMLCanvasElement);
+  if (!ctx) {
+    cache.set(key, finalize(tex, 1, "data"));
+    return cache.get(key)!;
+  }
+  // Rough seams everywhere
+  ctx.fillStyle = "rgb(200,200,200)";
+  ctx.fillRect(0, 0, S, S);
+  const gap = S * 0.012;
+  const cw = (S - gap) / cols;
+  const ch = (S - gap) / rows;
+  for (let r = 0; r < rows; r++) {
+    for (let col = 0; col < cols; col++) {
+      const x = gap + col * cw + gap * 0.5;
+      const y = gap + r * ch + gap * 0.5;
+      ctx.fillStyle = "rgb(96,96,96)"; // glossy cell glass
+      ctx.fillRect(x, y, cw - gap, ch - gap);
+    }
+  }
+  cache.set(key, finalize(tex, 1, "data"));
+  return cache.get(key)!;
+}
+
+/**
+ * Orbital-void backdrop for a large inverted sky sphere: a navy→black vertical
+ * gradient with a deterministic scatter of crisp stars (bright cores so they
+ * survive ACES tone mapping — drei's <Stars> washed out under the composer).
+ */
+export function makeSpaceBackdrop(): CanvasTexture {
+  const key = "space_backdrop";
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  const W = 1024;
+  const H = 512;
+  const c = canvasWH(W, H);
+  const ctx = c.getContext("2d") as CanvasRenderingContext2D | null;
+  const tex = new CanvasTexture(c as HTMLCanvasElement);
+  if (!ctx) {
+    cache.set(key, finalize(tex, 1, "color"));
+    return cache.get(key)!;
+  }
+
+  // Vertical gradient — faint navy up top, near-black at the base
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "#0b1430");
+  g.addColorStop(0.5, "#070c1c");
+  g.addColorStop(1, "#04060e");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Deterministic star scatter (LCG — stable across renders + tests)
+  let seed = 1337;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  for (let i = 0; i < 2600; i++) {
+    const x = rnd() * W;
+    const y = rnd() * H;
+    // Mostly fine crisp dots; a few slightly larger bright ones for depth.
+    const big = rnd() > 0.9;
+    const r = big ? 1.4 + rnd() * 1.0 : 0.6 + rnd() * 0.9;
+    const b = big ? 0.85 + rnd() * 0.15 : 0.5 + rnd() * 0.4;
+    const t = rnd();
+    ctx.beginPath();
+    ctx.fillStyle =
+      t > 0.9 ? `rgba(190,210,255,${b})` : t < 0.08 ? `rgba(255,236,214,${b})` : `rgba(255,255,255,${b})`;
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Tile stars horizontally around the sphere for in-view density; the vertical
+  // gradient stays 1× (repeat.y = 1) so there's no banding.
+  const out = finalize(tex, 1, "color");
+  out.repeat.set(3, 1);
+  out.needsUpdate = true;
+  cache.set(key, out);
+  return out;
+}
+
 /** Map kind → cached texture. */
 export function getProceduralMap(kind: MapKind, size?: number): Texture {
   switch (kind) {
     case "brushed_normal":
       return makeBrushedMetalNormal(size ?? 128);
+    case "brushed_roughness":
+      return makeBrushedRoughness(size ?? 128);
     case "fr4_roughness":
       return makeFr4Roughness(size ?? 128);
     case "pvc_normal":
@@ -359,6 +574,12 @@ export function getProceduralMap(kind: MapKind, size?: number): Texture {
       return makeOledScreenMap("readout");
     case "silkscreen":
       return makeSilkscreenMap("PCB");
+    case "solar_cells":
+      return makeSolarCellMap();
+    case "solar_roughness":
+      return makeSolarCellRoughness();
+    case "space_backdrop":
+      return makeSpaceBackdrop();
     default:
       return makePvcNormal(64);
   }
