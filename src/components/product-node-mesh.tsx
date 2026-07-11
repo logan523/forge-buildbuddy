@@ -779,6 +779,16 @@ export function NodeMesh({
               opacity={opacity}
             />
           </mesh>
+          {/* Console wakes: the live screen pools cool light onto the brass + board */}
+          {oledScreenTex && (
+            <pointLight
+              position={[0, h * 0.04, d * 1.4]}
+              color="#a9e8ff"
+              intensity={1.3 * opacity}
+              distance={Math.max(w, h) * 3}
+              decay={2}
+            />
+          )}
           {/* 4-pin OLED header — locals from sat-pins (same as harness) */}
           {showPcb &&
             meshPinStubsForNode(node.id === "face" ? "face" : "").map((pin) => (
@@ -976,13 +986,19 @@ export function NodeMesh({
                 <sphereGeometry args={[d * 0.35, 10, 10]} />
                 <meshPhysicalMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={1.6} transparent opacity={opacity} />
               </mesh>
+              {/* Console wakes: charge LEDs pool red/green onto the nearby brass */}
+              <pointLight position={[w * 0.28, h * 0.22, d * 1.3]} color="#ff5a5a" intensity={0.7 * opacity} distance={w * 2.4} decay={2} />
+              <pointLight position={[w * 0.28, -h * 0.08, d * 1.3]} color="#5aff8c" intensity={0.6 * opacity} distance={w * 2.4} decay={2} />
             </>
           )}
           {!isTp && !isEsp && (
-            <mesh position={[w * 0.28, h * 0.22, d * 0.65]}>
-              <sphereGeometry args={[d * 0.32, 12, 12]} />
-              <meshPhysicalMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.7} transparent opacity={opacity} />
-            </mesh>
+            <>
+              <mesh position={[w * 0.28, h * 0.22, d * 0.65]}>
+                <sphereGeometry args={[d * 0.32, 12, 12]} />
+                <meshPhysicalMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.7} transparent opacity={opacity} />
+              </mesh>
+              <pointLight position={[w * 0.28, h * 0.22, d * 1.3]} color="#ffcc66" intensity={0.6 * opacity} distance={w * 2} decay={2} />
+            </>
           )}
           {/* Named pin stubs from sat-pins / RealPartSpec */}
           {(isEsp || isTp || isSensor) &&
