@@ -1,36 +1,67 @@
-# Catalog part GLBs (life-size underlays)
+# Catalog part GLBs (life-size 3D models)
 
 **1 unit = 1 mm.** Matches `RealPartSpec` in `src/lib/product-3d/real-parts.ts`.
 
-## Generate (no OpenSCAD required)
+There are two tiers of model here, resolved in this order at render time:
+
+1. **Authored / sourced real models** — registered in the open **`PART_MODELS`**
+   registry (`src/lib/product-3d/part-models.ts`). These are the recognizable
+   parts a beginner can match to what's in their hand. When a part has a ready
+   entry here, `applyCatalogHints` stamps its `assetUrl` and `CatalogGlbUnderlay`
+   loads + normalizes it. **This registry is the authority and works for any
+   catalog id — not just the 8 sat-clock footprints.**
+2. **Parametric fallback** — every part with no ready model renders from the
+   life-mm parametric mesh in `product-node-mesh.tsx`. This is what makes "any
+   project" degrade gracefully instead of showing a hole.
+
+(The crude `generate:parts` placeholders below predate the authored path; they
+stay `glbReady:false` and are ignored unless explicitly opted in.)
+
+## Live models
+
+| File | Part | bbox (mm) | Source |
+|------|------|-----------|--------|
+| `esp32_c3.glb` | ESP32-C3 SuperMini | 22.5 × 18 × 3.2 | **Authored for Forge** — `npm run models:esp32c3` (three.js). CC0. |
+
+Everything else in this folder is a low-poly `generate:parts` placeholder
+(`glbReady:false`) and currently renders parametric.
+
+## Add a model for ANY part (the scalable path)
+
+1. Get a GLB into this folder as `<catalog-id>.glb` — either **author** one
+   (copy `scripts/author-esp32c3.mjs`, build the geometry at real mm in three.js,
+   export via the headless `GLTFExporter` — see `scripts/README.md`) or **drop a
+   sourced GLB** (KiCad packages3D, a CC0 export, a vendor STEP converted to GLB).
+2. Register it in `PART_MODELS` (`src/lib/product-3d/part-models.ts`), keyed by the
+   normalized catalog id, and set `glbReady: true`:
+   ```ts
+   relay_5v: {
+     url: "/models/parts/relay_5v.glb",
+     glbReady: true,
+     unit: "mm",              // "m"/"cm" if the source isn't mm
+     rotationDeg: [-90, 0, 0], // if the source is Z-up CAD, not board-in-XY / +Z up
+     centerToBbox: true,       // if the source origin is a corner, not the part center
+     credit: "…source + license…",
+   },
+   ```
+3. That's it. No union edit, no switch, no renderer change. The loader normalizes
+   unit → mm, applies the rotation, and (optionally) recenters to the bbox so the
+   datasheet-mm pin overlays land. A part left `glbReady:false` stays parametric.
+
+## Authored-in-Forge coordinate frame
+
+Models authored for Forge use the `real-parts.ts` part-local frame so the
+parametric `PinStub` overlays land on the physical headers without recentering:
+
+- **X** = long edge, **Y** = short edge, **Z** = thickness (component side +Z)
+- origin = part center; board-class parts lie in the XY plane
+- `centerToBbox:false` for these (recentering would slide the pin overlays off)
+
+## Legacy placeholder generator
 
 ```bash
-npm run generate:parts          # write .glb files only
-npm run generate:parts:ready    # write + set mesh.glbReady true (opt-in only)
+npm run generate:parts          # write crude .glb placeholders only
 ```
 
-**Default:** `glbReady` is **false**. The viewer uses life-mm **parametric** meshes
-(better detail). Auto-GLBs are low-poly placeholders — enable only after visual QA.
-
-Script: `scripts/generate-part-glbs.mjs` (pure Node glTF binary writer).
-
-## Files
-
-| File | Part | bbox (mm) |
-|------|------|-----------|
-| `esp32_c3.glb` | SuperMini | 22.5 × 18 × 3.2 |
-| `oled_096.glb` | 0.96" OLED | 27 × 27 × 4 |
-| `tp4056.glb` | TP4056 | 25 × 19 × 3.5 |
-| `cell_16340.glb` | 16340 | Ø16.5 × 34 |
-| `sht30.glb` | SHT3x | 16 × 16 × 3 |
-| `ttp223.glb` | TTP223 | 15 × 11 × 3 |
-| `solar_cell.glb` | Solar craft | 60 × 45 × 3 |
-
-Optional craft (OpenSCAD): `assets/scad/sat_cage.scad`, `sat_stand.scad`.
-
-## Viewer wiring
-
-When `RealPartSpec.mesh.glbReady` is true, catalog attaches `assetUrl` and
-`CatalogGlbUnderlay` loads the GLB. Pin stubs + harness stay on `sat-pins.ts`.
-
-Regenerate after changing `REAL_PARTS` bbox values.
+Script: `scripts/generate-part-glbs.mjs`. Kept for parity; superseded by the
+authored/sourced path above for anything meant to look real.

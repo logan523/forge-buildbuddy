@@ -9,6 +9,7 @@ import {
   catalogDefaultSize,
   type CatalogPartId,
 } from "./real-parts";
+import { PART_MODELS, partModelFor } from "./part-models";
 
 export type { CatalogPartId };
 
@@ -81,10 +82,14 @@ export function applyCatalogHints(nodes: SceneNode3D[]): SceneNode3D[] {
     const id = inferCatalogId(n);
     if (!id) return n;
     const entry = CATALOG[id];
+    // OPEN model registry wins: any catalog id with a ready GLB resolves here,
+    // independent of the closed union. Falls back to the real-parts asset (all
+    // false today) so nothing regresses for parts without an open-registry model.
+    const assetUrl = partModelFor(id)?.url ?? resolveCatalogAssetUrl(entry, n.assetUrl);
     return {
       ...n,
       catalogId: id,
-      assetUrl: resolveCatalogAssetUrl(entry, n.assetUrl),
+      assetUrl,
       material: {
         ...n.material,
         preset: n.material.preset || entry.materialPreset,
@@ -102,9 +107,13 @@ export function catalogAssetPaths(): string[] {
     .filter((u): u is string => !!u);
 }
 
-/** Paths that are ready to load in the viewer. */
+/** Paths that are ready to load in the viewer (open registry is the authority). */
 export function readyCatalogAssetPaths(): string[] {
-  return Object.values(CATALOG)
+  const fromModels = Object.values(PART_MODELS)
+    .filter((m) => m.glbReady)
+    .map((m) => m.url);
+  const fromCatalog = Object.values(CATALOG)
     .filter((e) => e.assetReady && e.assetUrl)
     .map((e) => e.assetUrl!);
+  return Array.from(new Set([...fromModels, ...fromCatalog]));
 }

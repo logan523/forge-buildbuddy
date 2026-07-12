@@ -87,7 +87,7 @@ describe("product-3d connection spars + sun + catalog", () => {
     assert.equal(r.length, 3);
   });
 
-  it("catalog tags brain as esp32; GLB stays off until quality-reviewed", async () => {
+  it("catalog tags brain as esp32 + attaches the authored GLB via the open registry", async () => {
     const {
       applyCatalogHints,
       inferCatalogId,
@@ -100,14 +100,14 @@ describe("product-3d connection spars + sun + catalog", () => {
     const brain = tagged.find((n) => n.id === "brain")!;
     assert.equal(inferCatalogId(brain), "esp32_c3");
     assert.equal(brain.catalogId, "esp32_c3");
-    // Parametric life-mm default — auto-GLBs not attached (avoids crude underlay junk)
-    assert.equal(brain.assetUrl, undefined);
-    assert.equal(resolveCatalogAssetUrl(CATALOG.esp32_c3), undefined);
-    assert.equal(readyCatalogAssetPaths().length, 0);
-    assert.equal(
-      resolveCatalogAssetUrl({ ...CATALOG.esp32_c3, assetReady: true }),
-      "/models/parts/esp32_c3.glb"
-    );
+    // The authored ESP32-C3 SuperMini GLB now attaches through PART_MODELS (open registry).
+    assert.equal(brain.assetUrl, "/models/parts/esp32_c3.glb");
+    assert.ok(readyCatalogAssetPaths().includes("/models/parts/esp32_c3.glb"));
+    // A part with NO authored model still falls back to the parametric mesh (assetUrl unset).
+    const face = tagged.find((n) => n.id === "face")!;
+    assert.equal(face.catalogId, "oled_096");
+    assert.equal(face.assetUrl, undefined);
+    assert.equal(resolveCatalogAssetUrl(CATALOG.oled_096), undefined);
   });
 });
 

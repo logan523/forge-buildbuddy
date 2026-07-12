@@ -17,7 +17,9 @@ import {
 import { useFrame } from "@react-three/fiber";
 import { Html, RoundedBox, Outlines, useGLTF } from "@react-three/drei";
 import {
+  Box3,
   DoubleSide,
+  MathUtils,
   Vector2,
   Vector3,
   type Group,
@@ -25,6 +27,7 @@ import {
   type Mesh,
   type Object3D,
 } from "three";
+import { partModelFor, unitToMm } from "@/lib/product-3d/part-models";
 import {
   computeNodeWorldPosition,
   nodeOpacity,
@@ -127,19 +130,29 @@ class GlbErrorBoundary extends Component<
 }
 
 /**
- * Optional catalog GLB underlay (authored in FreeCAD/OpenSCAD → public/models/parts).
- * Pins/wires stay parametric; GLB is visual only. Units: mm, scaled by rootScale.
+ * Optional catalog GLB underlay — loads a real/authored model in place of the
+ * parametric mesh. Pins/wires stay parametric; the GLB is visual only.
+ *
+ * Normalization (from the open PART_MODELS registry, keyed by catalogId) makes
+ * ARBITRARY-source GLBs fit Forge's part-local frame without re-exporting them:
+ *   • unit  → scaled to mm (most CAD is mm; some Sketchfab exports are metres)
+ *   • rotationDeg → orients Z-up CAD into board-in-XY / +Z-up
+ *   • centerToBbox → recenters a model whose origin is a corner to the node origin
+ * The model is authored in mm; the inner group is mm, the outer group scales to world.
  */
 function CatalogGlbUnderlay({
   url,
   rootScale,
   opacity,
+  catalogId,
 }: {
   url: string;
   rootScale: number;
   opacity: number;
+  catalogId?: string;
 }) {
   const { scene } = useGLTF(url);
+  const model = partModelFor(catalogId);
   const clone = useMemo(() => {
     const c = scene.clone(true);
     c.traverse((obj) => {
@@ -161,9 +174,29 @@ function CatalogGlbUnderlay({
       mesh.castShadow = true;
       mesh.receiveShadow = true;
     });
+    // Orientation first (rotation commutes with the later uniform scale)…
+    if (model?.rotationDeg) {
+      c.rotation.set(
+        MathUtils.degToRad(model.rotationDeg[0]),
+        MathUtils.degToRad(model.rotationDeg[1]),
+        MathUtils.degToRad(model.rotationDeg[2])
+      );
+    }
+    // …then recenter in the mm frame so datasheet-mm pins overlay correctly.
+    if (model?.centerToBbox) {
+      c.updateMatrixWorld(true);
+      const center = new Box3().setFromObject(c).getCenter(new Vector3());
+      c.position.sub(center);
+    }
     return c;
-  }, [scene, opacity]);
-  return <primitive object={clone} scale={rootScale} />;
+  }, [scene, opacity, model]);
+  // Inner group is mm (authored/normalized); outer group takes mm → world,
+  // folding in the source-unit scale so a metre-authored GLB still lands right.
+  return (
+    <group scale={rootScale * unitToMm(model?.unit)}>
+      <primitive object={clone} />
+    </group>
+  );
 }
 
 /** Gold pin + copper pad + solder — lands harness tubes on boards (craft realism). */
@@ -1190,6 +1223,7 @@ export function NodeMesh({
           url={node.assetUrl}
           rootScale={rootScale}
           opacity={opacity}
+          catalogId={node.catalogId}
         />
       </Suspense>
     </GlbErrorBoundary>
