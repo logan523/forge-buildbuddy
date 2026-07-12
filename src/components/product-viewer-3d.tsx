@@ -530,14 +530,27 @@ function LightformerStudio({ intensity }: { intensity: number }) {
 function PostFX({
   quality,
   focus,
+  clarityMode,
 }: {
   quality: ReturnType<typeof qualitySettings>;
   focus: Vector3;
+  clarityMode: boolean;
 }) {
   // Explicit branches: EffectComposer children must be effect elements (no null
-  // / fragments — Children.toArray would hand it a non-effect). High tier adds a
-  // DepthOfField bokeh pass; medium/low skip it (the per-frame cost would trip
-  // the PerformanceMonitor down to low and strip the whole composer).
+  // / fragments — Children.toArray would hand it a non-effect).
+  // Wiring-map clarity pass: gentle AO for shape-readability + ACES only. NO DoF
+  // (blurs the wires you're tracing), NO bloom (glow hides detail), NO vignette
+  // (edge-darkening hurts legibility).
+  if (clarityMode) {
+    return (
+      <EffectComposer multisampling={quality.multisampling}>
+        <N8AO halfRes intensity={quality.aoIntensity * 0.7} aoRadius={quality.aoRadius} distanceFalloff={0.5} />
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      </EffectComposer>
+    );
+  }
+  // High tier adds a DepthOfField bokeh pass; medium/low skip it (the per-frame
+  // cost would trip the PerformanceMonitor down to low and strip the composer).
   if (quality.dof) {
     return (
       <EffectComposer multisampling={quality.multisampling}>
@@ -611,6 +624,7 @@ function SceneContent({
   activeWireId = null,
   onWireTap,
   connectionPads = null,
+  clarityMode = false,
   monitorActive = true,
   onQualityRise,
   onTransient,
@@ -640,6 +654,8 @@ function SceneContent({
   onWireTap?: (id: string | null) => void;
   /** Wiring-map: labeled net-colored pads at each wire endpoint. */
   connectionPads?: import("@/lib/product-3d").ConnectionPad[] | null;
+  /** Wiring-map clarity render: bright/flat, no dark void or DoF (legibility). */
+  clarityMode?: boolean;
   /** Suspend the PerformanceMonitor during known-transient churn (eng V3) */
   monitorActive?: boolean;
   onQualityRise?: () => void;
@@ -820,22 +836,43 @@ function SceneContent({
           do more work (envIntensity multiplier 0.7 → 1.0). A floor of ambient
           keeps the stage off pure black. Shadow map bump is gated to `high`
           so mid/low devices don't pay the memory. */}
-      <ambientLight intensity={0.26} color="#eef2f6" />
-      <hemisphereLight args={["#f0f4f8", "#3a4550", 0.4]} />
-      <directionalLight
-        position={sunPos}
-        intensity={1.55}
-        castShadow
-        color="#fff6ea"
-        shadow-mapSize={quality.tier === "high" ? [2048, 2048] : [1024, 1024]}
-        shadow-bias={-0.0002}
-      />
-      <directionalLight position={[-3.2, 2.8, -2.2]} intensity={0.32} color="#b8d0ea" />
-      <directionalLight position={[2.4, 1.8, 3.2]} intensity={0.26} color="#ffe4c4" />
-      <directionalLight position={[0, 5, 1]} intensity={0.14} color="#ffffff" />
-      {/* Cinematic cool RIM behind-above — carves the brass silhouette out of the
-          void and throws a free specular glint along the top/back rods. */}
-      <directionalLight position={[-2.6, 3.4, -4.2]} intensity={2.6} color="#bcd4ff" />
+      {clarityMode ? (
+        // Wiring-map rig: bright, flat, neutral — even light so every part, wire,
+        // and pin label reads like a clean diagram. No drama, nothing hidden.
+        <>
+          <ambientLight intensity={0.5} color="#ffffff" />
+          <hemisphereLight args={["#ffffff", "#b8bec8", 0.55]} />
+          <directionalLight
+            position={sunPos}
+            intensity={1.1}
+            castShadow
+            color="#ffffff"
+            shadow-mapSize={quality.tier === "high" ? [2048, 2048] : [1024, 1024]}
+            shadow-bias={-0.0002}
+          />
+          <directionalLight position={[-4, 4, -3]} intensity={0.45} color="#ffffff" />
+          <directionalLight position={[3.5, 3, 4]} intensity={0.4} color="#ffffff" />
+        </>
+      ) : (
+        <>
+          <ambientLight intensity={0.26} color="#eef2f6" />
+          <hemisphereLight args={["#f0f4f8", "#3a4550", 0.4]} />
+          <directionalLight
+            position={sunPos}
+            intensity={1.55}
+            castShadow
+            color="#fff6ea"
+            shadow-mapSize={quality.tier === "high" ? [2048, 2048] : [1024, 1024]}
+            shadow-bias={-0.0002}
+          />
+          <directionalLight position={[-3.2, 2.8, -2.2]} intensity={0.32} color="#b8d0ea" />
+          <directionalLight position={[2.4, 1.8, 3.2]} intensity={0.26} color="#ffe4c4" />
+          <directionalLight position={[0, 5, 1]} intensity={0.14} color="#ffffff" />
+          {/* Cinematic cool RIM behind-above — carves the brass silhouette out of
+              the void and throws a free specular glint along the top/back rods. */}
+          <directionalLight position={[-2.6, 3.4, -4.2]} intensity={2.6} color="#bcd4ff" />
+        </>
+      )}
       {/* Local studio HDRI (no CDN); Lightformer rig fallback if it can't load */}
       <EnvBoundary fallback={<LightformerStudio intensity={quality.envIntensity} />}>
         <Suspense fallback={null}>
@@ -847,21 +884,23 @@ function SceneContent({
       </EnvBoundary>
       {/* (removed the standalone visible Lightformer rect — it read as a
           bright "block of sun" in-frame; the HDRI IBL now covers reflections) */}
-      <fog attach="fog" args={["#06080f", 14, 120]} />
+      {!clarityMode && <fog attach="fog" args={["#06080f", 14, 120]} />}
       {/* Orbital-void sky — a large inverted sphere carrying the baked
           navy→black gradient + starfield. renderOrder -1 + depthWrite off keep
           it behind everything; fog off + toneMapped off keep the star cores
           crisp (drei <Stars> washed out to nothing under the ACES composer). */}
-      <mesh renderOrder={-1} frustumCulled={false}>
-        <sphereGeometry args={[60, 40, 24]} />
-        <meshBasicMaterial
-          map={getProceduralMap("space_backdrop")}
-          side={BackSide}
-          depthWrite={false}
-          fog={false}
-          toneMapped={false}
-        />
-      </mesh>
+      {!clarityMode && (
+        <mesh renderOrder={-1} frustumCulled={false}>
+          <sphereGeometry args={[60, 40, 24]} />
+          <meshBasicMaterial
+            map={getProceduralMap("space_backdrop")}
+            side={BackSide}
+            depthWrite={false}
+            fog={false}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
 
       {showBeauty && beautySpec && (
         <Suspense fallback={null}>
@@ -916,32 +955,37 @@ function SceneContent({
         />
       )}
 
-      {/* Matte deck — dark enough to melt into the void, still catches shadow.
-          Reflector/PCSS stay banned (GPU blackout history, see product-3d.test) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
-        <planeGeometry args={[16, 16]} />
-        <meshStandardMaterial color="#0a0e16" metalness={0.15} roughness={0.82} />
-      </mesh>
-      <Grid
-        position={[0, -0.012, 0]}
-        args={[12, 12]}
-        cellSize={0.25}
-        cellThickness={0.4}
-        cellColor="#1b2331"
-        sectionSize={1}
-        sectionThickness={0.8}
-        sectionColor="#2b3a4e"
-        fadeDistance={7}
-        fadeStrength={1.5}
-        infiniteGrid
-      />
+      {/* Matte deck + grid — the hero render's floor. Hidden in the clarity
+          wiring map so parts float on a clean light background (a diagram, not a
+          scene). Reflector/PCSS stay banned (GPU blackout history). */}
+      {!clarityMode && (
+        <>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
+            <planeGeometry args={[16, 16]} />
+            <meshStandardMaterial color="#0a0e16" metalness={0.15} roughness={0.82} />
+          </mesh>
+          <Grid
+            position={[0, -0.012, 0]}
+            args={[12, 12]}
+            cellSize={0.25}
+            cellThickness={0.4}
+            cellColor="#1b2331"
+            sectionSize={1}
+            sectionThickness={0.8}
+            sectionColor="#2b3a4e"
+            fadeDistance={7}
+            fadeStrength={1.5}
+            infiniteGrid
+          />
+        </>
+      )}
       <ContactShadows
         position={[0, 0.004, 0]}
-        opacity={0.58}
+        opacity={clarityMode ? 0.22 : 0.58}
         scale={9}
         blur={2.8}
         far={6}
-        color="#0a0c10"
+        color={clarityMode ? "#94a0b2" : "#0a0c10"}
       />
 
       {/* target intentionally uncontrolled — writers set it explicitly (eng V2) */}
@@ -1007,6 +1051,7 @@ export function ProductViewer3D({
   activeWireId = null,
   onWireTap,
   connectionPads = null,
+  clarityMode = false,
   idleSpin: idleSpinProp,
   transientEpoch = 0,
 }: {
@@ -1038,6 +1083,8 @@ export function ProductViewer3D({
   onWireTap?: (id: string | null) => void;
   /** Wiring-map: labeled net-colored pads at each wire endpoint. */
   connectionPads?: import("@/lib/product-3d").ConnectionPad[] | null;
+  /** Wiring-map clarity render: bright/flat, no cinematic dark/DoF (legibility). */
+  clarityMode?: boolean;
   /** Override idle auto-orbit (step variant disables it — eng V2) */
   idleSpin?: boolean;
   /** Bump on canvas-size transitions (expand) to pause the perf monitor */
@@ -1559,10 +1606,12 @@ export function ProductViewer3D({
               }
             }}
           >
-            {/* Orbital void — deep space navy so the lit hardware + blue PV pop */}
-            <color attach="background" args={["#06080f"]} />
+            {/* Orbital void for the hero render; a light neutral for the clarity
+                wiring map so parts, wires + pin labels read like a diagram. */}
+            <color attach="background" args={[clarityMode ? "#e9edf2" : "#06080f"]} />
             <Suspense fallback={null}>
               <SceneContent
+                clarityMode={clarityMode}
                 scene={scene}
                 view={view}
                 editMode={editMode}
@@ -1588,7 +1637,7 @@ export function ProductViewer3D({
                 onTransient={markTransient}
               />
             </Suspense>
-            {quality.effects && <PostFX quality={quality} focus={dofFocus} />}
+            {quality.effects && <PostFX quality={quality} focus={dofFocus} clarityMode={clarityMode} />}
           </Canvas>
           {/* Floating hint */}
           <div className="pointer-events-none absolute bottom-2 left-2 right-2 sm:right-auto flex gap-1.5">

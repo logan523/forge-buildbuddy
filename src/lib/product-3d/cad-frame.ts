@@ -83,14 +83,14 @@ export function cadCameraForNodes(
   // Distance floor. 1.6 keeps the WHOLE product (with stand/wings) from
   // clipping; a tight subset (step focus) passes a much smaller floor so the
   // camera can get close instead of parking far back and showing empty stand.
-  minDist = 1.6
+  minDist = 1.6,
+  // Camera direction (right, up, front). Default = hero 3/4 low (~22° elevation)
+  // so the product LOOMS. The clarity wiring map passes a higher diagram angle
+  // so the spread-apart layout + every connection reads from above.
+  dir: [number, number, number] = [0.78, 0.49, 0.92]
 ): CadFrame {
   const b = sceneWorldBounds(nodes, rootScale);
   const dist = Math.max(minDist, b.radius * 2.1 * margin);
-  // Hero 3/4 — a low ~22° elevation so the satellite LOOMS and its brass
-  // silhouette reads against the void, instead of a top-down CAD plan view.
-  // (Azimuth preserved ~40°; the tall stand still centers via the bbox.)
-  const dir: [number, number, number] = [0.78, 0.49, 0.92];
   const len = Math.hypot(...dir) || 1;
   const ux = dir[0] / len;
   const uy = dir[1] / len;
@@ -114,7 +114,8 @@ export function frameForNodeIds(
   nodes: SceneNode3D[],
   nodeIds: string[],
   rootScale: number,
-  margin = 1.15
+  margin = 1.15,
+  dir?: [number, number, number]
 ): CadFrame {
   const idSet = new Set(nodeIds);
   const subset = nodes.filter((n) => idSet.has(n.id));
@@ -122,7 +123,7 @@ export function frameForNodeIds(
   // Subset framing gets close: a small focus bbox should NOT be floored to the
   // whole-scene 1.6 (that parks the camera far back and fills the frame with
   // the empty stand/ground below the parts).
-  const frame = cadCameraForNodes(use, rootScale, margin, 0.5);
+  const frame = cadCameraForNodes(use, rootScale, margin, 0.5, dir);
   // Slightly tighter FOV when inspecting a single part
   if (subset.length === 1) {
     return { ...frame, fov: 36 };

@@ -44,7 +44,7 @@ import { ConformanceSeal } from "@/components/build/conformance-seal";
 import { ProductViewer3D } from "@/components/product-viewer-3d";
 
 /** Wiring-map spread amount (fraction of full explode; baked into displayNodes). */
-const MAP_SPREAD = 0.7;
+const MAP_SPREAD = 1.15;
 
 function TreeRows({
   node,
@@ -381,7 +381,9 @@ export function ProductAssemblyApp({
       ? [...presentNodeIds]
       : displayNodes.map((n) => n.id);
     if (!ids.length) return null;
-    const f = frameForNodeIds(displayNodes, ids, baseScene.rootScale, 1.35);
+    // Higher "diagram" angle (~48° elevation) — look DOWN at the spread-apart
+    // layout so every part + connection reads, not the hero low-loom.
+    const f = frameForNodeIds(displayNodes, ids, baseScene.rootScale, 1.35, [0.6, 1.05, 0.72]);
     return { position: f.position, target: f.target };
   }, [view.connectionMap, presentNodeIds, displayNodes, baseScene.rootScale]);
 
@@ -551,13 +553,14 @@ export function ProductAssemblyApp({
           sceneNodesOverride={displayNodes}
           onIsolatePart={(id) => setView((v) => toggleIsolate(v, id))}
           phaseCamera={
-            stepChrome
-              ? view.connectionMap
-                ? mapCamera
-                : (wireFocus?.pinCamera ?? focusCamera)
-              : null
+            view.connectionMap
+              ? mapCamera
+              : stepChrome
+                ? (wireFocus?.pinCamera ?? focusCamera)
+                : null
           }
           connectionPads={connectionPadList}
+          clarityMode={!!view.connectionMap}
           activeWireId={wireFocus?.wireId ?? tappedWireId ?? null}
           onWireTap={setTappedWireId}
           idleSpin={stepChrome ? false : undefined}
@@ -570,8 +573,9 @@ export function ProductAssemblyApp({
         {/* Conformance seal — proof the render equals the verified netlist */}
         {stepChrome && !inspected.node && <ConformanceSeal plan={plan} />}
 
-        {/* Wiring-map toggle — spread the parts + label every connection point */}
-        {stepChrome && harnesses.length > 0 && (
+        {/* Wiring-map toggle — spread the parts + label every connection point.
+            Available in BOTH the guided steps and the Full/playground view. */}
+        {harnesses.length > 0 && (
           <button
             type="button"
             onClick={() => setView((v) => toggleConnectionMap(v))}
