@@ -549,8 +549,9 @@ function PostFX({
       </EffectComposer>
     );
   }
-  // High tier adds a DepthOfField bokeh pass; medium/low skip it (the per-frame
-  // cost would trip the PerformanceMonitor down to low and strip the composer).
+  // Optional DepthOfField pass — OFF by default (quality.dof=false on every tier):
+  // the bokeh blur read as "grainy" and softened the very parts you're inspecting.
+  // Kept as an opt-in cinematic effect; flip quality.dof to re-enable.
   if (quality.dof) {
     return (
       <EffectComposer multisampling={quality.multisampling}>
@@ -559,11 +560,11 @@ function PostFX({
         <Bloom
           mipmapBlur
           intensity={quality.bloomIntensity}
-          luminanceThreshold={0.95}
+          luminanceThreshold={0.96}
           luminanceSmoothing={0.2}
-          radius={0.85}
+          radius={0.55}
         />
-        <Vignette darkness={0.45} offset={0.32} />
+        <Vignette darkness={0.28} offset={0.32} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       </EffectComposer>
     );
@@ -575,11 +576,11 @@ function PostFX({
         <Bloom
           mipmapBlur
           intensity={quality.bloomIntensity}
-          luminanceThreshold={0.95}
+          luminanceThreshold={0.96}
           luminanceSmoothing={0.2}
-          radius={0.85}
+          radius={0.55}
         />
-        <Vignette darkness={0.45} offset={0.32} />
+        <Vignette darkness={0.28} offset={0.32} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       </EffectComposer>
     );
@@ -870,7 +871,7 @@ function SceneContent({
           <directionalLight position={[0, 5, 1]} intensity={0.14} color="#ffffff" />
           {/* Cinematic cool RIM behind-above — carves the brass silhouette out of
               the void and throws a free specular glint along the top/back rods. */}
-          <directionalLight position={[-2.6, 3.4, -4.2]} intensity={2.6} color="#bcd4ff" />
+          <directionalLight position={[-2.6, 3.4, -4.2]} intensity={1.35} color="#bcd4ff" />
         </>
       )}
       {/* Local studio HDRI (no CDN); Lightformer rig fallback if it can't load */}

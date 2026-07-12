@@ -29,13 +29,16 @@ describe("procedural maps + material contrast (graphics realism)", () => {
   it("brass vs pcb_green presets are metal/plastic split", () => {
     const brass = getMaterialPreset("brass");
     const pcb = getMaterialPreset("pcb_green");
+    // Satin brass, not chrome: still clearly metal (high metalness, reflective,
+    // and much smoother than the plastic PCB) but not a mirror that blooms out
+    // the parts inside the cage.
     assert.ok(brass.metalness >= 0.9, `brass metalness ${brass.metalness}`);
-    assert.ok(brass.roughness <= 0.22, `brass roughness ${brass.roughness}`);
-    assert.ok((brass.envMapIntensity ?? 0) >= 1.5);
+    assert.ok(brass.roughness <= 0.35, `brass roughness ${brass.roughness}`);
+    assert.ok((brass.envMapIntensity ?? 0) >= 1.0);
     assert.ok(pcb.metalness <= 0.1, `pcb metalness ${pcb.metalness}`);
     assert.ok(pcb.roughness >= 0.55, `pcb roughness ${pcb.roughness}`);
     assert.ok(brass.metalness > pcb.metalness);
-    assert.ok(brass.roughness < pcb.roughness);
+    assert.ok(brass.roughness < pcb.roughness - 0.2, "brass clearly smoother than plastic PCB");
   });
 
   it("oled_glass has transmission + high clearcoat", () => {

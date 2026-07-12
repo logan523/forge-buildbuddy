@@ -34,17 +34,19 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         dpr: [1, 1.75],
         shadowBlur: 2.8,
         shadowOpacity: 0.5,
-        envIntensity: 0.85,
+        envIntensity: 0.72,
         segments: 48,
         showGround: true,
         antialias: true,
         effects: true,
         ao: true,
-        aoIntensity: 2,
+        aoIntensity: 1.4,
         aoRadius: 0.4,
-        bloomIntensity: 0.9,
+        bloomIntensity: 0.5,
         multisampling: 4,
-        dof: true,
+        // DoF off: the bokeh blur read as "grainy" and softened the very parts
+        // you're inspecting. A modeller wants crisp geometry, not a photo.
+        dof: false,
       };
     case "medium":
       return {
@@ -63,7 +65,7 @@ export function qualitySettings(tier: QualityTier): QualitySettings {
         ao: true,
         aoIntensity: 1.1,
         aoRadius: 0.32,
-        bloomIntensity: 0.7,
+        bloomIntensity: 0.42,
         multisampling: 2,
         dof: false,
       };
