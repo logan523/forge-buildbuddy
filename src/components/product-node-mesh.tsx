@@ -358,6 +358,11 @@ export function NodeMesh({
   const visible = nodeVisible(node, view);
   const selected = view.selectedNodeId === node.id;
   const isolated = view.isolateNodeId === node.id;
+  // Pin pads (copper/solder/gold-post stubs) are wiring hardware, not product
+  // detail — showing them on every part at once reads as clutter floating in the
+  // assembly. Render them only when a part is focused (clicked or pulled out to
+  // inspect); the wiring map has its own labeled ConnectionPads for the wiring step.
+  const showPins = selected || isolated;
   const s = rootScale;
   const p = node.geom.params;
   const kind = node.geom.kind;
@@ -824,6 +829,7 @@ export function NodeMesh({
           )}
           {/* 4-pin OLED header — locals from sat-pins (same as harness) */}
           {showPcb &&
+            showPins &&
             pinStubsForNode(node).map((pin) => (
               <PinStub
                 key={pin.name}
@@ -880,7 +886,7 @@ export function NodeMesh({
             />
           </mesh>
           {/* PV lead pads — same local mm as sat-pins / harness */}
-          {pinStubsForNode(node).map((pin) => (
+          {showPins && pinStubsForNode(node).map((pin) => (
             <PinStub
               key={pin.name}
               position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
@@ -1037,7 +1043,7 @@ export function NodeMesh({
               sat ids → exact SAT_PIN_LOCALS; catalog-matched parts → archetype
               pins; unknown board → derived header. (Replaces the old
               isEsp/isTp/isSensor gate + 6 unlabeled dummy pads.) */}
-          {pinStubsForNode(node).map((pin) => (
+          {showPins && pinStubsForNode(node).map((pin) => (
             <PinStub
               key={pin.name}
               position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
@@ -1136,7 +1142,7 @@ export function NodeMesh({
               opacity={opacity}
             />
           </mesh>
-          {pinStubsForNode(node).map((pin) => (
+          {showPins && pinStubsForNode(node).map((pin) => (
             <PinStub
               key={pin.name}
               position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
@@ -1181,7 +1187,7 @@ export function NodeMesh({
             <SelectOutline selected={selected} />
           </RoundedBox>
           {/* Generic parts (e.g. a sensor head) still show where wires land. */}
-          {pinStubsForNode(node).map((pin) => (
+          {showPins && pinStubsForNode(node).map((pin) => (
             <PinStub
               key={pin.name}
               position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
@@ -1242,6 +1248,7 @@ export function NodeMesh({
       <group onClick={onClick} onDoubleClick={onDoubleClick}>
         {body}
         {node.assetUrl &&
+          showPins &&
           pinStubsForNode(node).map((pin) => (
             <PinStub
               key={`overlay-${pin.name}`}
