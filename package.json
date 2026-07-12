@@ -13,7 +13,8 @@
     "grade:steps": "npx tsx scripts/grade-steps.mjs",
     "generate:parts": "node scripts/generate-part-glbs.mjs",
     "generate:parts:ready": "node scripts/generate-part-glbs.mjs --ready",
-    "models:esp32c3": "node scripts/author-esp32c3.mjs"
+    "models:esp32c3": "node scripts/author-esp32c3.mjs",
+    "models:oled096": "node scripts/author-oled096.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",

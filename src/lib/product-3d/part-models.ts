@@ -51,6 +51,16 @@ export const PART_MODELS: Record<string, PartModel> = {
     centerToBbox: false,
     credit: "ESP32-C3 SuperMini — authored for Forge in three.js (scripts/author-esp32c3.mjs). CC0.",
   },
+  oled_096: {
+    url: "/models/parts/oled_096.glb",
+    glbReady: true,
+    unit: "mm",
+    // Module BODY only (blue PCB, black glass, 4-pin header) authored in the
+    // real-parts frame; the live SSD1306 clock is overlaid by the renderer, so
+    // the animated screen survives on top of the real model.
+    centerToBbox: false,
+    credit: "0.96\" SSD1306 OLED module — authored for Forge in three.js (scripts/author-oled096.mjs). CC0.",
+  },
 };
 
 /** Collapse hyphen/underscore/case so `esp32-c3` and `esp32_c3` are one key. */

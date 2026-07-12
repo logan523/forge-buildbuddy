@@ -1251,6 +1251,37 @@ export function NodeMesh({
               netColor={pin.netColor}
             />
           ))}
+        {/* OLED live screen rides on top of the GLB body: the authored oled_096
+            GLB has the glass panel but no pixels, so the animated SSD1306 clock
+            survives the switch to a real model. Position matches the GLB glass
+            (front face ≈ z 2.0mm, upper-centre y 3mm — see scripts/author-oled096). */}
+        {node.assetUrl && oledScreenTex && (
+          <>
+            <mesh position={[0, 3 * s, 2.1 * s]}>
+              <planeGeometry args={[21.7 * s, 11 * s]} />
+              <meshPhysicalMaterial
+                color="#030806"
+                metalness={0.08}
+                roughness={0.04}
+                clearcoat={1}
+                clearcoatRoughness={0.015}
+                emissive="#ffffff"
+                emissiveMap={oledScreenTex}
+                emissiveIntensity={2.4}
+                envMapIntensity={1.7}
+                transparent
+                opacity={opacity}
+              />
+            </mesh>
+            <pointLight
+              position={[0, 3 * s, 3.6 * s]}
+              color="#a9e8ff"
+              intensity={1.3 * opacity}
+              distance={81 * s}
+              decay={2}
+            />
+          </>
+        )}
         {inspectLabels}
         {/* Label only while isolated/selected — distanceFactor keeps it on-screen, not mesh-sized junk */}
         {(selected || isolated) && (

@@ -22,9 +22,16 @@ stay `glbReady:false` and are ignored unless explicitly opted in.)
 | File | Part | bbox (mm) | Source |
 |------|------|-----------|--------|
 | `esp32_c3.glb` | ESP32-C3 SuperMini | 22.5 × 18 × 3.2 | **Authored for Forge** — `npm run models:esp32c3` (three.js). CC0. |
+| `oled_096.glb` | 0.96" SSD1306 OLED | 27 × 27 × 4 | **Authored for Forge** — `npm run models:oled096` (three.js). CC0. |
 
 Everything else in this folder is a low-poly `generate:parts` placeholder
 (`glbReady:false`) and currently renders parametric.
+
+**Live overlays.** A GLB is a static body; dynamic detail is overlaid at render
+time so it survives the switch to a real model. The OLED GLB is the module body
+only (blue PCB, black glass, header) — the animated SSD1306 clock is drawn by
+`product-node-mesh` on a plane at the glass front (see `scripts/author-oled096`).
+Pin pads are likewise overlaid from the netlist, never baked into the GLB.
 
 ## Add a model for ANY part (the scalable path)
 

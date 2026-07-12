@@ -104,9 +104,9 @@ describe("product-3d connection spars + sun + catalog", () => {
     assert.equal(brain.assetUrl, "/models/parts/esp32_c3.glb");
     assert.ok(readyCatalogAssetPaths().includes("/models/parts/esp32_c3.glb"));
     // A part with NO authored model still falls back to the parametric mesh (assetUrl unset).
-    const face = tagged.find((n) => n.id === "face")!;
-    assert.equal(face.catalogId, "oled_096");
-    assert.equal(face.assetUrl, undefined);
+    const charger = tagged.find((n) => n.id === "charger")!;
+    assert.equal(charger.catalogId, "tp4056");
+    assert.equal(charger.assetUrl, undefined);
     assert.equal(resolveCatalogAssetUrl(CATALOG.oled_096), undefined);
   });
 });

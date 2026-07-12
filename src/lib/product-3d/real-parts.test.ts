@@ -89,8 +89,10 @@ describe("real-parts dimension authority", () => {
       assert.equal(buf.toString("utf8", 0, 4), "glTF", `${id} magic`);
       assert.ok(buf.length > 500, `${id} non-empty`);
     }
-    // Only the authored ESP32-C3 SuperMini is live (open registry); rest parametric.
-    assert.deepEqual(readyCatalogAssetPaths(), ["/models/parts/esp32_c3.glb"]);
+    // Authored models are live via the open registry; the rest stay parametric.
+    const ready = readyCatalogAssetPaths();
+    assert.ok(ready.includes("/models/parts/esp32_c3.glb"), "esp32 live");
+    assert.ok(ready.includes("/models/parts/oled_096.glb"), "oled live");
   });
 
   it("applyCatalogHints attaches a GLB only where an open-registry model is ready", () => {
@@ -109,19 +111,19 @@ describe("real-parts dimension authority", () => {
     assert.equal(brain!.catalogId, "esp32_c3");
     assert.equal(brain!.assetUrl, "/models/parts/esp32_c3.glb");
 
-    // OLED: no authored model yet → no assetUrl, graceful parametric fallback.
-    const [face] = applyCatalogHints([
+    // TP4056: no authored model yet → no assetUrl, graceful parametric fallback.
+    const [charger] = applyCatalogHints([
       {
-        id: "face",
-        layer: "face",
-        label: "OLED",
-        geom: { kind: "oled_module", params: { width: 27, height: 27, depth: 4 } },
+        id: "charger",
+        layer: "power",
+        label: "TP4056",
+        geom: { kind: "pcb_module", params: { width: 25, height: 19, depth: 3.5 } },
         position: [0, 0, 0],
         rotation: [0, 0, 0],
         material: { color: "#0f172a" },
       },
     ]);
-    assert.equal(face!.catalogId, "oled_096");
-    assert.equal(face!.assetUrl, undefined);
+    assert.equal(charger!.catalogId, "tp4056");
+    assert.equal(charger!.assetUrl, undefined);
   });
 });
