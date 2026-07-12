@@ -111,19 +111,19 @@ describe("real-parts dimension authority", () => {
     assert.equal(brain!.catalogId, "esp32_c3");
     assert.equal(brain!.assetUrl, "/models/parts/esp32_c3.glb");
 
-    // TP4056: no authored model yet → no assetUrl, graceful parametric fallback.
-    const [charger] = applyCatalogHints([
+    // Unrecognized board → generic_pcb has no model → no assetUrl, parametric fallback.
+    const [proto] = applyCatalogHints([
       {
-        id: "charger",
-        layer: "power",
-        label: "TP4056",
-        geom: { kind: "pcb_module", params: { width: 25, height: 19, depth: 3.5 } },
+        id: "proto",
+        layer: "brain",
+        label: "Proto board",
+        geom: { kind: "board", params: { width: 30, height: 20, depth: 2 } },
         position: [0, 0, 0],
         rotation: [0, 0, 0],
         material: { color: "#0f172a" },
       },
     ]);
-    assert.equal(charger!.catalogId, "tp4056");
-    assert.equal(charger!.assetUrl, undefined);
+    assert.equal(proto!.catalogId, "generic_pcb");
+    assert.equal(proto!.assetUrl, undefined);
   });
 });

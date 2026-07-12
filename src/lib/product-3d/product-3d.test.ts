@@ -103,10 +103,21 @@ describe("product-3d connection spars + sun + catalog", () => {
     // The authored ESP32-C3 SuperMini GLB now attaches through PART_MODELS (open registry).
     assert.equal(brain.assetUrl, "/models/parts/esp32_c3.glb");
     assert.ok(readyCatalogAssetPaths().includes("/models/parts/esp32_c3.glb"));
-    // A part with NO authored model still falls back to the parametric mesh (assetUrl unset).
-    const charger = tagged.find((n) => n.id === "charger")!;
-    assert.equal(charger.catalogId, "tp4056");
-    assert.equal(charger.assetUrl, undefined);
+    // A part with NO authored model (unrecognized board → generic_pcb) still
+    // falls back to the parametric mesh (assetUrl unset).
+    const [proto] = applyCatalogHints([
+      {
+        id: "proto",
+        layer: "brain",
+        label: "Proto board",
+        geom: { kind: "board", params: { width: 30, height: 20, depth: 2 } },
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        material: { color: "#334155" },
+      },
+    ]);
+    assert.equal(proto!.catalogId, "generic_pcb");
+    assert.equal(proto!.assetUrl, undefined);
     assert.equal(resolveCatalogAssetUrl(CATALOG.oled_096), undefined);
   });
 });

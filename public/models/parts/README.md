@@ -19,13 +19,20 @@ stay `glbReady:false` and are ignored unless explicitly opted in.)
 
 ## Live models
 
-| File | Part | bbox (mm) | Source |
-|------|------|-----------|--------|
-| `esp32_c3.glb` | ESP32-C3 SuperMini | 22.5 × 18 × 3.2 | **Authored for Forge** — `npm run models:esp32c3` (three.js). CC0. |
-| `oled_096.glb` | 0.96" SSD1306 OLED | 27 × 27 × 4 | **Authored for Forge** — `npm run models:oled096` (three.js). CC0. |
+All eight sat_clock buyable modules are now authored (three.js, CC0):
 
-Everything else in this folder is a low-poly `generate:parts` placeholder
-(`glbReady:false`) and currently renders parametric.
+| File | Part | bbox (mm) | Authoring script |
+|------|------|-----------|------------------|
+| `esp32_c3.glb` | ESP32-C3 SuperMini | 22.5 × 18 × 3.2 | `npm run models:esp32c3` |
+| `oled_096.glb` | 0.96" SSD1306 OLED | 27 × 27 × 4 | `npm run models:oled096` |
+| `tp4056.glb` | TP4056 charger | 25 × 19 × 3.5 | `npm run models:sat-parts` |
+| `cell_16340.glb` | 16340 Li-ion cell | Ø16.5 × 34 | `npm run models:sat-parts` |
+| `sht30.glb` | SHT30 sensor | 16 × 16 × 3 | `npm run models:sat-parts` |
+| `ttp223.glb` | TTP223 touch | 15 × 11 × 3 | `npm run models:sat-parts` |
+| `solar_cell.glb` | 60×45 solar panel | 60 × 45 × 3 | `npm run models:sat-parts` |
+
+(`generic_pcb` has no model → parametric fallback, which is the intended catch-all
+for any unrecognized board in any project.)
 
 **Live overlays.** A GLB is a static body; dynamic detail is overlaid at render
 time so it survives the switch to a real model. The OLED GLB is the module body

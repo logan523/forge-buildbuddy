@@ -61,6 +61,42 @@ export const PART_MODELS: Record<string, PartModel> = {
     centerToBbox: false,
     credit: "0.96\" SSD1306 OLED module — authored for Forge in three.js (scripts/author-oled096.mjs). CC0.",
   },
+  // The remaining sat_clock buyable modules — authored by scripts/author-sat-parts.mjs.
+  tp4056: {
+    url: "/models/parts/tp4056.glb",
+    glbReady: true,
+    unit: "mm",
+    centerToBbox: false,
+    credit: "TP4056 micro-USB Li-ion charger — authored for Forge in three.js. CC0.",
+  },
+  cell_16340: {
+    url: "/models/parts/cell_16340.glb",
+    glbReady: true,
+    unit: "mm",
+    centerToBbox: false,
+    credit: "16340 Li-ion cell — authored for Forge in three.js. CC0.",
+  },
+  sht30: {
+    url: "/models/parts/sht30.glb",
+    glbReady: true,
+    unit: "mm",
+    centerToBbox: false,
+    credit: "SHT30 temp/humidity breakout — authored for Forge in three.js. CC0.",
+  },
+  ttp223: {
+    url: "/models/parts/ttp223.glb",
+    glbReady: true,
+    unit: "mm",
+    centerToBbox: false,
+    credit: "TTP223 capacitive touch module — authored for Forge in three.js. CC0.",
+  },
+  solar_cell: {
+    url: "/models/parts/solar_cell.glb",
+    glbReady: true,
+    unit: "mm",
+    centerToBbox: false,
+    credit: "60×45 monocrystalline solar panel — authored for Forge in three.js. CC0.",
+  },
 };
 
 /** Collapse hyphen/underscore/case so `esp32-c3` and `esp32_c3` are one key. */

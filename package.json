@@ -14,7 +14,8 @@
     "generate:parts": "node scripts/generate-part-glbs.mjs",
     "generate:parts:ready": "node scripts/generate-part-glbs.mjs --ready",
     "models:esp32c3": "node scripts/author-esp32c3.mjs",
-    "models:oled096": "node scripts/author-oled096.mjs"
+    "models:oled096": "node scripts/author-oled096.mjs",
+    "models:sat-parts": "node scripts/author-sat-parts.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
