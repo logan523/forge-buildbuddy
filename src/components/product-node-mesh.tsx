@@ -46,7 +46,7 @@ import {
   makeSilkscreenMap,
 } from "@/lib/product-3d/procedural-maps";
 import { cubeCorners, wireCubeRods } from "@/lib/product-3d/geom-math";
-import { meshPinStubsForNode, pinLocal } from "@/lib/product-3d/sat-pins";
+import { pinStubsForNode, pinLocal } from "@/lib/product-3d/sat-pins";
 
 function PhysMat({
   geomKind,
@@ -824,7 +824,7 @@ export function NodeMesh({
           )}
           {/* 4-pin OLED header — locals from sat-pins (same as harness) */}
           {showPcb &&
-            meshPinStubsForNode(node.id === "face" ? "face" : "").map((pin) => (
+            pinStubsForNode(node).map((pin) => (
               <PinStub
                 key={pin.name}
                 position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
@@ -880,7 +880,7 @@ export function NodeMesh({
             />
           </mesh>
           {/* PV lead pads — same local mm as sat-pins / harness */}
-          {meshPinStubsForNode(node.id).map((pin) => (
+          {pinStubsForNode(node).map((pin) => (
             <PinStub
               key={pin.name}
               position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
@@ -1033,28 +1033,19 @@ export function NodeMesh({
               <pointLight position={[w * 0.28, h * 0.22, d * 1.3]} color="#ffcc66" intensity={0.6 * opacity} distance={w * 2} decay={2} />
             </>
           )}
-          {/* Named pin stubs from sat-pins / RealPartSpec */}
-          {(isEsp || isTp || isSensor) &&
-            meshPinStubsForNode(node.id).map((pin) => (
-              <PinStub
-                key={pin.name}
-                position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
-                scale={s}
-                opacity={opacity}
-                netColor={pin.netColor}
-              />
-            ))}
-          {!isEsp &&
-            !isTp &&
-            !isSensor &&
-            Array.from({ length: 6 }).map((_, i) => (
-              <PinStub
-                key={`p${i}`}
-                position={[-w * 0.35 + i * w * 0.12, -h * 0.35, -d * 0.2]}
-                scale={s}
-                opacity={opacity}
-              />
-            ))}
+          {/* Named pin pads — works for ANY part, not just the sat roles.
+              sat ids → exact SAT_PIN_LOCALS; catalog-matched parts → archetype
+              pins; unknown board → derived header. (Replaces the old
+              isEsp/isTp/isSensor gate + 6 unlabeled dummy pads.) */}
+          {pinStubsForNode(node).map((pin) => (
+            <PinStub
+              key={pin.name}
+              position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
+              scale={s}
+              opacity={opacity}
+              netColor={pin.netColor}
+            />
+          ))}
         </group>
       );
       break;
@@ -1145,7 +1136,7 @@ export function NodeMesh({
               opacity={opacity}
             />
           </mesh>
-          {meshPinStubsForNode("touch").map((pin) => (
+          {pinStubsForNode(node).map((pin) => (
             <PinStub
               key={pin.name}
               position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
@@ -1179,16 +1170,27 @@ export function NodeMesh({
       const h = (p.height || 15) * s;
       const d = (p.depth || 3) * s;
       inner = (
-        <RoundedBox
-          onClick={onClick}
-          args={[w, h, d]}
-          radius={Math.min(0.004, Math.max(w, 0.01) * 0.08)}
-          smoothness={4}
-          castShadow
-        >
-          {phys()}
-          <SelectOutline selected={selected} />
-        </RoundedBox>
+        <group onClick={onClick}>
+          <RoundedBox
+            args={[w, h, d]}
+            radius={Math.min(0.004, Math.max(w, 0.01) * 0.08)}
+            smoothness={4}
+            castShadow
+          >
+            {phys()}
+            <SelectOutline selected={selected} />
+          </RoundedBox>
+          {/* Generic parts (e.g. a sensor head) still show where wires land. */}
+          {pinStubsForNode(node).map((pin) => (
+            <PinStub
+              key={pin.name}
+              position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}
+              scale={s}
+              opacity={opacity}
+              netColor={pin.netColor}
+            />
+          ))}
+        </group>
       );
       break;
     }
@@ -1197,7 +1199,7 @@ export function NodeMesh({
   // Inspect LOD silkscreen pin names when JARVIS-isolated
   const inspectLabels =
     isolated &&
-    meshPinStubsForNode(node.id).map((pin) => (
+    pinStubsForNode(node).map((pin) => (
       <Html
         key={`pin-${pin.name}`}
         position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s + 0.04]}
@@ -1240,7 +1242,7 @@ export function NodeMesh({
       <group onClick={onClick} onDoubleClick={onDoubleClick}>
         {body}
         {node.assetUrl &&
-          meshPinStubsForNode(node.id).map((pin) => (
+          pinStubsForNode(node).map((pin) => (
             <PinStub
               key={`overlay-${pin.name}`}
               position={[pin.local[0] * s, pin.local[1] * s, pin.local[2] * s]}

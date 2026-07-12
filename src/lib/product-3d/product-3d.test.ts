@@ -201,7 +201,7 @@ describe("product-3d materials + quality", () => {
     assert.ok(mesh.includes('case "face_panel"'), "face panel mesh");
     assert.ok(mesh.includes('case "rear_panel"'), "rear panel mesh");
     assert.ok(mesh.includes("PinStub"), "board pin stubs");
-    assert.ok(mesh.includes("meshPinStubsForNode"), "pads from sat-pins");
+    assert.ok(mesh.includes("pinStubsForNode"), "pads from the generic pin authority");
     assert.ok(
       mesh.includes("getProceduralMap") || mesh.includes("brushed_normal"),
       "mesh uses procedural normals"

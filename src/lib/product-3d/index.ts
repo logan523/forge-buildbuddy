@@ -74,6 +74,7 @@ export {
   SAT_PIN_NODE_IDS,
   pinAnchorsForNode,
   meshPinStubsForNode,
+  pinStubsForNode,
   pinLocal,
 } from "./sat-pins";
 export type { PinLocal } from "./sat-pins";

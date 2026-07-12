@@ -367,7 +367,7 @@ describe("sat-pins single source of truth (mesh stubs === recipe anchors)", () =
     assert.equal(pinLocal("solar-r", "+")![0], -28);
   });
 
-  it("product-node-mesh imports meshPinStubsForNode / pinLocal (not hard-coded pad coords)", async () => {
+  it("product-node-mesh derives pads from sat-pins (not hard-coded pad coords)", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const src = fs.readFileSync(
@@ -375,7 +375,9 @@ describe("sat-pins single source of truth (mesh stubs === recipe anchors)", () =
       "utf8"
     );
     assert.ok(src.includes('from "@/lib/product-3d/sat-pins"'), "imports sat-pins");
-    assert.ok(src.includes("meshPinStubsForNode"), "uses meshPinStubsForNode");
+    // Pads come from the generic pin authority (sat roles → exact; any other
+    // part → catalog archetype / derived header), not per-part hard-coded coords.
+    assert.ok(src.includes("pinStubsForNode"), "uses pinStubsForNode");
     assert.ok(src.includes("pinLocal"), "uses pinLocal for battery");
     // Guard against reintroducing the desync patterns skeptic found
     assert.ok(!src.includes("pcbH * 0.42"), "no OLED y from pcbH fraction");
