@@ -557,10 +557,14 @@ function PostFX({
       <EffectComposer multisampling={quality.multisampling}>
         <N8AO halfRes intensity={quality.aoIntensity} aoRadius={quality.aoRadius} distanceFalloff={0.5} />
         <DepthOfField target={focus} focalLength={0.03} bokehScale={4} height={480} />
+        {/* Threshold 1.3 (not 0.96): only true emissive displays bloom — the OLED
+            (emissive 2.4) and the tap-a-wire bead (3.2). Lower let incidental
+            specular hotspots on the brass / soft light pools bloom into the stray
+            blobs that floated behind the model. */}
         <Bloom
           mipmapBlur
           intensity={quality.bloomIntensity}
-          luminanceThreshold={0.96}
+          luminanceThreshold={1.3}
           luminanceSmoothing={0.2}
           radius={0.55}
         />
@@ -576,7 +580,7 @@ function PostFX({
         <Bloom
           mipmapBlur
           intensity={quality.bloomIntensity}
-          luminanceThreshold={0.96}
+          luminanceThreshold={1.3}
           luminanceSmoothing={0.2}
           radius={0.55}
         />
