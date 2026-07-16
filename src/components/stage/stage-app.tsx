@@ -18,6 +18,7 @@ import {
   type QualityTier,
 } from "@/lib/product-3d";
 import { resolveAssemblyRecipe } from "@/lib/stage/derive-recipe";
+import { buildWirePlan } from "@/lib/stage/wire-plan";
 import { solveShot, type ShotId, type StageShot } from "@/lib/stage/shots";
 import { StageCanvas } from "./stage-canvas";
 import { CameraRig } from "./camera-rig";
@@ -25,11 +26,12 @@ import { PartsLayer } from "./parts-layer";
 import { EnvStudio } from "./env-studio";
 import { GhostLayer } from "./overlay-layer";
 import { AssemblyDirector } from "./assembly-director";
+import { WiringLayer } from "./wiring-layer";
 import { CommitPing } from "./stage-invalidate";
 
 const QUICK_SHOTS: ShotId[] = ["hero", "table", "overhead"];
 
-export type StageMode = "overview" | "assemble";
+export type StageMode = "overview" | "assemble" | "wire";
 
 export function StageApp({
   plan,
@@ -50,22 +52,54 @@ export function StageApp({
   const scene = useMemo(() => buildProductScene3D(plan), [plan]);
   const recipe = useMemo(() => resolveAssemblyRecipe(scene, plan), [scene, plan]);
 
+  // Wire mode spreads bodies apart from the centroid (the classic wiring-map
+  // declutter) and re-routes the harness against the SPREAD positions, so
+  // tubes still land exactly on pins.
+  const spreadScene = useMemo(() => {
+    const cx = scene.nodes.reduce((s, n) => s + n.position[0], 0) / (scene.nodes.length || 1);
+    const cy = scene.nodes.reduce((s, n) => s + n.position[1], 0) / (scene.nodes.length || 1);
+    const cz = scene.nodes.reduce((s, n) => s + n.position[2], 0) / (scene.nodes.length || 1);
+    const SPREAD = 1.55;
+    return {
+      ...scene,
+      nodes: scene.nodes.map((n) => ({
+        ...n,
+        position: [
+          cx + (n.position[0] - cx) * SPREAD,
+          cy + (n.position[1] - cy) * SPREAD,
+          cz + (n.position[2] - cz) * SPREAD,
+        ] as [number, number, number],
+      })),
+    };
+  }, [scene]);
+
+  const wirePlan = useMemo(() => buildWirePlan(scene, plan, recipe), [scene, plan, recipe]);
+  const wirePlanSpread = useMemo(
+    () => buildWirePlan(spreadScene, plan, recipe),
+    [spreadScene, plan, recipe]
+  );
+
   const [mode, setMode] = useState<StageMode>("overview");
   const [shotId, setShotId] = useState<ShotId>(initialShot);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeWireId, setActiveWireId] = useState<string | null>(null);
   const [tier, setTier] = useState<QualityTier>("medium");
   const [scrub, setScrub] = useState(0);
   const [playing, setPlaying] = useState(false);
 
   const frame = useMemo(() => resolveAssemblyFrame(recipe, scrub), [recipe, scrub]);
+  // Outside assemble mode the product is complete → every wire fully drawn.
+  const wireScrub = mode === "assemble" ? scrub : recipe.phases.length - 1;
 
   // Assemble mode: positions come from the timeline (joint offsets), presence
   // hides parts that haven't arrived, ghosts preview the next phase's fits.
+  // Wire mode: the spread layout.
   const displayNodes = useMemo(() => {
+    if (mode === "wire") return spreadScene.nodes;
     if (mode !== "assemble") return scene.nodes;
     const present = new Set(frame.presentNodeIds);
     return applyFrameToNodes(scene.nodes, recipe, frame).filter((n) => present.has(n.id));
-  }, [mode, scene, recipe, frame]);
+  }, [mode, scene, spreadScene, recipe, frame]);
 
   // Camera: assemble mode frames the assembly-so-far each phase — the authored
   // cameraHint contributes its viewing DIRECTION (per-phase intent), but the
@@ -94,8 +128,11 @@ export function StageApp({
         fov: 38,
       };
     }
+    if (mode === "wire") {
+      return solveShot("map", spreadScene.nodes, spreadScene.rootScale);
+    }
     return solveShot(shotId, scene.nodes, scene.rootScale);
-  }, [mode, frame.phaseIndex, frame.presentNodeIds, frame.cameraHint, shotId, scene]);
+  }, [mode, frame.phaseIndex, frame.presentNodeIds, frame.cameraHint, shotId, scene, spreadScene]);
 
   const handleSelect = (id: string) => {
     if (selectedId === id) {
@@ -107,6 +144,7 @@ export function StageApp({
 
   const handleMiss = () => {
     setSelectedId(null);
+    setActiveWireId(null);
     if (mode === "overview") setShotId("hero");
   };
 
@@ -123,6 +161,15 @@ export function StageApp({
           rootScale={scene.rootScale}
           selectedId={selectedId}
           onSelect={handleSelect}
+        />
+        <WiringLayer
+          plan={mode === "wire" ? wirePlanSpread : wirePlan}
+          recipe={recipe}
+          rootScale={scene.rootScale}
+          scrub={wireScrub}
+          showPads={mode === "wire"}
+          activeWireId={activeWireId}
+          onWireTap={setActiveWireId}
         />
         {mode === "assemble" && (
           <GhostLayer scene={scene} recipe={recipe} frame={frame} />
@@ -143,12 +190,13 @@ export function StageApp({
             stage · {tier} · {shot.id}
           </span>
         )}
-        {(["overview", "assemble"] as StageMode[]).map((m) => (
+        {(["overview", "assemble", "wire"] as StageMode[]).map((m) => (
           <button
             key={m}
             onClick={() => {
               setMode(m);
               setPlaying(false);
+              setActiveWireId(null);
               if (m === "assemble") setScrub(0);
               if (m === "overview") setShotId("hero");
             }}

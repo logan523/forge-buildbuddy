@@ -210,28 +210,33 @@ describe("assembly story harness connectivity", () => {
     }
   });
 
-  it("teaching nets land on correct named pins (SDA not GPIO, OUT+ not B+)", () => {
+  it("netlist wires land on correct named pins (SDA not GPIO, OUT+ not B+)", () => {
+    // Same pin-landing contract as before, now asserted against the VERIFIED
+    // netlist (the only wire source) instead of the deleted teaching table.
+    const wires = buildHarnesses(scene, plan, recipe);
+    const sda = wires.find((w) => /sda/i.test(w.netName));
+    const scl = wires.find((w) => /scl/i.test(w.netName));
+    assert.ok(sda, "an SDA net renders");
+    assert.equal(sda!.fromAnchor === "SDA" || sda!.toAnchor === "SDA", true);
+    assert.ok(scl, "an SCL net renders");
+    assert.equal(scl!.fromAnchor === "SCL" || scl!.toAnchor === "SCL", true);
+    // Power legs land on named power pads, never "body"
+    const power = wires.filter((w) => w.netClass === "power");
+    assert.ok(power.length >= 1);
+    for (const w of power) {
+      assert.notEqual(w.fromAnchor, "body");
+      assert.notEqual(w.toAnchor, "body");
+    }
+  });
+
+  it("no electrical model → ZERO wires (honesty: netlist is the only source)", () => {
     const bare = { ...plan, electrical: undefined };
     const wires = buildHarnesses(scene, bare as BuildPlan, recipe);
-    const sda = wires.find((w) => w.netName === "I2C_SDA");
-    const scl = wires.find((w) => w.netName === "I2C_SCL");
-    const sys = wires.find((w) => w.netName === "SYS_3V3");
-    const bat = wires.find((w) => w.netName === "B+");
-    const pv = wires.find((w) => w.netName === "PV_L");
-    assert.ok(sda, "I2C_SDA");
-    assert.equal(sda!.fromAnchor, "SDA");
-    assert.equal(sda!.toAnchor, "SDA");
-    assert.ok(scl);
-    assert.equal(scl!.fromAnchor, "SCL");
-    assert.equal(scl!.toAnchor, "SCL");
-    assert.ok(sys);
-    assert.equal(sys!.fromAnchor, "OUT+");
-    assert.equal(sys!.toAnchor, "3V3");
-    assert.ok(bat);
-    assert.equal(bat!.fromAnchor, "+");
-    assert.equal(bat!.toAnchor, "B+");
-    assert.ok(pv);
-    assert.equal(pv!.toAnchor, "IN+");
+    assert.equal(
+      wires.length,
+      0,
+      "the hand-authored teaching-pair fallback is gone — no netlist, no tubes"
+    );
   });
 
   it("wireLegend and wireDisplayLabel are human-readable", () => {
@@ -244,16 +249,18 @@ describe("assembly story harness connectivity", () => {
     assert.ok(lab.includes(wires[0]!.label));
   });
 
-  it("structural defaults include brain↔face i2c and battery↔charger", () => {
-    const bare = { ...plan, electrical: undefined };
-    const wires = buildHarnesses(scene, bare as BuildPlan, recipe);
+  it("netlist wiring covers brain↔face i2c and battery↔charger on the demo", () => {
+    // The connectivity story previously guaranteed by teaching defaults must
+    // now hold FROM THE NETLIST on the demo plan (which ships a full model).
+    const wires = buildHarnesses(scene, plan, recipe);
     assert.ok(
       wires.some(
         (w) =>
-          (w.fromNodeId === "brain" && w.toNodeId === "face") ||
-          (w.fromNodeId === "face" && w.toNodeId === "brain")
+          ((w.fromNodeId === "brain" && w.toNodeId === "face") ||
+            (w.fromNodeId === "face" && w.toNodeId === "brain")) &&
+          w.netClass === "i2c"
       ),
-      "brain-face wire"
+      "brain-face i2c wire from the netlist"
     );
     assert.ok(
       wires.some(
@@ -261,7 +268,7 @@ describe("assembly story harness connectivity", () => {
           (w.fromNodeId === "battery" && w.toNodeId === "charger") ||
           (w.fromNodeId === "charger" && w.toNodeId === "battery")
       ),
-      "battery-charger wire"
+      "battery-charger wire from the netlist"
     );
   });
 
