@@ -11,13 +11,16 @@
 import type { SceneNode3D } from "@/lib/product-3d";
 import { cadCameraForNodes, frameForNodeIds } from "@/lib/product-3d";
 
-/** Stable shot ids. `part:<nodeId>` frames one part; `wire:<netId>` lands in S2. */
+/** Stable shot ids. `part:<nodeId>` frames one part; `phase:<n>` is an
+ *  assembly-phase camera (solved from the recipe's cameraHint, not here);
+ *  `wire:<netId>` lands in S2. */
 export type ShotId =
   | "hero"
   | "table"
   | "overhead"
   | "map"
-  | `part:${string}`;
+  | `part:${string}`
+  | `phase:${string}`;
 
 export interface StageShot {
   id: ShotId;
