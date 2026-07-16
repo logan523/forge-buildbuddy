@@ -110,6 +110,20 @@ function WireTube({
         <tubeGeometry args={[shown, 24, Math.max(gauge * 4, 0.028), 6, false]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
+      {/* Solder joints — small bright menisci where the wire meets each pad */}
+      {drawT >= 0.999 &&
+        ([full.getPointAt(0), full.getPointAt(1)] as const).map((p, i) => (
+          <mesh key={i} position={p}>
+            <sphereGeometry args={[Math.max(gauge * 1.7, 0.008), 10, 10]} />
+            <meshPhysicalMaterial
+              color="#c9cdd4"
+              metalness={0.95}
+              roughness={0.18}
+              transparent={opacity < 0.99}
+              opacity={opacity}
+            />
+          </mesh>
+        ))}
       {active && <TraceBead curve={full} />}
       {active && (
         <Html

@@ -19,17 +19,21 @@ stay `glbReady:false` and are ignored unless explicitly opted in.)
 
 ## Live models
 
-All eight sat_clock buyable modules are now authored (three.js, CC0):
+All seven buyable modules are authored at recognizable fidelity (three.js,
+CC0) via per-part scripts on the shared kit (`scripts/lib/author-kit.mjs` —
+chamfered boards, real connector shapes, extruded silkscreen text, true-pitch
+headers). **`npm run models:parts` regenerates the whole library** (all seven
+authors + the weld/quantize optimize pass, −60-70% bytes):
 
-| File | Part | bbox (mm) | Authoring script |
-|------|------|-----------|------------------|
-| `esp32_c3.glb` | ESP32-C3 SuperMini | 22.5 × 18 × 3.2 | `npm run models:esp32c3` |
-| `oled_096.glb` | 0.96" SSD1306 OLED | 27 × 27 × 4 | `npm run models:oled096` |
-| `tp4056.glb` | TP4056 charger | 25 × 19 × 3.5 | `npm run models:sat-parts` |
-| `cell_16340.glb` | 16340 Li-ion cell | Ø16.5 × 34 | `npm run models:sat-parts` |
-| `sht30.glb` | SHT30 sensor | 16 × 16 × 3 | `npm run models:sat-parts` |
-| `ttp223.glb` | TTP223 touch | 15 × 11 × 3 | `npm run models:sat-parts` |
-| `solar_cell.glb` | 60×45 solar panel | 60 × 45 × 3 | `npm run models:sat-parts` |
+| File | Part | bbox (mm) | Script |
+|------|------|-----------|--------|
+| `esp32_c3.glb` | ESP32-C3 SuperMini | 22.5 × 18 × 3.2 | `scripts/author-esp32c3.mjs` |
+| `oled_096.glb` | 0.96" SSD1306 OLED | 27 × 27 × 4 | `scripts/author-oled096.mjs` |
+| `tp4056.glb` | TP4056 charger | 25 × 19 × 3.5 | `scripts/author-tp4056.mjs` |
+| `ttp223.glb` | TTP223 touch | 15 × 11 × 3 | `scripts/author-ttp223.mjs` |
+| `sht30.glb` | SHT30 sensor | 16 × 16 × 3 | `scripts/author-sht30.mjs` |
+| `cell_16340.glb` | 16340 Li-ion cell | Ø16.5 × 34 | `scripts/author-cell16340.mjs` |
+| `solar_cell.glb` | 60×45 solar panel | 60 × 45 × 3 | `scripts/author-solarcell.mjs` |
 
 (`generic_pcb` has no model → parametric fallback, which is the intended catch-all
 for any unrecognized board in any project.)

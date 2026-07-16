@@ -13,9 +13,8 @@
     "grade:steps": "npx tsx scripts/grade-steps.mjs",
     "generate:parts": "node scripts/generate-part-glbs.mjs",
     "generate:parts:ready": "node scripts/generate-part-glbs.mjs --ready",
-    "models:esp32c3": "node scripts/author-esp32c3.mjs",
-    "models:oled096": "node scripts/author-oled096.mjs",
-    "models:sat-parts": "node scripts/author-sat-parts.mjs"
+    "models:optimize": "node scripts/optimize-parts.mjs",
+    "models:parts": "node scripts/author-esp32c3.mjs && node scripts/author-oled096.mjs && node scripts/author-tp4056.mjs && node scripts/author-ttp223.mjs && node scripts/author-sht30.mjs && node scripts/author-cell16340.mjs && node scripts/author-solarcell.mjs && node scripts/optimize-parts.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -38,6 +37,9 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.4.1",
+    "@gltf-transform/extensions": "^4.4.1",
+    "@gltf-transform/functions": "^4.4.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
