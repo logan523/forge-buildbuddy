@@ -54,9 +54,32 @@ export const CATALOG: Record<CatalogPartId, CatalogEntry> = {
   generic_pcb: entryFromReal("generic_pcb", "PCB"),
 };
 
-/** Infer catalog id from node role / label. */
+/**
+ * Geometry kinds that are STRUCTURE, not electronics — spars, cages, stands,
+ * panels, straps. They must never receive a catalog identity: since GLBs went
+ * live, catalogId attaches a whole 3D body, so an overmatched structural node
+ * renders as a phantom part (a wing SPAR on the "wings" layer became a full
+ * solar panel — the floating "extra satellite" bug).
+ */
+const STRUCTURAL_KINDS = new Set<SceneNode3D["geom"]["kind"]>([
+  "tube",
+  "cylinder",
+  "disk",
+  "wire_cube_cage",
+  "metal_stand",
+  "battery_straps",
+  "face_panel",
+  "rear_panel",
+  "shell_panel",
+  "bamboo_base",
+  "brass_frame",
+  "wire_frame",
+]);
+
+/** Infer catalog id from node role / label. Structural geometry never matches. */
 export function inferCatalogId(node: SceneNode3D): CatalogPartId | null {
   if (node.catalogId && node.catalogId in CATALOG) return node.catalogId as CatalogPartId;
+  if (STRUCTURAL_KINDS.has(node.geom.kind)) return null;
   const t = `${node.id} ${node.label} ${node.ref || ""}`.toLowerCase();
   if (node.id === "brain" || /esp|mcu|c3|xiao/.test(t)) return "esp32_c3";
   if (node.id === "face" || /oled|ssd1306|display/.test(t)) return "oled_096";
