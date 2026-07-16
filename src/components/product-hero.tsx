@@ -3,7 +3,7 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import type { BuildPlan } from "@/lib/types";
 import { buildProductVisual, type ProductVisual } from "@/lib/product-visual";
-import { ProductAssemblyApp } from "@/components/product-assembly-app";
+import { StageApp } from "@/components/stage/stage-app";
 
 export function useProductVisual(plan: BuildPlan): ProductVisual {
   return useMemo(() => buildProductVisual(plan), [plan]);
@@ -96,7 +96,7 @@ export function ProductHero({
             dangerouslySetInnerHTML={{ __html: svg }}
           />
         ) : (
-          <ProductAssemblyApp
+          <StageApp
             plan={livePlan}
             stepIndex={stepIndex}
             height={compact ? 560 : 920}

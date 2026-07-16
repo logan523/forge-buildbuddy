@@ -1,4 +1,6 @@
 import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import assert from "node:assert/strict";
 import demo from "@/data/sat-line.json";
 import type { BuildPlan } from "@/lib/types";
@@ -374,25 +376,23 @@ describe("sat-pins single source of truth (mesh stubs === recipe anchors)", () =
     assert.equal(pinLocal("solar-r", "+")![0], -28);
   });
 
-  it("product-node-mesh derives pads from sat-pins (not hard-coded pad coords)", async () => {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const src = fs.readFileSync(
-      path.join(process.cwd(), "src/components/product-node-mesh.tsx"),
-      "utf8"
-    );
-    assert.ok(src.includes('from "@/lib/product-3d/sat-pins"'), "imports sat-pins");
-    // Pads come from the generic pin authority (sat roles → exact; any other
-    // part → catalog archetype / derived header), not per-part hard-coded coords.
-    assert.ok(src.includes("pinStubsForNode"), "uses pinStubsForNode");
-    assert.ok(src.includes("pinLocal"), "uses pinLocal for battery");
-    // Guard against reintroducing the desync patterns skeptic found
-    assert.ok(!src.includes("pcbH * 0.42"), "no OLED y from pcbH fraction");
-    assert.ok(!/node\.id\.includes\("-r"\).*w \* 0\.42|w \* 0\.42.*node\.id\.includes/.test(src), "no solar x from width fraction");
-    assert.ok(!src.includes("-h * 0.22"), "no solar y from height fraction");
-    assert.ok(!src.includes("ht * 0.52"), "no battery terminal from ht fraction");
+  it("stage parts derive pads from the pin authority (not hard-coded pad coords)", () => {
+    const dir = join(process.cwd(), "src/components/stage");
+    const read = (f: string) => readFileSync(join(dir, f), "utf8");
+    const src = [
+      read("parts-layer.tsx"),
+      read("pin-stub.tsx"),
+      read("part-fallback/basic.tsx"),
+    ].join("\n");
+    assert.ok(src.includes("pinStubsForNode"), "pins come from the generalized authority");
+    assert.ok(src.includes("PinStub"), "pin stub hardware");
+    // Regression bans: pad positions must never be derived as fractions of
+    // board dimensions again (the desync bugs the authority fixed).
+    assert.ok(!src.includes("pcbH * 0.42"));
+    assert.ok(!/node\.id\.includes\("-r"\).*w \* 0\.42|w \* 0\.42.*node\.id\.includes/.test(src));
+    assert.ok(!src.includes("-h * 0.22"));
+    assert.ok(!src.includes("ht * 0.52"));
   });
-
   it("harness endpoints equal anchorWorldPosition of sat-pins-backed recipe", () => {
     const plan = applyTrustPipeline(demo as unknown as BuildPlan);
     const scene = buildProductScene3D(plan);

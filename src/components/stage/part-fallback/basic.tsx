@@ -31,8 +31,9 @@ function Mat({
   return <meshPhysicalMaterial {...props} />;
 }
 
-/** Live OLED screen plane — clock for the display module, ticking the demand loop. */
-function OledScreen({
+/** Live OLED screen plane — clock for the display module, ticking the demand loop.
+ *  Exported: the GLB path overlays the same screen on the authored model. */
+export function OledScreen({
   w,
   h,
   z,

@@ -125,13 +125,6 @@ export {
   uniqueLayers,
 } from "./build-scene";
 export {
-  poseStorageKey,
-  loadPoseLayout,
-  savePoseLayout,
-  clearPoseLayout,
-  upsertNodePose,
-} from "./pose-storage";
-export {
   REAL_PARTS,
   LIFE_LAYOUT,
   getRealPart,

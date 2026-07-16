@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { resolveStepMedia } from "@/lib/step-media";
-import { ProductAssemblyApp } from "@/components/product-assembly-app";
+import { StageApp } from "@/components/stage/stage-app";
 import { useOverlay } from "./use-overlay";
 import { useProbedImage } from "./use-probed-image";
 
@@ -127,7 +127,7 @@ export function StepHero({
           </button>
         </div>
         {/* ONE canvas: expanding swaps classNames inside ProductAssemblyApp. */}
-        <ProductAssemblyApp
+        <StageApp
           plan={plan}
           stepIndex={stepIndex}
           step={stepProps}

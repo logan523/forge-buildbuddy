@@ -30,6 +30,9 @@ User describes project → /api/analyze (Claude single pass) → BuildPlan JSON
 | `src/components/build-session.tsx` | Orchestrator: state → PrepScreen/BuildScreen/BuildDrawers |
 | `src/components/build/` | prep-screen, build-screen, build-drawers, step-hero, use-build-state (pure reducer) |
 | `src/components/build-ui.tsx` | Part rows, safety panel, firmware/unstick drawers |
+| `src/components/stage/` | THE 3D system (StageApp seam ← product-hero/step-hero): studio staging, deterministic CameraRig, GLB parts-layer + parametric fallback, netlist wiring-layer (tap → exact callout), assembly-director |
+| `src/lib/stage/` | Pure 3D domain: derive-recipe (assembly recipe for ANY template), wire-plan (exact wires + cut lengths), shots, ghost-target, wire-reveal, part-detail |
+| `scripts/author-*.mjs` + `scripts/lib/author-kit.mjs` | Part-model authoring (headless three.js → GLB, extruded silkscreen); `npm run models:parts` regenerates + optimizes the library |
 | `src/components/step-facts.tsx` | ConnectionsTable / CheckYourWorkCard / ActionChecklist / GlossaryText (render step.compiled) |
 | `src/lib/steps/` | classify (THE step classifier), compile (netlist → per-step facts), validate (content vs truth), instruction resolvers |
 | `src/lib/wire-colors.ts` | THE wire-color authority (text + 2D + 3D + legend; class wins, SDA blue / SCL yellow) |

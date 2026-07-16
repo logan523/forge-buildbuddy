@@ -52,7 +52,7 @@ function TraceBead({ curve }: { curve: CatmullRomCurve3 }) {
   );
 }
 
-function WireTube({
+function WireTubeRoute({
   wire,
   rootScale,
   drawT,
@@ -205,7 +205,7 @@ export function WiringLayer({
         const drawT = wireRevealT(wire.route, scrub, recipe);
         if (drawT <= 0.02) return null;
         return (
-          <WireTube
+          <WireTubeRoute
             key={wire.route.id}
             wire={wire}
             rootScale={rootScale}

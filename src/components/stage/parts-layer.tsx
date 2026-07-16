@@ -14,7 +14,10 @@ import { Box3, MathUtils, Vector3, type Material, type Mesh } from "three";
 import type { SceneNode3D } from "@/lib/product-3d";
 import { readyCatalogAssetPaths } from "@/lib/product-3d";
 import { partModelFor, unitToMm } from "@/lib/product-3d/part-models";
-import { BasicPart } from "./part-fallback/basic";
+import { pinStubsForNode } from "@/lib/product-3d";
+import { partDetailFor } from "@/lib/stage/part-detail";
+import { BasicPart, OledScreen } from "./part-fallback/basic";
+import { PinStub } from "./pin-stub";
 import { useInvalidateOnCommit } from "./stage-invalidate";
 
 // Warm the loader cache as soon as the Stage chunk arrives.
@@ -121,15 +124,25 @@ export function PartMesh({
   onSelect?: (id: string) => void;
 }) {
   const fallback = <BasicPart node={node} opacity={opacity} />;
+  const detail = partDetailFor(node.catalogId);
   const body = node.assetUrl ? (
     <GlbBoundary fallback={fallback}>
       <Suspense fallback={null}>
         <GlbPart url={node.assetUrl} catalogId={node.catalogId} opacity={opacity} />
+        {/* Dynamic detail rides ON TOP of the static authored model: the live
+            SSD1306 clock draws at the oled glass front (see author-oled096). */}
+        {detail?.liveScreen && (
+          <group position={[0, 3, 0]}>
+            <OledScreen w={21.7} h={11} z={2.1} live={detail.liveScreen === "clock"} />
+          </group>
+        )}
       </Suspense>
     </GlbBoundary>
   ) : (
     fallback
   );
+  // Pin hardware only on the focused part (assembled overview stays clean).
+  const showPins = selected;
   return (
     <group
       position={[
@@ -145,6 +158,16 @@ export function PartMesh({
       }}
     >
       {body}
+      {showPins &&
+        pinStubsForNode(node).map((pin) => (
+          <PinStub
+            key={pin.name}
+            position={pin.local}
+            scale={1}
+            opacity={opacity}
+            netColor={pin.netColor}
+          />
+        ))}
       {selected && <SelectionPuck radiusMm={roughRadiusMm(node)} />}
     </group>
   );
@@ -154,11 +177,14 @@ export function PartsLayer({
   nodes,
   rootScale,
   selectedId,
+  isolatedId,
   onSelect,
 }: {
   nodes: SceneNode3D[];
   rootScale: number;
   selectedId?: string | null;
+  /** JARVIS inspect: this part solid, peers ghosted. */
+  isolatedId?: string | null;
   onSelect?: (id: string) => void;
 }) {
   return (
@@ -168,6 +194,7 @@ export function PartsLayer({
           key={n.id}
           node={n}
           rootScale={rootScale}
+          opacity={isolatedId ? (isolatedId === n.id ? 1 : 0.14) : 1}
           selected={selectedId === n.id}
           onSelect={onSelect}
         />
