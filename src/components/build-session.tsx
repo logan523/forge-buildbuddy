@@ -181,6 +181,10 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
         onSetAuthorName={actions.setAuthorName}
         onSetPublishMsg={actions.setPublishMsg}
         onOpenPrep={actions.openPrep}
+        onOpenUnstick={(symptom) => {
+          actions.setUnstickSymptom(symptom);
+          actions.openDrawer("unstick");
+        }}
       />
     </>
   );

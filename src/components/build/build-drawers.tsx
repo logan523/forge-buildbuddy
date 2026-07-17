@@ -9,7 +9,7 @@ import type { CartStrategy } from "@/lib/cart";
 import type { SymptomId } from "@/lib/unstick";
 import { presentErc } from "@/lib/electrical/present";
 import { publishKit } from "@/lib/kits/store";
-import { PartRow, FirmwareDrawer, UnstickDrawer } from "@/components/build-ui";
+import { PartRow, FirmwareDrawer, FirmwareUnavailableDrawer, UnstickDrawer } from "@/components/build-ui";
 import { FlashConsole } from "@/components/flash/flash-console";
 import type { DrawerId } from "./use-build-state";
 
@@ -43,6 +43,9 @@ export interface BuildDrawersProps {
   onSetAuthorName: (name: string) => void;
   onSetPublishMsg: (msg: string) => void;
   onOpenPrep: () => void;
+  /** C3: the flash console's wiring check found a missing device — open the
+      unstick drawer preselected to the matching symptom. */
+  onOpenUnstick?: (symptom: SymptomId) => void;
 }
 
 /** All right-side sheets for the build view. Exactly one is open at a time. */
@@ -66,6 +69,7 @@ export function BuildDrawers({
   onSetAuthorName,
   onSetPublishMsg,
   onOpenPrep,
+  onOpenUnstick,
 }: BuildDrawersProps) {
   // The serial console isn't wired into the shared drawer reducer's dispatch
   // yet (state.drawer becoming "flash" needs a caller with `actions`, and
@@ -83,18 +87,30 @@ export function BuildDrawers({
 
   return (
     <>
-      <FlashConsole open={serialOpen || drawer === "flash"} onClose={closeSerial} />
+      <FlashConsole
+        open={serialOpen || drawer === "flash"}
+        onClose={closeSerial}
+        plan={plan}
+        onOpenUnstick={(hint) => {
+          closeSerial();
+          onOpenUnstick?.(hint as SymptomId);
+        }}
+      />
       {drawer && (
         <>
-          {drawer === "firmware" && firmware && (
-            <FirmwareDrawer
-              fw={firmware}
-              activeId={fwSketchId}
-              onSelect={onSetFwSketch}
-              onClose={onClose}
-              onOpenSerial={openSerial}
-            />
-          )}
+          {drawer === "firmware" &&
+            (firmware ? (
+              <FirmwareDrawer
+                fw={firmware}
+                activeId={fwSketchId}
+                onSelect={onSetFwSketch}
+                onClose={onClose}
+                onOpenSerial={openSerial}
+              />
+            ) : (
+              // Honest unknown-board state (C4) — self-gates on an MCU-ish part.
+              <FirmwareUnavailableDrawer plan={plan} onClose={onClose} />
+            ))}
           {drawer === "pcb" && pcb && <PcbDrawer pcb={pcb} onClose={onClose} />}
           {drawer === "pcbBlocked" && plan.electrical && (
             <PcbBlockedDrawer electrical={plan.electrical} onClose={onClose} onOpenPrep={onOpenPrep} />
@@ -249,8 +265,15 @@ function PcbDrawer({ pcb, onClose }: { pcb: PcbPackage; onClose: () => void }) {
             <button onClick={() => downloadText("forge.kicad_net", pcb.kicadNetlist)} className="text-xs px-3 py-2 rounded-lg border border-border-subtle cursor-pointer">KiCad netlist</button>
             <button onClick={() => downloadText("bom.csv", pcb.bomCsv)} className="text-xs px-3 py-2 rounded-lg border border-border-subtle cursor-pointer">BOM CSV</button>
             <button onClick={() => downloadText("board.svg", pcb.svg)} className="text-xs px-3 py-2 rounded-lg border border-border-subtle cursor-pointer">SVG</button>
-            <a href={pcb.jlcpcbUrl} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-2 rounded-lg border border-border-subtle no-underline text-text">JLCPCB quote →</a>
+            <a href={pcb.jlcpcbUrl} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-2 rounded-lg border border-border-subtle no-underline text-text">Open JLCPCB (upload Gerbers yourself) →</a>
           </div>
+          {/* Slice A6: honest about what the link above actually does — Forge
+              exports netlist/BOM/SVG, never Gerbers, so JLCPCB opens cold.
+              Complements pcb.disclaimer above (which already covers "not
+              fab-certified, verify in KiCad") rather than repeating it. */}
+          <p className="text-[11px] text-text-muted -mt-2">
+            This opens JLCPCB&apos;s site directly — it won&apos;t have your board loaded. Export Gerbers from KiCad first, then upload them there yourself.
+          </p>
         </div>
       </div>
     </>

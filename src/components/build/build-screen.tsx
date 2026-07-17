@@ -5,9 +5,10 @@ import type { BuildPlan, BuildStep, Part, MicroStep } from "@/lib/types";
 import type { FirmwarePackage } from "@/lib/firmware";
 import type { ProductVisual } from "@/lib/product-visual";
 import { InstructionCard, TIME_BY_KIND } from "@/components/instruction-card";
+import { planNeedsFirmwareHelp } from "@/components/build-ui";
 import { stepKind, kindLabel } from "@/lib/steps/classify";
 import { resolveStepMedia } from "@/lib/step-media";
-import { Button, DrawerShell, Icon } from "@/components/ui";
+import { Button, DrawerShell, Icon, type IconProps } from "@/components/ui";
 import { CoverageBanner, CoverageDetail } from "./coverage-banner";
 import { StepHero } from "./step-hero";
 import { StepMediaExtras } from "./step-media-extras";
@@ -19,6 +20,14 @@ import { GuidedActionContext, type GuidedActionState } from "./guided-steps";
 import { PrimaryActionBar } from "./primary-action-bar";
 import { StepListSheet } from "./step-list-sheet";
 import type { DetailLevel, DrawerId } from "./use-build-state";
+
+/** Detail-level segmented options (Slice A6): icon + real label each — no
+    more bare-emoji/title-attr-only affordance. */
+const DETAIL_LEVELS: { id: DetailLevel; label: string; icon: IconProps["name"] }[] = [
+  { id: "quick", label: "Fast", icon: "zap" },
+  { id: "standard", label: "Standard", icon: "book-open" },
+  { id: "deep", label: "Deep dive", icon: "microscope" },
+];
 
 export interface BuildScreenProps {
   plan: BuildPlan;
@@ -89,7 +98,7 @@ function ToolbarOverflow({
   // 44px floor: these were explicit-but-undersized (36/40px) — same bug class
   // as the trigger button below.
   const item =
-    "w-full text-left text-sm px-3 py-2 min-h-11 rounded-lg text-text-secondary hover:bg-surface-overlay cursor-pointer";
+    "w-full flex items-center gap-2.5 text-left text-sm px-3 py-2 min-h-11 rounded-lg text-text-secondary hover:bg-surface-overlay cursor-pointer";
   const act = (fn: () => void) => () => {
     setOpen(false);
     fn();
@@ -101,33 +110,50 @@ function ToolbarOverflow({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label="More options"
-        className={`text-sm px-2.5 py-1.5 min-h-11 min-w-11 rounded-lg cursor-pointer ${open ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
+        className={`flex items-center gap-1.5 text-sm px-2.5 py-1.5 min-h-11 min-w-11 rounded-lg cursor-pointer ${open ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
       >
-        ⋯
+        <span aria-hidden="true">⋯</span>
+        <span className="hidden lg:inline">More</span>
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-40 w-52 rounded-xl border border-border bg-surface shadow-raised p-1.5">
-          <div className="px-3 py-1.5 flex items-center justify-between">
+        <div className="absolute right-0 top-full mt-1 z-40 w-64 rounded-xl border border-border bg-surface shadow-raised p-1.5">
+          <div className="px-3 pt-1.5 pb-1">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
               Detail
             </span>
-            <span className="flex gap-1">
-              {(["quick", "standard", "deep"] as const).map((lvl) => (
-                <button
-                  key={lvl}
-                  onClick={() => onSetDetailLevel(lvl)}
-                  title={lvl}
-                  className={`text-xs px-2 py-1 rounded-md cursor-pointer ${detailLevel === lvl ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
-                >
-                  {lvl === "quick" ? "⚡" : lvl === "deep" ? "🔬" : "📖"}
-                </button>
-              ))}
-            </span>
           </div>
+          <div className="space-y-0.5">
+            {DETAIL_LEVELS.map(({ id, label, icon }) => {
+              const selected = detailLevel === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => onSetDetailLevel(id)}
+                  className={`w-full flex items-center gap-2.5 text-sm px-3 py-2 min-h-11 rounded-lg cursor-pointer ${
+                    selected
+                      ? "bg-accent text-white font-semibold"
+                      : "text-text-secondary hover:bg-surface-overlay"
+                  }`}
+                >
+                  <Icon name={icon} size={16} className={`shrink-0 ${selected ? "text-white" : "text-text-muted"}`} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="px-3 pt-1 pb-1.5 text-[11px] text-text-muted leading-snug">
+            How much explanation each step shows.
+          </p>
           <div className="h-px bg-border-subtle my-1" />
-          <button className={item} onClick={act(onOpenPrep)}>Prep &amp; parts list</button>
+          <button className={item} onClick={act(onOpenPrep)}>
+            <Icon name="package" size={16} className="shrink-0 text-text-muted" />
+            Prep &amp; parts list
+          </button>
           {hasFirmware && (
             <button className={item} onClick={act(() => onOpenDrawer("firmware", null))}>
+              <Icon name="code" size={16} className="shrink-0 text-text-muted" />
               Code package
             </button>
           )}
@@ -136,12 +162,20 @@ function ToolbarOverflow({
               className={item}
               onClick={act(() => onOpenDrawer(ercBlocksPcb ? "pcbBlocked" : "pcb"))}
             >
+              <Icon name="cpu" size={16} className="shrink-0 text-text-muted" />
               PCB package{ercBlocksPcb ? " ⚠" : ""}
             </button>
           )}
-          <button className={item} onClick={act(() => onOpenDrawer("case"))}>3D case</button>
-          <button className={item} onClick={act(onShare)}>Share link</button>
+          <button className={item} onClick={act(() => onOpenDrawer("case"))}>
+            <Icon name="package" size={16} className="shrink-0 text-text-muted" />
+            3D case
+          </button>
+          <button className={item} onClick={act(onShare)}>
+            <Icon name="external-link" size={16} className="shrink-0 text-text-muted" />
+            Share link
+          </button>
           <button className={item} onClick={act(() => onOpenDrawer("publish"))}>
+            <Icon name="check" size={16} className="shrink-0 text-text-muted" />
             Publish as kit
           </button>
         </div>
@@ -278,7 +312,7 @@ export function BuildScreen({
           <ToolbarOverflow
             detailLevel={detailLevel}
             onSetDetailLevel={onSetDetailLevel}
-            hasFirmware={!!firmware}
+            hasFirmware={!!firmware || planNeedsFirmwareHelp(plan)}
             hasPcb={hasPcb}
             ercBlocksPcb={ercBlocksPcb}
             onOpenPrep={onOpenPrep}
@@ -393,6 +427,22 @@ export function BuildScreen({
                     className="text-xs px-3 py-1.5 rounded-lg bg-accent text-white font-medium cursor-pointer"
                   >
                     Open code package →
+                  </button>
+                </div>
+              )}
+              {onSoftwareStep && !firmware && planNeedsFirmwareHelp(plan) && (
+                <div className="mb-4 p-4 rounded-xl border border-warning/30 bg-warning-soft/30">
+                  <p className="text-xs font-semibold text-warning uppercase tracking-wider mb-1">
+                    No code templates for this board yet
+                  </p>
+                  <p className="text-sm text-text-secondary mb-2">
+                    We can still get your computer set up for it the generic way.
+                  </p>
+                  <button
+                    onClick={() => onOpenDrawer("firmware", null)}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-border text-text font-medium cursor-pointer hover:bg-surface-overlay"
+                  >
+                    Open setup guide →
                   </button>
                 </div>
               )}
