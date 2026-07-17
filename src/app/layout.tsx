@@ -14,6 +14,11 @@ export const metadata: Metadata = {
   description: "Paste a YouTube link or describe a project. AI finds every part, checks prices, and walks you through the build.",
 };
 
+// CONSTRAINT: no root loading.tsx in this segment. A root-level Suspense
+// boundary re-mounts the R3F Canvas mid-hydration; the postprocessing
+// composer then initializes against a renderer whose WebGL context the
+// interrupted mount already disposed ("null.alpha" crash in addPass).
+// error.tsx / not-found.tsx are error boundaries, not Suspense — safe.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>

@@ -14,7 +14,6 @@ export function ProductHero({
   visual,
   stepIndex = "prep",
   compact = false,
-  showKeyframes = true,
   onPlanPatch,
 }: {
   plan: BuildPlan;
@@ -22,16 +21,13 @@ export function ProductHero({
   /** prep or 0-based step index */
   stepIndex?: number | "prep";
   compact?: boolean;
-  showKeyframes?: boolean;
   /** Persist beauty mesh / other plan patches from the 3D viewer */
   onPlanPatch?: (patch: Partial<BuildPlan>) => void;
 }) {
   const fallback = useProductVisual(plan);
   const pv = visual ?? fallback;
-  const [show2d, setShow2d] = useState(false);
   const [livePlan, setLivePlan] = useState(plan);
   const stage = pv.stageForStep(stepIndex);
-  const svg = pv.svgForStep(stepIndex, false);
   const form = livePlan.formSpec || pv.formSpec;
   const caption =
     (stepIndex === "prep" && form?.productCaption) || stage.caption;
@@ -50,9 +46,6 @@ export function ProductHero({
     },
     [onPlanPatch]
   );
-
-  // Keyframes unused but kept for API stability
-  void showKeyframes;
 
   return (
     <div
@@ -79,35 +72,21 @@ export function ProductHero({
           )}
           <p className="text-xs text-text-secondary mt-1 leading-relaxed">{caption}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShow2d((v) => !v)}
-          className="text-[10px] px-2 py-1 rounded-md border border-border-subtle text-text-muted cursor-pointer shrink-0"
-        >
-          {show2d ? "3D" : "2D"}
-        </button>
       </div>
 
       {/* Full-bleed CAD stage — wider than page padding */}
       <div className={compact ? "px-2 pb-2" : "px-0 pb-0 sm:-mx-1"}>
-        {show2d ? (
-          <div
-            className="w-full rounded-lg border border-border-subtle overflow-hidden bg-[#f7f5f2] mx-3 mb-3"
-            dangerouslySetInnerHTML={{ __html: svg }}
-          />
-        ) : (
-          <StageApp
-            plan={livePlan}
-            stepIndex={stepIndex}
-            height={compact ? 560 : 920}
-            expandable
-            variant="step"
-            onPlanPatch={(patch) => {
-              if (patch.beautyMesh) onBeauty(patch.beautyMesh);
-              else onPlanPatch?.(patch);
-            }}
-          />
-        )}
+        <StageApp
+          plan={livePlan}
+          stepIndex={stepIndex}
+          height={compact ? 560 : 920}
+          expandable
+          variant="step"
+          onPlanPatch={(patch) => {
+            if (patch.beautyMesh) onBeauty(patch.beautyMesh);
+            else onPlanPatch?.(patch);
+          }}
+        />
       </div>
     </div>
   );
