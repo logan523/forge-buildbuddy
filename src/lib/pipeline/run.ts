@@ -249,6 +249,9 @@ export async function runPipeline(opts: {
     emit(2, "principles", "start");
     const l2t = Date.now();
     const principles = await layer2(client, opts.text, hazardTags);
+    // Carry the principles readout on the "done" emit so the client can show
+    // a non-blocking checkpoint card while layers 3-6 keep running (B2 #4/#5).
+    emit(2, "principles", "done", JSON.stringify(principles));
     layers.push({ layer: 2, name: "principles", ok: true, durationMs: Date.now() - l2t });
 
     // L3

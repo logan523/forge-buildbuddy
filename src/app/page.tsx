@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { BuildPlan, BuildStep } from "@/lib/types";
+import type { PrinciplesResult } from "@/lib/pipeline/types";
+import type { YoutubeErrorType } from "@/lib/youtube-errors";
 import { applyTrustPipeline } from "@/lib/trust";
 import { listPlans, savePlan, newPlanId, touchPlan, deletePlan } from "@/lib/storage";
+import { GenerationProgress } from "@/components/home/generation-progress";
 import demoPlan from "@/data/sat-line.json";
 
 const DEMO_PROJECTS = [
@@ -16,16 +19,6 @@ const DEMO_PROJECTS = [
   },
 ];
 
-/** UI labels for the real pipeline layers (see src/lib/pipeline/run.ts). */
-const LOADING_STAGES = [
-  { layer: 1, icon: "🛡", label: "Checking for hazards" },
-  { layer: 2, icon: "🧭", label: "Framing the goal" },
-  { layer: 3, icon: "📋", label: "Finding every part" },
-  { layer: 4, icon: "📚", label: "Checking the catalog" },
-  { layer: 5, icon: "✍️", label: "Writing your steps" },
-  { layer: 6, icon: "✅", label: "Safety & trust checks" },
-];
-
 export default function Home() {
   const router = useRouter();
   const [url, setUrl] = useState("");
@@ -33,8 +26,13 @@ export default function Home() {
   const [mode, setMode] = useState<"url" | "text">("text");
   const [loading, setLoading] = useState(false);
   const [activeLayer, setActiveLayer] = useState(1);
+  const [principles, setPrinciples] = useState<PrinciplesResult | null>(null);
   const [error, setError] = useState("");
+  const [errorType, setErrorType] = useState<YoutubeErrorType | null>(null);
+  const [canceled, setCanceled] = useState(false);
+  const [rateLimitNotice, setRateLimitNotice] = useState(false);
   const [savedPlans, setSavedPlans] = useState<BuildPlan[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(() => {
     setSavedPlans(listPlans());
@@ -43,6 +41,21 @@ export default function Home() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Abort whatever's in flight if the user navigates away mid-generation.
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  const switchToDescribe = useCallback(() => {
+    setMode("text");
+    setError("");
+    setErrorType(null);
+  }, []);
 
   const openSession = useCallback(
     (p: BuildPlan) => {
@@ -60,19 +73,36 @@ export default function Home() {
   const handleBuild = async (input: { url?: string; description?: string }) => {
     setLoading(true);
     setError("");
+    setErrorType(null);
+    setCanceled(false);
+    setRateLimitNotice(false);
     setActiveLayer(1);
+    setPrinciples(null);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    // Whether the response actually started streaming — i.e. whether
+    // checkApiGuards already ran server-side and counted this attempt
+    // (route.ts calls it before opening the stream, never after).
+    let streaming = false;
+
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
+        signal: controller.signal,
       });
 
       // Pre-flight validation errors come back as plain JSON with a non-2xx status.
+      // These happen BEFORE checkApiGuards runs, so they never cost a try.
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
+        setErrorType((data.errorType as YoutubeErrorType | undefined) ?? null);
         throw new Error(data.error || "Failed to generate build plan");
       }
+
+      streaming = true;
 
       // Success streams newline-delimited JSON: {type:"progress"|"done"|"error"}.
       const reader = res.body.getReader();
@@ -84,7 +114,14 @@ export default function Home() {
       const handleLine = (raw: string) => {
         const line = raw.trim();
         if (!line) return;
-        let evt: { type?: string; layer?: number; plan?: BuildPlan; error?: string };
+        let evt: {
+          type?: string;
+          layer?: number;
+          status?: string;
+          detail?: string;
+          plan?: BuildPlan;
+          error?: string;
+        };
         try {
           evt = JSON.parse(line);
         } catch {
@@ -93,6 +130,15 @@ export default function Home() {
         if (evt.type === "progress" && typeof evt.layer === "number") {
           const layer = evt.layer;
           setActiveLayer((prev) => Math.max(prev, layer));
+          // Layer 2's "done" event carries pipelineMeta.principles as a JSON
+          // string (B2 #4) — surface it as the non-blocking checkpoint card.
+          if (layer === 2 && evt.status === "done" && evt.detail) {
+            try {
+              setPrinciples(JSON.parse(evt.detail) as PrinciplesResult);
+            } catch {
+              /* checkpoint card is a bonus, not load-bearing — skip on bad JSON */
+            }
+          }
         } else if (evt.type === "done" && evt.plan) {
           finalPlan = evt.plan;
         } else if (evt.type === "error") {
@@ -123,43 +169,22 @@ export default function Home() {
       touchPlan(plan.id);
       router.push(`/build/${plan.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      const aborted = err instanceof Error && err.name === "AbortError";
+      // RATE-LIMIT HONESTY: only a pre-flight network failure (fetch threw
+      // before any response at all — streaming never became true, and this
+      // wasn't a deliberate cancel) is genuinely free to retry. A user
+      // cancel or a mid-stream failure already used one of the 5 tries.
+      setRateLimitNotice(streaming || aborted);
+      setCanceled(aborted);
+      if (!aborted) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      }
       setLoading(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center">
-        <div className="text-center max-w-sm">
-          <div className="w-16 h-16 mx-auto mb-6 border-4 border-accent/20 border-t-accent rounded-full animate-spin" />
-          <h2 className="text-xl font-bold text-text font-serif mb-4">Building your guide</h2>
-          <div className="space-y-2 text-left inline-block">
-            {LOADING_STAGES.map((stage) => {
-              const state =
-                activeLayer > stage.layer ? "done" : activeLayer === stage.layer ? "active" : "pending";
-              return (
-                <p
-                  key={stage.layer}
-                  className={`text-sm flex items-center gap-2 transition-all duration-500 ${
-                    state === "done"
-                      ? "text-text-secondary"
-                      : state === "active"
-                        ? "text-text font-medium"
-                        : "text-text-muted/30"
-                  }`}
-                >
-                  <span className="w-4 shrink-0 text-center">
-                    {state === "done" ? "✓" : state === "active" ? stage.icon : "○"}
-                  </span>
-                  {stage.label}
-                </p>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
+    return <GenerationProgress activeLayer={activeLayer} principles={principles} onCancel={handleCancel} />;
   }
 
   const recentPlans = savedPlans.slice(0, 6);
@@ -172,11 +197,11 @@ export default function Home() {
           <br />
           <span className="text-accent">want to build?</span>
         </h1>
-        <p className="text-base text-text-secondary mb-8">
-          Paste a YouTube link or describe your project. We&apos;ll find every part, price the cart,
-          generate code that matches the wiring, show a peelable 3D product model, and unstick you
-          when something fails.
-        </p>
+        <div className="mb-8 space-y-1.5 text-base text-text-secondary">
+          <p>Every part, already picked out.</p>
+          <p>Wiring you can see, not just read.</p>
+          <p>Stuck? We walk you back to fixed.</p>
+        </div>
 
         <div className="flex gap-1 mb-4">
           {(["text", "url"] as const).map((m) => (
@@ -228,28 +253,34 @@ export default function Home() {
           </div>
         )}
 
+        <p className="mt-3 text-xs text-text-muted">
+          About a minute — we&apos;ll show you exactly what&apos;s happening.
+        </p>
+
         {error && (
-          <div className="mt-4 p-4 rounded-xl bg-danger-soft border border-danger/20 text-danger text-sm">{error}</div>
+          <div className="mt-4 p-4 rounded-xl bg-danger-soft border border-danger/20 text-danger text-sm">
+            <p>{error}</p>
+            {errorType === "no-captions" && (
+              <button
+                type="button"
+                onClick={switchToDescribe}
+                className="mt-2 text-xs font-semibold underline cursor-pointer"
+              >
+                Switch to describe it
+              </button>
+            )}
+          </div>
         )}
 
-        {/* Capabilities strip */}
-        <div className="mt-10 grid grid-cols-2 sm:grid-cols-5 gap-2">
-          {[
-            ["🛡", "Safety scan"],
-            ["🛒", "Priced cart"],
-            ["🧊", "3D layers"],
-            ["💻", "Matched code"],
-            ["🔧", "Unstick mode"],
-          ].map(([icon, label]) => (
-            <div
-              key={label}
-              className="text-center p-3 rounded-xl bg-surface border border-border-subtle text-xs text-text-secondary"
-            >
-              <div className="text-lg mb-1">{icon}</div>
-              {label}
-            </div>
-          ))}
-        </div>
+        {canceled && (
+          <p className="mt-4 text-sm text-text-secondary">Canceled — your input is still here.</p>
+        )}
+
+        {rateLimitNotice && (
+          <p className={`text-xs text-text-muted ${error || canceled ? "mt-2" : "mt-4"}`}>
+            That used one of your 5 tries this 10 minutes.
+          </p>
+        )}
 
         <div className="mt-12 pt-12 border-t border-border-subtle">
           <div className="flex items-center gap-3 mb-4">

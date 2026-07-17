@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkApiGuards, clientIp } from "@/lib/api-guards";
 import { fetchTranscript, extractVideoId } from "@/lib/transcript";
+import { classifyYoutubeError, YOUTUBE_ERROR_RESPONSES, YoutubeVideoError } from "@/lib/youtube-errors";
 import { enrichLivePrices, nexarConfigured } from "@/lib/nexar";
 import { estimateBom } from "@/lib/cart";
 import { runPipeline } from "@/lib/pipeline/run";
@@ -22,15 +23,20 @@ export async function POST(request: Request) {
   if (url) {
     const videoId = extractVideoId(url);
     if (!videoId) {
-      return NextResponse.json({ error: "Invalid YouTube URL." }, { status: 400 });
+      const badUrl = YOUTUBE_ERROR_RESPONSES["bad-url"];
+      return NextResponse.json({ error: badUrl.message, errorType: "bad-url" }, { status: badUrl.status });
     }
     sourceUrl = url;
     try {
       text = await fetchTranscript(url);
-    } catch {
+    } catch (err) {
+      // transcript.ts always throws YoutubeVideoError, but re-classify
+      // defensively in case something upstream ever throws a raw error.
+      const classified = err instanceof YoutubeVideoError ? err : classifyYoutubeError(err);
+      const response = YOUTUBE_ERROR_RESPONSES[classified.type];
       return NextResponse.json(
-        { error: "Could not fetch transcript. The video may not have captions available." },
-        { status: 422 }
+        { error: response.message, errorType: classified.type },
+        { status: response.status }
       );
     }
   } else if (description) {
