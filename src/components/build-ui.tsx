@@ -22,6 +22,7 @@ import {
 import { confidenceTier, type BadgeTone } from "@/components/ui/badge";
 import { DrawerShell } from "@/components/ui/drawer-shell";
 import { Icon } from "@/components/ui/icon";
+import { Button } from "@/components/ui/button";
 
 const VENDOR_LABEL: Record<string, string> = {
   amazon: "Amazon", aliexpress: "AliExpress", digikey: "DigiKey", mouser: "Mouser", lcsc: "LCSC", other: "Buy",
@@ -217,11 +218,14 @@ export function FirmwareDrawer({
   activeId,
   onSelect,
   onClose,
+  onOpenSerial,
 }: {
   fw: FirmwarePackage;
   activeId: string | null;
   onSelect: (id: string | null) => void;
   onClose: () => void;
+  /** Opens the live Web Serial console (src/components/flash/flash-console.tsx). */
+  onOpenSerial: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const sketch: FirmwareSketch | undefined =
@@ -285,9 +289,15 @@ export function FirmwareDrawer({
         </div>
       }
     >
-      <p className="text-xs text-text-muted mt-0.5">
-        {fw.boardLabel} · {fw.arduinoBoard}
-      </p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-xs text-text-muted mt-0.5">
+          {fw.boardLabel} · {fw.arduinoBoard}
+        </p>
+        <Button variant="secondary" size="sm" onClick={onOpenSerial}>
+          <Icon name="zap" size={14} />
+          Serial console
+        </Button>
+      </div>
 
       <div className="shrink-0 px-4 py-2 border-b border-border-subtle overflow-x-auto">
         <div className="flex gap-1 min-w-max">

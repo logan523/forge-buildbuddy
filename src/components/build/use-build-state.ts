@@ -29,7 +29,8 @@ export type DrawerId =
   | "pcbBlocked"
   | "case"
   | "publish"
-  | "unstick";
+  | "unstick"
+  | "flash";
 
 export interface BuildState {
   showPrep: boolean;

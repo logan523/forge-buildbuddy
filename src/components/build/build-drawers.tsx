@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { BuildPlan, BuildStep } from "@/lib/types";
 import type { PcbPackage } from "@/lib/pcb";
 import type { EnclosurePackage } from "@/lib/enclosure";
@@ -9,6 +10,7 @@ import type { SymptomId } from "@/lib/unstick";
 import { presentErc } from "@/lib/electrical/present";
 import { publishKit } from "@/lib/kits/store";
 import { PartRow, FirmwareDrawer, UnstickDrawer } from "@/components/build-ui";
+import { FlashConsole } from "@/components/flash/flash-console";
 import type { DrawerId } from "./use-build-state";
 
 function downloadText(filename: string, content: string) {
@@ -65,67 +67,90 @@ export function BuildDrawers({
   onSetPublishMsg,
   onOpenPrep,
 }: BuildDrawersProps) {
-  if (!drawer) return null;
+  // The serial console isn't wired into the shared drawer reducer's dispatch
+  // yet (state.drawer becoming "flash" needs a caller with `actions`, and
+  // only build-session.tsx has that) — so its visibility is local state
+  // here instead, ORed with drawer === "flash" for forward-compat if a
+  // future caller ever dispatches openDrawer("flash") directly. FlashConsole
+  // itself always renders (open-prop-controlled, see its own doc comment) so
+  // an in-progress board connection survives switching to another drawer.
+  const [serialOpen, setSerialOpen] = useState(false);
+  const openSerial = () => {
+    setSerialOpen(true);
+    onClose(); // one sheet at a time — dismiss whatever central drawer is open
+  };
+  const closeSerial = () => setSerialOpen(false);
 
   return (
     <>
-      {drawer === "firmware" && firmware && (
-        <FirmwareDrawer fw={firmware} activeId={fwSketchId} onSelect={onSetFwSketch} onClose={onClose} />
-      )}
-      {drawer === "pcb" && pcb && <PcbDrawer pcb={pcb} onClose={onClose} />}
-      {drawer === "pcbBlocked" && plan.electrical && (
-        <PcbBlockedDrawer electrical={plan.electrical} onClose={onClose} onOpenPrep={onOpenPrep} />
-      )}
-      {drawer === "case" && <CaseDrawer enc={enclosure} onClose={onClose} />}
-      {drawer === "publish" && (
-        <PublishDrawer
-          authorName={authorName}
-          setAuthorName={onSetAuthorName}
-          message={publishMsg}
-          onClose={onClose}
-          onPublish={() => {
-            if (plan.electrical && !plan.electrical.erc.canPublishKit) {
-              onSetPublishMsg("Blocked: ERC has errors — fix electrical issues first.");
-              return;
-            }
-            const kit = publishKit({ plan, authorName, tags: [plan.difficulty, "community"] });
-            onSetPublishMsg(`Published /kits/${kit.slug}`);
-          }}
-          ercBlocked={!!(plan.electrical && !plan.electrical.erc.canPublishKit)}
-        />
-      )}
-      {drawer === "unstick" && (
-        <UnstickDrawer
-          plan={plan}
-          step={step}
-          stepIndex={stepIndex}
-          symptom={unstickSymptom}
-          onSelectSymptom={onSetUnstickSymptom}
-          onClose={onClose}
-        />
-      )}
-      {drawer === "parts" && (
+      <FlashConsole open={serialOpen || drawer === "flash"} onClose={closeSerial} />
+      {drawer && (
         <>
-          <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-          <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-surface border-l border-border shadow-raised z-50 overflow-y-auto">
-            <div className="sticky top-0 bg-surface border-b border-border-subtle px-5 py-4 flex items-center justify-between gap-2">
-              <h3 className="font-semibold text-text">Parts ({plan.parts.length})</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onBuyAll(plan.parts)}
-                  className="text-xs px-3 py-1.5 min-h-9 rounded-lg bg-accent text-white font-medium hover:bg-accent-soft cursor-pointer"
-                >
-                  Buy all →
-                </button>
-                <button onClick={onClose} className="text-text-muted text-lg cursor-pointer min-w-9 min-h-9" aria-label="Close parts">×</button>
+          {drawer === "firmware" && firmware && (
+            <FirmwareDrawer
+              fw={firmware}
+              activeId={fwSketchId}
+              onSelect={onSetFwSketch}
+              onClose={onClose}
+              onOpenSerial={openSerial}
+            />
+          )}
+          {drawer === "pcb" && pcb && <PcbDrawer pcb={pcb} onClose={onClose} />}
+          {drawer === "pcbBlocked" && plan.electrical && (
+            <PcbBlockedDrawer electrical={plan.electrical} onClose={onClose} onOpenPrep={onOpenPrep} />
+          )}
+          {drawer === "case" && <CaseDrawer enc={enclosure} onClose={onClose} />}
+          {drawer === "publish" && (
+            <PublishDrawer
+              authorName={authorName}
+              setAuthorName={onSetAuthorName}
+              message={publishMsg}
+              onClose={onClose}
+              onPublish={() => {
+                if (plan.electrical && !plan.electrical.erc.canPublishKit) {
+                  onSetPublishMsg("Blocked: ERC has errors — fix electrical issues first.");
+                  return;
+                }
+                const kit = publishKit({ plan, authorName, tags: [plan.difficulty, "community"] });
+                onSetPublishMsg(`Published /kits/${kit.slug}`);
+              }}
+              ercBlocked={!!(plan.electrical && !plan.electrical.erc.canPublishKit)}
+            />
+          )}
+          {drawer === "unstick" && (
+            <UnstickDrawer
+              plan={plan}
+              step={step}
+              stepIndex={stepIndex}
+              symptom={unstickSymptom}
+              onSelectSymptom={onSetUnstickSymptom}
+              onClose={onClose}
+            />
+          )}
+          {drawer === "parts" && (
+            <>
+              <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+              <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-surface border-l border-border shadow-raised z-50 overflow-y-auto">
+                <div className="sticky top-0 bg-surface border-b border-border-subtle px-5 py-4 flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-text">Parts ({plan.parts.length})</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onBuyAll(plan.parts)}
+                      className="text-xs px-3 py-1.5 min-h-9 rounded-lg bg-accent text-white font-medium hover:bg-accent-soft cursor-pointer"
+                    >
+                      Buy all →
+                    </button>
+                    <button onClick={onClose} className="text-text-muted text-lg cursor-pointer min-w-9 min-h-9" aria-label="Close parts">×</button>
+                  </div>
+                </div>
+                <div className="p-5 space-y-3">
+                  {plan.parts.map((p) => (
+                    <PartRow key={p.id} part={p} compact strategy={cartStrategy} />
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="p-5 space-y-3">
-              {plan.parts.map((p) => (
-                <PartRow key={p.id} part={p} compact strategy={cartStrategy} />
-              ))}
-            </div>
-          </div>
+            </>
+          )}
         </>
       )}
     </>
