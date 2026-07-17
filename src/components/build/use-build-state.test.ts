@@ -1,14 +1,20 @@
-import { test } from "node:test";
+import "../../test-utils/dom";
+import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import type { BuildPlan, BuildStep } from "@/lib/types";
+import { savePlan, saveMeta } from "@/lib/storage";
 import {
   buildReducer,
   initialBuildState,
   progressPct,
   needsSafetyAck,
+  isFirstTimeBuilder,
+  defaultBuildMode,
   type BuildState,
   type BuildAction,
 } from "./use-build-state";
+
+beforeEach(() => localStorage.clear());
 
 const step = (n: number): BuildStep => ({
   stepNumber: n,
@@ -80,6 +86,14 @@ test("exactly one drawer at a time; prep closes drawers", () => {
   s = run(s, { type: "CLOSE_DRAWER" });
   assert.equal(s.drawer, null);
   assert.equal(s.publishMsg, "", "close clears publish message");
+
+  // A3: the new step-list sheet is just another DrawerId — the generic
+  // OPEN_DRAWER/CLOSE_DRAWER cases need no special-casing for it, same as
+  // every drawer except firmware/unstick above.
+  s = run(s, { type: "OPEN_DRAWER", drawer: "parts" }, { type: "OPEN_DRAWER", drawer: "steps" });
+  assert.equal(s.drawer, "steps", "opening the step list is exclusive with every other drawer");
+  s = run(s, { type: "CLOSE_DRAWER" });
+  assert.equal(s.drawer, null);
 });
 
 // R2 (eng review, REGRESSION RULE): progress % counted completed step numbers
@@ -121,4 +135,24 @@ test("needsSafetyAck gates only when the plan has critical findings", () => {
     electrical: { erc: { clean: false } },
   } as unknown as BuildPlan;
   assert.equal(needsSafetyAck(dirtyErc, false), true);
+});
+
+test("A5: isFirstTimeBuilder is true only when no plan has ever been saved", () => {
+  assert.equal(isFirstTimeBuilder(), true, "empty storage means first time");
+  savePlan({ id: "some-other-plan", title: "x", steps: [] } as unknown as BuildPlan);
+  assert.equal(isFirstTimeBuilder(), false, "any saved plan — even a different one — ends first-time status");
+});
+
+test("A5: defaultBuildMode — quick for a first-ever session; full once returning; per-plan meta always wins", () => {
+  assert.equal(defaultBuildMode("new-plan"), "quick", "empty storage: first-time builder defaults to quick");
+
+  savePlan({ id: "some-other-plan", title: "x", steps: [] } as unknown as BuildPlan);
+  assert.equal(
+    defaultBuildMode("new-plan"),
+    "full",
+    "storage with a saved plan preserves the prior full default for a plan with no meta of its own"
+  );
+
+  saveMeta("new-plan", { lastOpenedAt: new Date().toISOString(), completedSteps: [], buildMode: "quick" });
+  assert.equal(defaultBuildMode("new-plan"), "quick", "stored per-plan meta always wins, in either direction");
 });

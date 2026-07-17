@@ -7,7 +7,8 @@ import type { ProductVisual } from "@/lib/product-visual";
 import { InstructionCard, TIME_BY_KIND } from "@/components/instruction-card";
 import { stepKind, kindLabel } from "@/lib/steps/classify";
 import { resolveStepMedia } from "@/lib/step-media";
-import { Button, Icon } from "@/components/ui";
+import { Button, DrawerShell, Icon } from "@/components/ui";
+import { CoverageBanner, CoverageDetail } from "./coverage-banner";
 import { StepHero } from "./step-hero";
 import { StepMediaExtras } from "./step-media-extras";
 import { NextBuildDoorway } from "./next-build-doorway";
@@ -16,6 +17,7 @@ import { AskAboutStep } from "./ask-step";
 import { useOverlay } from "./use-overlay";
 import { GuidedActionContext, type GuidedActionState } from "./guided-steps";
 import { PrimaryActionBar } from "./primary-action-bar";
+import { StepListSheet } from "./step-list-sheet";
 import type { DetailLevel, DrawerId } from "./use-build-state";
 
 export interface BuildScreenProps {
@@ -315,6 +317,13 @@ export function BuildScreen({
         </div>
 
         <div className="w-full lg:w-1/2 flex flex-col min-h-0">
+          {/* A4: plan-level coverage truth — renders only when the compiler
+              left wires unplaced or flagged issues. Above the sub-header so
+              it's visible on every step of an affected build. */}
+          <CoverageBanner
+            facts={plan.compiledFacts}
+            onReview={() => onOpenDrawer("coverage")}
+          />
           {/* Persistent step sub-header (Slice A1): step context never
               scrolls away. Was InstructionCard's own header block — now
               rendered once, above the scroll area, always visible. */}
@@ -363,6 +372,7 @@ export function BuildScreen({
                     detailLevel={detailLevel}
                     planId={plan.id}
                     plan={plan}
+                    firmware={firmware}
                     stepCompleted={completed.has(s.stepNumber)}
                     onAutoComplete={() => {
                       if (!completed.has(s.stepNumber)) onToggleComplete(s.stepNumber);
@@ -478,23 +488,19 @@ export function BuildScreen({
               disabled={stepIndex === 0}
               className="text-sm text-text-muted hover:text-text disabled:opacity-30 cursor-pointer disabled:cursor-default"
             >
-              ← Previous
+              ← Prev
             </button>
-            <div className="flex gap-1.5 flex-wrap justify-center max-w-[50%]">
-              {steps.map((st, i) => (
-                <button
-                  key={st.stepNumber}
-                  onClick={() => onGoStep(i)}
-                  className={`rounded-full transition-all cursor-pointer ${
-                    i === stepIndex
-                      ? "bg-accent w-4 h-2"
-                      : completed.has(st.stepNumber)
-                        ? "bg-success w-2 h-2"
-                        : "bg-border w-2 h-2"
-                  }`}
-                />
-              ))}
-            </div>
+            {/* A3: was 11 anonymous dots — replaced with a tappable trigger
+                that opens the full step list (StepListSheet), same
+                exclusivity as every other drawer via activeDrawer. */}
+            <button
+              type="button"
+              onClick={() => (activeDrawer === "steps" ? onCloseDrawer() : onOpenDrawer("steps"))}
+              aria-expanded={activeDrawer === "steps"}
+              className="min-h-11 px-3 text-sm text-text-secondary hover:text-text cursor-pointer"
+            >
+              Step {stepIndex + 1} of {steps.length} ⌄
+            </button>
             <button
               onClick={onNext}
               disabled={stepIndex === steps.length - 1}
@@ -510,6 +516,22 @@ export function BuildScreen({
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-sm p-4 rounded-xl bg-gray-900 text-white text-xs leading-relaxed shadow-lg" onClick={() => onSetTooltip(null)}>
           {tooltip}
         </div>
+      )}
+
+      {activeDrawer === "steps" && (
+        <StepListSheet
+          steps={steps}
+          stepIndex={stepIndex}
+          completed={completed}
+          onGoStep={onGoStep}
+          onClose={onCloseDrawer}
+        />
+      )}
+
+      {activeDrawer === "coverage" && (
+        <DrawerShell title="Wiring coverage" onClose={onCloseDrawer} width="md">
+          <CoverageDetail facts={plan.compiledFacts} />
+        </DrawerShell>
       )}
 
       {handsFree && (

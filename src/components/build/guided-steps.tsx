@@ -16,7 +16,22 @@ import { WireDoubleCheck } from "@/components/build/wire-double-check";
 import { diagnose, type SymptomId } from "@/lib/unstick";
 import { encouragement } from "@/lib/steps/buddy";
 import { recordStruggle, preemptiveRock, frictionCount, type Rock } from "@/lib/steps/friction";
-import { loadWireChecks, saveWireChecks } from "@/lib/storage";
+import {
+  loadWireChecks,
+  saveWireChecks,
+  hasSeenTechniquePrimer,
+  markTechniquePrimerSeen,
+} from "@/lib/storage";
+
+// A5: module-scoped (not component state/ref) cache of the technique-primer
+// open/closed decision per wire — see the long comment where it's read,
+// inside GuidedSteps, for why this needs to live above the component
+// lifecycle rather than inside it. Keyed by the wire's stable string id
+// (not the MicroStep object itself): the compiler re-derives fresh
+// MicroStep objects from the netlist on every plan load, so object
+// identity is not a safe cache key across everything that can trigger a
+// recompile — the id string is.
+const primerOpenByWire = new Map<string, boolean>();
 
 /** The current wire's toggle, shaped for BuildScreen's primary action bar. */
 export interface GuidedActionState {
@@ -123,6 +138,41 @@ export function GuidedSteps({
   useEffect(() => {
     if (rescueOpens === 2) recordStruggle({ kind: "wiring", netClasses: stepNetClasses });
   }, [rescueOpens, stepNetClasses]);
+
+  // A5: technique-in-flow primer — auto-expanded the very first time EVER
+  // (a global flag, not per-plan/per-step) that a builder reaches a step's
+  // first wire; every wire after that (this one included, on later visits,
+  // including a later step's own first wire) defaults collapsed to a small
+  // re-openable chip so it's never fully hidden. hasSeenTechniquePrimer is
+  // client-only localStorage, so the decision is computed post-mount — same
+  // hydration-mismatch guard as the Rock preempt effect above.
+  //
+  // primerOpenByWire (module scope, see top of file) caches the resolved
+  // open/closed decision per wire so it's made exactly once per wire, not
+  // once per effect invocation: dev-mode React can re-run a mount's effects
+  // more than once (Strict Mode's mount→cleanup→mount replay), and neither
+  // component state nor refs are a safe guard against that — both are tied
+  // to the component instance, which is exactly what gets replayed. A
+  // module-level cache sits above the component lifecycle entirely, so a
+  // replayed pass reads its own prior resolution instead of re-reading
+  // storage and computing a different answer. Keying by `cur.id` (not
+  // "ever") is deliberate too — GuidedSteps isn't remounted between wiring
+  // steps, so freezing the very first read for the module's whole lifetime
+  // would wrongly auto-reopen on every later step's first wire as well.
+  const [primerOpen, setPrimerOpen] = useState(false);
+  useEffect(() => {
+    if (!cur) return;
+    if (!primerOpenByWire.has(cur.id)) {
+      const open = !!cur.showTechnique && !hasSeenTechniquePrimer();
+      if (open) markTechniquePrimerSeen();
+      primerOpenByWire.set(cur.id, open);
+    }
+    // Syncing local render state from the module-level cache above
+    // (client-only localStorage backs it) — same class of exception as the
+    // Rock preempt effect a few lines up.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPrimerOpen(!!primerOpenByWire.get(cur.id));
+  }, [cur]);
 
   useEffect(() => {
     onActiveWire?.(showAll ? null : cur ?? null);
@@ -248,6 +298,58 @@ export function GuidedSteps({
           <span>{buddyLine}</span>
         </p>
       )}
+
+      {/* A5: technique-in-flow — soldering technique now lives inline with
+          the wire card instead of buried in a deep-detail-only drawer.
+          Sourced from this step's own toolTechnique when the plan authored
+          one, else a generic static solder primer (authored here). The chip
+          is on every wire so it's never fully hidden; the panel itself
+          auto-expands once, globally, the first time a builder ever
+          reaches it (see the effect above). */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setPrimerOpen((v) => !v)}
+          aria-expanded={primerOpen}
+          className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-full text-xs font-medium text-accent bg-accent/10 hover:bg-accent/15 cursor-pointer"
+        >
+          Technique ↺
+        </button>
+        {primerOpen && (
+          <div className="mt-2 p-3 rounded-xl border border-accent/25 bg-accent/5 space-y-1.5">
+            {step.toolTechnique ? (
+              <>
+                <p className="text-xs font-semibold text-text">{step.toolTechnique.tool}</p>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {step.toolTechnique.usage}
+                </p>
+                {step.toolTechnique.safety && (
+                  <p className="text-xs text-warning">⚠ {step.toolTechnique.safety}</p>
+                )}
+                {step.toolTechnique.mistake && (
+                  <p className="text-xs text-text-secondary">
+                    <span className="font-medium">Avoid:</span> {step.toolTechnique.mistake}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-text">Soldering technique</p>
+                <ol className="text-xs text-text-secondary leading-relaxed space-y-1 list-decimal list-inside">
+                  <li>Heat both surfaces for 2–3 seconds before adding solder.</li>
+                  <li>Feed solder to the joint, not the iron.</li>
+                  <li>Remove the solder first, then the iron.</li>
+                  <li>Let it cool undisturbed — don&apos;t blow on it.</li>
+                </ol>
+                <p className="text-xs text-text-secondary">
+                  <span className="font-medium">Good joint looks like:</span> a shiny cone, not a
+                  ball.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* The wire card: find → do → verify */}
       <div className="p-4 rounded-2xl border border-border bg-surface space-y-3">

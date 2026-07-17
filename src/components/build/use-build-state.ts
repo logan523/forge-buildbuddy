@@ -18,7 +18,7 @@ import type { BuildPlan, BuildStep } from "@/lib/types";
 import type { CartStrategy } from "@/lib/cart";
 import type { BuildMode } from "@/lib/modes";
 import type { SymptomId } from "@/lib/unstick";
-import { loadCompletedSteps, saveCompletedSteps, loadMeta } from "@/lib/storage";
+import { loadCompletedSteps, saveCompletedSteps, loadMeta, listPlans } from "@/lib/storage";
 
 export type DetailLevel = "quick" | "standard" | "deep";
 
@@ -30,7 +30,11 @@ export type DrawerId =
   | "case"
   | "publish"
   | "unstick"
-  | "flash";
+  | "flash"
+  // A3: the full step list, opened from the footer's "Step N of M ⌄" trigger.
+  | "steps"
+  // A4: compiler coverage detail — unassigned wires + content issues.
+  | "coverage";
 
 export interface BuildState {
   showPrep: boolean;
@@ -185,6 +189,33 @@ function defaultDetailLevel(planId: string): DetailLevel {
   return "standard";
 }
 
+/**
+ * A5: true when this browser has never saved a single plan — the very first
+ * Forge session. Reuses storage.ts's own plan list (the same source every
+ * other "has this person built before" question in the app would use), so
+ * "saved" means the same thing here that it means everywhere else.
+ */
+export function isFirstTimeBuilder(): boolean {
+  return listPlans().length === 0;
+}
+
+/**
+ * buildMode default precedence, in order:
+ *   1. a buildMode already stored in THIS plan's meta always wins — a
+ *      returning builder's own choice is never overridden.
+ *   2. first-time builders (see isFirstTimeBuilder) default to "quick" — a
+ *      faster first win beats the full path nobody asked for yet.
+ *   3. everyone else keeps the prior default, "full".
+ * initialBuildState's own `opts.buildMode ?? "full"` fallback is untouched —
+ * that's the explicit-injection path tests use directly, and it must stay a
+ * pure, storage-free default so those tests stay deterministic.
+ */
+export function defaultBuildMode(planId: string): BuildMode {
+  const stored = loadMeta(planId)?.buildMode as BuildMode | undefined;
+  if (stored) return stored;
+  return isFirstTimeBuilder() ? "quick" : "full";
+}
+
 export function useBuildState(planId: string, startAtPrep: boolean) {
   const [state, dispatch] = useReducer(
     buildReducer,
@@ -195,7 +226,7 @@ export function useBuildState(planId: string, startAtPrep: boolean) {
         startAtPrep,
         completed: loadCompletedSteps(planId),
         detailLevel: defaultDetailLevel(planId),
-        buildMode: (loadMeta(planId)?.buildMode as BuildMode | undefined) ?? "full",
+        buildMode: defaultBuildMode(planId),
         cartStrategy: (loadMeta(planId)?.cartStrategy as CartStrategy | undefined) ?? "split",
       })
   );
