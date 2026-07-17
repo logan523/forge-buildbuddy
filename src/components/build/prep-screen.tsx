@@ -1,10 +1,11 @@
 "use client";
 
 import type { BuildPlan, Part } from "@/lib/types";
-import { estimateBom, formatUsdRange, type CartStrategy } from "@/lib/cart";
+import { estimateBom, type CartStrategy } from "@/lib/cart";
 import { filterStepsForMode, modeLabel, type BuildMode } from "@/lib/modes";
 import { presentErc } from "@/lib/electrical/present";
-import { PartRow, SafetyPanel, partIcon, planNeedsFirmwareHelp } from "@/components/build-ui";
+import { SafetyPanel, partIcon, planNeedsFirmwareHelp } from "@/components/build-ui";
+import { ShoppingList } from "@/components/build/parts/shopping-list";
 import { PartsIdentifyWalk } from "@/components/build/parts-identify-walk";
 import { PowerCheck } from "@/components/build/power-check";
 import { ProductHero } from "@/components/product-hero";
@@ -149,57 +150,34 @@ export function PrepScreen({
             </label>
           )}
 
-          {bom.pricedCount > 0 && (
-            <div className="mb-6 p-5 rounded-xl bg-surface border border-border-subtle shadow-card">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">Parts cart estimate</p>
-                  <p className="text-2xl font-bold text-text font-serif tabular-nums">
-                    {formatUsdRange(bom.totalMin, bom.totalMax)}
-                  </p>
-                  <p className="text-xs text-text-muted mt-1">
-                    {bom.pricedCount}/{plan.parts.length} parts priced · catalog estimates
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <div className="flex gap-1 p-0.5 rounded-lg bg-surface-overlay">
-                    {([
-                      ["split", "Smart"],
-                      ["fast", "Amazon"],
-                      ["electronics", "LCSC"],
-                    ] as const).map(([id, label]) => (
-                      <button
-                        key={id}
-                        onClick={() => onSetCartStrategy(id)}
-                        className={`text-[11px] px-2.5 py-1 rounded-md cursor-pointer ${
-                          cartStrategy === id ? "bg-accent text-white font-semibold" : "text-text-muted"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+          <div className="mb-8">
+            <div className="flex items-center justify-end mb-3">
+              <div className="flex gap-1 p-0.5 rounded-lg bg-surface-overlay">
+                {([
+                  ["split", "Smart"],
+                  ["fast", "Amazon"],
+                  ["electronics", "LCSC"],
+                ] as const).map(([id, label]) => (
                   <button
-                    onClick={() => onBuyAll(plan.parts)}
-                    className="text-sm px-4 py-2 rounded-xl bg-accent text-white font-semibold hover:bg-accent-soft btn-spring cursor-pointer"
+                    key={id}
+                    onClick={() => onSetCartStrategy(id)}
+                    className={`text-[11px] px-2.5 py-1 rounded-md cursor-pointer ${
+                      cartStrategy === id ? "bg-accent text-white font-semibold" : "text-text-muted"
+                    }`}
                   >
-                    Buy all parts →
+                    {label}
                   </button>
-                </div>
+                ))}
               </div>
             </div>
-          )}
-
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-text uppercase tracking-wider">Parts ({plan.parts.length})</h3>
-            </div>
             <PartsIdentifyWalk parts={plan.parts} />
-            <div className="space-y-2">
-              {plan.parts.map((p) => (
-                <PartRow key={p.id} part={p} showImage onTooltip={onSetTooltip} strategy={cartStrategy} />
-              ))}
-            </div>
+            <ShoppingList
+              parts={plan.parts}
+              strategy={cartStrategy}
+              estimate={bom}
+              onTooltip={onSetTooltip}
+              onBuyAll={onBuyAll}
+            />
           </div>
 
           {plan.tools?.length > 0 && (

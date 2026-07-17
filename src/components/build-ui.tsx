@@ -3,12 +3,6 @@
 import { useState, type ReactNode } from "react";
 import type { BuildPlan, BuildStep, MatchConfidence, Part, SafetyFinding } from "@/lib/types";
 import {
-  bestLink,
-  formatUsdRange,
-  resolveOffers,
-  type CartStrategy,
-} from "@/lib/cart";
-import {
   diagnose,
   likelihoodLabel,
   relevantSymptoms,
@@ -26,16 +20,8 @@ import { DrawerShell } from "@/components/ui/drawer-shell";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { ComputerReady } from "@/components/flash/computer-ready";
-
-const VENDOR_LABEL: Record<string, string> = {
-  amazon: "Amazon", aliexpress: "AliExpress", digikey: "DigiKey", mouser: "Mouser", lcsc: "LCSC", other: "Buy",
-};
-
-// Beginner glossary lives in src/lib/glossary.ts (one authority; step text
-// popovers and part-row tooltips share it).
-import { glossaryTip } from "@/lib/glossary";
-import { buyGuidance } from "@/lib/part-identity";
 import { IsolationWalkPanel } from "@/components/build/isolation-walk-panel";
+import { PartCard, type PartCardProps } from "@/components/build/parts/part-card";
 
 // ── Part category icons ──
 // Same 12-branch text guesser as before; each branch now returns a lucide
@@ -88,132 +74,20 @@ export function confidenceBadge(part: Part): { label: string; className: string 
   return { label: tier.label, className: TONE_CLASS[tier.tone] };
 }
 
-export function PartRow({
-  part,
-  showImage,
-  compact,
-  onTooltip,
-  strategy = "split",
-}: {
-  part: Part;
-  showImage?: boolean;
-  compact?: boolean;
-  onTooltip?: (t: string | null) => void;
-  strategy?: CartStrategy;
-}) {
-  const link = bestLink(part, strategy);
-  const alts = resolveOffers(part).filter((o) => o.vendor !== link.vendor).slice(0, 3);
-  const tip = glossaryTip(`${part.name} ${part.specification}`);
-  const badge = !compact ? confidenceBadge(part) : null;
-  const guidance = !compact ? buyGuidance(part) : null;
-  const hasGuidance = !!(guidance && (guidance.lookFor || guidance.priceBand || guidance.avoid));
-  const footgunTip = part.footguns?.[0];
-  const priceLabel = formatUsdRange(
-    part.unitPriceMin ?? link.priceUsd,
-    part.unitPriceMax ?? link.priceMaxUsd ?? link.priceUsd
-  );
-  const linePrice =
-    part.unitPriceMin != null
-      ? formatUsdRange(
-          part.unitPriceMin * (part.quantity || 1),
-          (part.unitPriceMax ?? part.unitPriceMin) * (part.quantity || 1)
-        )
-      : null;
-
-  return (
-    <div className={`p-3 rounded-lg bg-surface border border-border-subtle ${compact ? "" : ""}`}>
-      <div className="flex items-center gap-3">
-        {showImage && (
-          <span className="text-xl shrink-0" title={`${part.name}: ${part.specification}`}>
-            {partIcon(part.name, part.specification)}
-          </span>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-sm text-text font-medium truncate">{part.name}</span>
-            {badge && (
-              <span className={`text-2xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border ${badge.className}`}>
-                {badge.label}
-              </span>
-            )}
-            {part.priceSource === "live" && (
-              <span className="text-2xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded border bg-success-soft text-success border-success/20">
-                Live $
-              </span>
-            )}
-            {tip && onTooltip && (
-              <button onClick={(e) => { e.stopPropagation(); onTooltip(tip); }}
-                className="shrink-0 w-4 h-4 rounded-full bg-accent/10 text-accent text-2xs font-bold flex items-center justify-center cursor-help hover:bg-accent/20 transition-colors"
-                title="What's this?">?</button>
-            )}
-            {footgunTip && onTooltip && (
-              <button onClick={(e) => { e.stopPropagation(); onTooltip(footgunTip); }}
-                className="shrink-0 text-2xs text-warning cursor-help hover:underline"
-                title={footgunTip}>gotcha</button>
-            )}
-          </div>
-          <div className="text-xs text-text-muted truncate">{part.specification}</div>
-        </div>
-        <div className="text-right shrink-0">
-          {linePrice && linePrice !== "—" && (
-            <div className="text-xs font-mono font-semibold text-text tabular-nums">{linePrice}</div>
-          )}
-          <div className="text-2xs text-text-muted">
-            ×{part.quantity}
-            {priceLabel !== "—" ? ` · ${priceLabel}/ea` : ""}
-          </div>
-        </div>
-        <a href={link.url} target="_blank" rel="noopener noreferrer"
-          className="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-accent text-white font-medium hover:bg-accent-soft transition-all no-underline">
-          {VENDOR_LABEL[link.vendor] || "Buy"} →
-        </a>
-      </div>
-      {!compact && alts.length > 0 && (
-        <div className="mt-2 ml-9 flex flex-wrap items-center gap-1.5">
-          <span className="text-2xs text-text-muted">Also:</span>
-          {alts.map((o) => (
-            <a
-              key={`${o.vendor}-${o.url}`}
-              href={o.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-2xs px-2 py-0.5 rounded-md border border-border-subtle text-text-secondary hover:border-accent/40 hover:text-accent no-underline transition-colors"
-            >
-              {VENDOR_LABEL[o.vendor] || o.label}
-              {o.kind === "product" ? " ★" : ""}
-            </a>
-          ))}
-        </div>
-      )}
-      {hasGuidance && (
-        <details className="mt-2 ml-9 group">
-          <summary className="text-[11px] font-medium text-accent cursor-pointer min-h-[22px]">
-            Know it when you see it
-          </summary>
-          <div className="mt-1 space-y-1 text-[11px] text-text-secondary">
-            {guidance!.lookFor && (
-              <p>
-                <span className="text-text-muted">Look for:</span>{" "}
-                <span className="text-text font-medium">{guidance!.lookFor}</span>
-              </p>
-            )}
-            {guidance!.priceBand && (
-              <p>
-                <span className="text-text-muted">Expect:</span>{" "}
-                <span className="text-text font-medium">{guidance!.priceBand}</span>
-                <span className="text-text-muted"> — much cheaper usually means the wrong thing</span>
-              </p>
-            )}
-            {guidance!.avoid && (
-              <p className="text-warning">
-                <span className="font-medium">Avoid:</span> {guidance!.avoid}
-              </p>
-            )}
-          </div>
-        </details>
-      )}
-    </div>
-  );
+/**
+ * Thin compatibility wrapper — B5 moved the real implementation to PartCard
+ * (components/build/parts/part-card.tsx), which the main shopping list
+ * (ShoppingList, prep-screen.tsx) renders directly. PartRow stays exported
+ * here unchanged so the one remaining external caller — build-drawers.tsx's
+ * compact "Parts" quick-reference drawer — doesn't need to change.
+ *
+ * This creates a two-file import cycle with part-card.tsx (which imports
+ * confidenceBadge/partIcon from here). Safe: both directions only reference
+ * the other module's hoisted `function` exports from inside a component
+ * body at render time, never at module-evaluation time.
+ */
+export function PartRow(props: PartCardProps) {
+  return <PartCard {...props} />;
 }
 
 // Mirrors detectBoard()'s id assignment in firmware.ts (not exported there —
