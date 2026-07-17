@@ -284,7 +284,10 @@ export function ActionChecklist({
           const isChecked = checked.has(a.n);
           return (
             <li key={a.n} data-unchecked={!isChecked}>
-              <label className="flex gap-3 items-start p-1.5 -m-1.5 rounded-lg hover:bg-surface-overlay/60 cursor-pointer">
+              {/* 44px floor: the whole row is the tap target, not just the
+                  ~20px visual checkbox — label wraps input, -mx cancels the
+                  horizontal padding so text still lines up with siblings. */}
+              <label className="flex gap-3 items-start min-h-11 px-2.5 py-2 -mx-2.5 rounded-lg hover:bg-surface-overlay/60 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={isChecked}

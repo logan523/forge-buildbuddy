@@ -89,6 +89,7 @@ export function StageCanvas({
   className = "",
   onTierChange,
   onPointerMissed,
+  minHeight = 320,
 }: {
   children: ReactNode;
   className?: string;
@@ -96,6 +97,9 @@ export function StageCanvas({
   onTierChange?: (tier: QualityTier) => void;
   /** Click on empty space (deselect affordance). */
   onPointerMissed?: () => void;
+  /** Zero-height-mount guard floor; embedders with a deterministic compact
+      height (mobile peek strip) pass a lower value. */
+  minHeight?: number;
 }) {
   const [available] = useState(webglAvailable);
   const [contextLost, setContextLost] = useState(false);
@@ -149,10 +153,12 @@ export function StageCanvas({
   return (
     // Inline size floor: if an ancestor chain ever resolves to 0 height at
     // mount, minHeight keeps the measurement nonzero so R3F's loop always
-    // starts; ResizeObserver then tracks the real layout.
+    // starts; ResizeObserver then tracks the real layout. Embedders with a
+    // deterministic small height (mobile peek strip) pass a lower floor —
+    // the guard must never OVERRIDE an explicitly requested compact size.
     <div
       className={`relative ${className}`}
-      style={{ width: "100%", height: "100%", minHeight: 320 }}
+      style={{ width: "100%", height: "100%", minHeight }}
     >
       <Canvas
         // TODO(S4-perf): return to frameloop="demand". The invalidate bus +

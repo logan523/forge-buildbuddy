@@ -101,6 +101,7 @@ export function ProductHero({
             stepIndex={stepIndex}
             height={compact ? 560 : 920}
             expandable
+            variant="step"
             onPlanPatch={(patch) => {
               if (patch.beautyMesh) onBeauty(patch.beautyMesh);
               else onPlanPatch?.(patch);

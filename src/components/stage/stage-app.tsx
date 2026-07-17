@@ -311,12 +311,19 @@ export function StageApp({
   };
 
   const shellStyle: CSSProperties = expanded
-    ? { position: "fixed", inset: 0, zIndex: 50, background: "#0b0e13" }
+    ? { position: "fixed", inset: 0, zIndex: 50, background: "var(--color-console-bg)" }
     : { height, ...style };
 
   return (
     <div className={`relative ${className}`} style={shellStyle}>
-      <StageCanvas className="h-full w-full" onTierChange={setTier} onPointerMissed={handleMiss}>
+      <StageCanvas
+        className="h-full w-full"
+        onTierChange={setTier}
+        onPointerMissed={handleMiss}
+        // The zero-height guard must not override an explicitly compact embed
+        // (mobile peek strip passes height < 320).
+        minHeight={expanded ? 320 : Math.min(320, height)}
+      >
         <EnvStudio />
         <PartsLayer
           nodes={displayNodes}

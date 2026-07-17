@@ -156,16 +156,23 @@ export function GuidedSteps({
         </button>
       </div>
       <div className="flex gap-1">
+        {/* 44px floor: the button is the full hit area; the thin bar inside
+            is purely visual (aria-hidden — the button already has the label). */}
         {micro.map((m, i) => (
           <button
             key={m.id}
             type="button"
             aria-label={`Wire ${i + 1}`}
             onClick={() => setCurrent(i)}
-            className={`h-1.5 flex-1 rounded-full ${
-              checked.has(m.id) ? "bg-success" : i === current ? "bg-accent" : "bg-border"
-            }`}
-          />
+            className="flex-1 min-w-11 min-h-11 flex items-center justify-center cursor-pointer"
+          >
+            <span
+              aria-hidden
+              className={`h-1.5 w-full rounded-full ${
+                checked.has(m.id) ? "bg-success" : i === current ? "bg-accent" : "bg-border"
+              }`}
+            />
+          </button>
         ))}
       </div>
 
@@ -209,7 +216,7 @@ export function GuidedSteps({
 
         {/* "Is this the part I'm holding?" — wire + both parts, on demand */}
         <details className="group">
-          <summary className="text-xs font-medium text-accent cursor-pointer py-1 min-h-[24px]">
+          <summary className="text-xs font-medium text-accent cursor-pointer py-1 min-h-11">
             What am I connecting? See both parts
           </summary>
           <div className="mt-2">

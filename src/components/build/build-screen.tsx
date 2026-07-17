@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import type { BuildPlan, BuildStep, Part, MicroStep } from "@/lib/types";
 import type { FirmwarePackage } from "@/lib/firmware";
 import type { ProductVisual } from "@/lib/product-visual";
-import { InstructionCard } from "@/components/instruction-card";
+import { InstructionCard, TIME_BY_KIND } from "@/components/instruction-card";
 import { stepKind, kindLabel } from "@/lib/steps/classify";
+import { resolveStepMedia } from "@/lib/step-media";
 import { StepHero } from "./step-hero";
+import { StepMediaExtras } from "./step-media-extras";
 import { NextBuildDoorway } from "./next-build-doorway";
 import { HandsFreeMode } from "./hands-free";
 import { AskAboutStep } from "./ask-step";
@@ -79,8 +81,10 @@ function ToolbarOverflow({
     };
   }, [open]);
 
+  // 44px floor: these were explicit-but-undersized (36/40px) — same bug class
+  // as the trigger button below.
   const item =
-    "w-full text-left text-sm px-3 py-2 min-h-[40px] rounded-lg text-text-secondary hover:bg-surface-overlay cursor-pointer";
+    "w-full text-left text-sm px-3 py-2 min-h-11 rounded-lg text-text-secondary hover:bg-surface-overlay cursor-pointer";
   const act = (fn: () => void) => () => {
     setOpen(false);
     fn();
@@ -92,7 +96,7 @@ function ToolbarOverflow({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label="More options"
-        className={`text-sm px-2.5 py-1.5 min-h-[36px] min-w-[36px] rounded-lg cursor-pointer ${open ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
+        className={`text-sm px-2.5 py-1.5 min-h-11 min-w-11 rounded-lg cursor-pointer ${open ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
       >
         ⋯
       </button>
@@ -191,7 +195,7 @@ export function BuildScreen({
         <div className="flex items-center gap-1 lg:gap-2 shrink-0">
           <button
             onClick={() => (activeDrawer === "parts" ? onCloseDrawer() : onOpenDrawer("parts"))}
-            className={`text-xs px-2.5 py-1.5 min-h-[36px] rounded-lg cursor-pointer ${activeDrawer === "parts" ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
+            className={`text-xs px-2.5 py-1.5 min-h-11 rounded-lg cursor-pointer ${activeDrawer === "parts" ? "bg-accent text-white" : "text-text-muted hover:text-text"}`}
           >
             Parts
           </button>
@@ -237,14 +241,50 @@ export function BuildScreen({
         </div>
 
         <div className="w-full lg:w-1/2 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto p-6 lg:p-10">
+          {/* Persistent step sub-header (Slice A1): step context never
+              scrolls away. Was InstructionCard's own header block — now
+              rendered once, above the scroll area, always visible. */}
+          {s && (
+            <div className="shrink-0 border-b border-border-subtle px-6 lg:px-10 pt-4 pb-3">
+              <div className="max-w-md mx-auto">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+                  <span>
+                    Step {stepIndex + 1} of {steps.length}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-surface-overlay">
+                    {kindLabel(stepKind(s))}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-surface-overlay">
+                    {TIME_BY_KIND[stepKind(s)]}
+                  </span>
+                </p>
+                <h2
+                  className="text-xl font-bold text-text font-serif truncate mt-1"
+                  title={s.title}
+                >
+                  {s.title}
+                </h2>
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto min-h-0 p-6 lg:p-10">
             <div className="max-w-md mx-auto">
+              {/* Mobile only: the Stage column is a peek strip on <lg, so the
+                  bench photo + technique reference live here instead. */}
+              {s && (
+                <div className="lg:hidden flex flex-col gap-3 mb-4">
+                  <StepMediaExtras
+                    planId={plan.id}
+                    stepNumber={s.stepNumber}
+                    media={resolveStepMedia(s)}
+                  />
+                </div>
+              )}
+
               {s && (
                 <InstructionCard
                   step={s}
-                  stepIndex={stepIndex}
-                  totalSteps={steps.length}
-                  kindLabel={kindLabel(stepKind(s))}
                   detailLevel={detailLevel}
                   planId={plan.id}
                   plan={plan}
@@ -270,30 +310,6 @@ export function BuildScreen({
                   </button>
                 </div>
               )}
-
-              <button
-                onClick={() => onToggleComplete(s?.stepNumber || 0)}
-                className={`w-full py-3 rounded-xl font-medium text-sm cursor-pointer mb-2 ${
-                  completed.has(s?.stepNumber || 0)
-                    ? "bg-success/20 text-success border border-success/20"
-                    : "bg-accent text-white btn-spring"
-                }`}
-              >
-                {completed.has(s?.stepNumber || 0) ? "✓ Complete" : "Mark complete"}
-              </button>
-              <button
-                onClick={() => onOpenDrawer("unstick")}
-                className="w-full py-3 rounded-xl font-medium text-sm cursor-pointer mb-2 border border-warning/30 bg-warning-soft/40 text-warning"
-              >
-                I&apos;m stuck — help me debug
-              </button>
-              <button
-                onClick={() => setHandsFree(true)}
-                className="w-full py-3 rounded-xl font-medium text-sm cursor-pointer mb-2 border border-border-subtle bg-surface text-text-secondary hover:bg-surface-overlay"
-                title="Big text + read-aloud — for when your hands are full of flux"
-              >
-                🎙 Hands-free mode
-              </button>
 
               {s && (
                 <AskAboutStep
@@ -328,6 +344,38 @@ export function BuildScreen({
                   <NextBuildDoorway finished={plan} />
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Primary actions: shrink-0 below the scroll area so Mark complete /
+              stuck / hands-free are always reachable without scrolling — same
+              buttons, same behavior, just pulled out of the scroll flow. A
+              later slice redesigns these; for now they only move. */}
+          <div className="shrink-0 border-t border-border-subtle px-6 lg:px-10 py-3">
+            <div className="max-w-md mx-auto space-y-2">
+              <button
+                onClick={() => onToggleComplete(s?.stepNumber || 0)}
+                className={`w-full py-3 rounded-xl font-medium text-sm cursor-pointer ${
+                  completed.has(s?.stepNumber || 0)
+                    ? "bg-success/20 text-success border border-success/20"
+                    : "bg-accent text-white btn-spring"
+                }`}
+              >
+                {completed.has(s?.stepNumber || 0) ? "✓ Complete" : "Mark complete"}
+              </button>
+              <button
+                onClick={() => onOpenDrawer("unstick")}
+                className="w-full py-3 rounded-xl font-medium text-sm cursor-pointer border border-warning/30 bg-warning-soft/40 text-warning"
+              >
+                I&apos;m stuck — help me debug
+              </button>
+              <button
+                onClick={() => setHandsFree(true)}
+                className="w-full py-3 rounded-xl font-medium text-sm cursor-pointer border border-border-subtle bg-surface text-text-secondary hover:bg-surface-overlay"
+                title="Big text + read-aloud — for when your hands are full of flux"
+              >
+                🎙 Hands-free mode
+              </button>
             </div>
           </div>
 

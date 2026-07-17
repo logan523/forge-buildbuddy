@@ -6,14 +6,19 @@
  * bench photo when one exists (E1: public/build-photos/<planId>/step-<n>.jpg),
  * and the hand-drawn technique inset. Browser Back closes any overlay before
  * leaving the build (F4) via a pushed history entry.
+ *
+ * Slice A1 (workbench foundations): on <lg this column shrinks to a peek
+ * strip — the PhotoCard + Technique accordion (StepMediaExtras) move inline
+ * into BuildScreen's instruction column instead, so they stay reachable
+ * without opening the expanded 3D view. Desktop (lg+) is unchanged.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { resolveStepMedia } from "@/lib/step-media";
 import { StageApp } from "@/components/stage/stage-app";
+import { StepMediaExtras } from "./step-media-extras";
 import { useOverlay } from "./use-overlay";
-import { useProbedImage } from "./use-probed-image";
 
 function useStageHeight(): number {
   const [h, setH] = useState(420);
@@ -21,66 +26,16 @@ function useStageHeight(): number {
     const update = () => {
       const vh = window.innerHeight;
       const large = window.matchMedia("(min-width: 1024px)").matches;
-      // Phone: clamp(260px, 42vh, 420px); desktop keeps the taller stage.
-      setH(large ? 480 : Math.max(260, Math.min(420, Math.round(vh * 0.42))));
+      // Phone: a peek strip — clamp(96px, 42vh, 112px). The canvas stays
+      // mounted at a glance height; full view is one tap away via Expand.
+      // Desktop keeps the taller stage.
+      setH(large ? 480 : Math.max(96, Math.min(112, Math.round(vh * 0.42))));
     };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
   return h;
-}
-
-function PhotoCard({ planId, stepNumber }: { planId: string; stepNumber: number }) {
-  // Renders nothing until a real photo decodes — a missing file must never
-  // flash a ghost card (probe is timing-proof, see useProbedImage).
-  const [lightbox, setLightbox] = useState(false);
-  useOverlay(() => setLightbox(false), lightbox);
-  const src = `/build-photos/${planId}/step-${stepNumber}.jpg`;
-  const loaded = useProbedImage(src);
-
-  if (!loaded) return null;
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setLightbox(true)}
-        className="relative block w-full rounded-xl overflow-hidden border border-border-subtle shadow-card cursor-zoom-in"
-        aria-label={`Open bench photo for step ${stepNumber}`}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt={`Bench photo — step ${stepNumber}`}
-          className="w-full h-24 object-cover"
-        />
-        <span className="absolute left-2 bottom-1.5 text-[8px] font-bold tracking-[0.12em] text-white/90 uppercase drop-shadow">
-          Your bench · step {stepNumber}
-        </span>
-      </button>
-      {lightbox && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
-          onClick={() => setLightbox(false)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt={`Bench photo — step ${stepNumber}`}
-            className="max-w-full max-h-full rounded-xl"
-          />
-          <button
-            type="button"
-            onClick={() => setLightbox(false)}
-            className="absolute top-4 right-4 min-w-11 min-h-11 rounded-full bg-white/10 text-white text-lg border border-white/20 cursor-pointer"
-            aria-label="Close photo"
-          >
-            ×
-          </button>
-        </div>
-      )}
-    </>
-  );
 }
 
 export function StepHero({
@@ -97,7 +52,6 @@ export function StepHero({
 }) {
   const media = resolveStepMedia(step);
   const [expanded, setExpanded] = useState(false);
-  const [techniqueOpen, setTechniqueOpen] = useState(false);
   const stageHeight = useStageHeight();
   const closeExpand = useCallback(() => setExpanded(false), []);
   useOverlay(closeExpand, expanded);
@@ -108,7 +62,6 @@ export function StepHero({
     mediaKind: step.mediaKind,
     stepNumber: step.stepNumber,
   };
-  const hasTechnique = media.kind !== "generic_checklist";
 
   return (
     <div className="flex flex-col gap-3 h-full overflow-y-auto p-3">
@@ -120,10 +73,14 @@ export function StepHero({
           <button
             type="button"
             onClick={() => setExpanded(true)}
-            className="text-[10px] px-2.5 py-1.5 min-h-[28px] rounded-md border border-border-subtle text-accent hover:bg-accent/10 cursor-pointer font-medium"
+            // Mobile: the Stage collapses to a peek strip, so this is the ONLY
+            // way to reach the full 3D view — a prominent 44px target. Desktop
+            // restores the original small chip via the lg: overrides below.
+            className="text-xs lg:text-[10px] px-3 lg:px-2.5 py-2.5 lg:py-1.5 min-h-11 lg:min-h-[28px] rounded-md border border-accent/40 lg:border-border-subtle bg-accent/10 lg:bg-transparent text-accent hover:bg-accent/10 cursor-pointer font-medium"
             aria-expanded={expanded}
           >
-            ⤢ Expand
+            <span className="lg:hidden">⤢ View in 3D</span>
+            <span className="hidden lg:inline">⤢ Expand</span>
           </button>
         </div>
         {/* ONE canvas: expanding swaps classNames inside ProductAssemblyApp. */}
@@ -149,41 +106,11 @@ export function StepHero({
         )}
       </div>
 
-      <div className="shrink-0">
-        <PhotoCard planId={plan.id} stepNumber={step.stepNumber} />
+      {/* Desktop only — the mobile column mounts the same StepMediaExtras
+          inline in BuildScreen's instruction pane (Slice A1). */}
+      <div className="hidden lg:flex flex-col gap-3">
+        <StepMediaExtras planId={plan.id} stepNumber={step.stepNumber} media={media} />
       </div>
-
-      {hasTechnique && (
-        <div className="rounded-xl border border-border-subtle bg-surface shadow-card overflow-hidden shrink-0">
-          <button
-            type="button"
-            aria-expanded={techniqueOpen}
-            onClick={() => setTechniqueOpen((v) => !v)}
-            className="w-full px-3 py-2 min-h-11 bg-surface-raised border-b border-border-subtle flex items-center justify-between gap-2 cursor-pointer text-left hover:bg-surface-hover"
-          >
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                Technique
-              </p>
-              <p className="text-sm font-semibold text-text truncate">{media.title}</p>
-            </div>
-            <span
-              className={`text-text-muted shrink-0 transition-transform ${techniqueOpen ? "rotate-180" : ""}`}
-              aria-hidden
-            >
-              ▾
-            </span>
-          </button>
-          <p className="px-3 py-2.5 text-sm text-text leading-snug bg-surface">{media.caption}</p>
-          {techniqueOpen && (
-            <div
-              className="w-full bg-white border-t border-border-subtle [&_svg]:block [&_svg]:w-full [&_svg]:h-auto"
-              style={{ minHeight: 160 }}
-              dangerouslySetInnerHTML={{ __html: media.svg }}
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 }
