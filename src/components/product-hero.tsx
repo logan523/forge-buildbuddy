@@ -59,11 +59,8 @@ export function ProductHero({
             <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
               {stepIndex === "prep" ? "What you’re building" : "Assembly"}
             </p>
-            {form?.templateId && (
-              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-surface-overlay text-text-muted">
-                {form.templateId}
-              </span>
-            )}
+            {/* No raw templateId chip: "sat_clock" is an internal token — the
+                caption below already says it in English. */}
           </div>
           {!compact && (
             <h3 className="text-base font-semibold text-text font-serif mt-0.5 truncate">

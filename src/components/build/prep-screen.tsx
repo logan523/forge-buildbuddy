@@ -84,6 +84,8 @@ export function PrepScreen({
           <h2 className="text-2xl font-bold text-text font-serif mb-2">Before you begin</h2>
           <p className="text-text-secondary mb-4">Take 5 minutes to prepare. Everything will go smoother.</p>
 
+          <JobHeader n={1} title="Know what you're building" hint="What it is, and what to respect before power-on." />
+
           <ProductHero
             plan={plan}
             visual={productVisual}
@@ -101,27 +103,34 @@ export function PrepScreen({
             </p>
           )}
 
-          {/* Build mode */}
-          <div className="mb-6 flex gap-2 p-1 rounded-xl bg-surface-overlay w-fit">
-            {(["quick", "full"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => onSetBuildMode(m)}
-                className={`text-xs px-3 py-1.5 rounded-lg cursor-pointer ${
-                  buildMode === m ? "bg-accent text-white font-semibold" : "text-text-muted"
-                }`}
-              >
-                {modeLabel(m)}
-                {m === "quick" ? ` (${filterStepsForMode(plan, "quick").length} steps)` : ` (${plan.steps.length} steps)`}
-              </button>
-            ))}
-          </div>
-
-          {plan.electrical && <ErcPanel electrical={plan.electrical} />}
+          {/* Expert panels (ERC detail, power estimate) collapse behind a
+              plain-language one-liner so a beginner meets a summary, not a
+              netlist. Safety stays VISIBLE below — it never collapses. */}
           {plan.electrical && (
-            <div className="mb-6">
-              <PowerCheck plan={plan} />
-            </div>
+            <details className="mb-6 rounded-xl border border-border-subtle bg-surface shadow-card">
+              <summary className="p-4 cursor-pointer flex items-center justify-between gap-3 min-h-11">
+                <span className="text-sm text-text">
+                  <span className="font-semibold">Wiring check:</span>{" "}
+                  {plan.electrical.erc.clean
+                    ? "ready — no blocking problems found."
+                    : "problems to fix before first power-on."}
+                  <span className="text-text-muted"> Power estimate inside.</span>
+                </span>
+                <span
+                  className={`text-[10px] font-bold uppercase px-2 py-1 rounded border shrink-0 ${
+                    plan.electrical.erc.clean
+                      ? "bg-success-soft text-success border-success/20"
+                      : "bg-danger-soft text-danger border-danger/20"
+                  }`}
+                >
+                  {plan.electrical.erc.clean ? "Ready" : "Fix first"}
+                </span>
+              </summary>
+              <div className="px-4 pb-4">
+                <ErcPanel electrical={plan.electrical} />
+                <PowerCheck plan={plan} />
+              </div>
+            </details>
           )}
 
           {plan.safetyReport && <SafetyPanel report={plan.safetyReport} />}
@@ -150,6 +159,7 @@ export function PrepScreen({
             </label>
           )}
 
+          <JobHeader n={2} title="Get your parts" hint="Buy with confidence, then confirm what arrives." />
           <div className="mb-8">
             <div className="flex items-center justify-end mb-3">
               <div className="flex gap-1 p-0.5 rounded-lg bg-surface-overlay">
@@ -178,6 +188,37 @@ export function PrepScreen({
               onTooltip={onSetTooltip}
               onBuyAll={onBuyAll}
             />
+            <PartsIdentifyWalk parts={plan.parts} context="confirm" />
+          </div>
+
+          <JobHeader n={3} title="Get your bench ready" hint="Tools out, computer set up, pick how deep you go today." />
+
+          {/* Mode fork — explained at the point of choice, not a bare count. */}
+          <div className="mb-6 p-4 rounded-xl border border-border-subtle bg-surface">
+            <p className="text-xs font-semibold text-text uppercase tracking-wider mb-2">How far today?</p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {(["quick", "full"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => onSetBuildMode(m)}
+                  aria-pressed={buildMode === m}
+                  className={`text-left p-3 rounded-lg border cursor-pointer min-h-11 ${
+                    buildMode === m
+                      ? "border-accent bg-accent/5"
+                      : "border-border-subtle hover:bg-surface-overlay"
+                  }`}
+                >
+                  <span className="text-sm font-semibold text-text block">
+                    {modeLabel(m)} ({m === "quick" ? filterStepsForMode(plan, "quick").length : plan.steps.length} steps)
+                  </span>
+                  <span className="text-xs text-text-secondary">
+                    {m === "quick"
+                      ? "Wire it up and confirm it powers on — the full finish can wait."
+                      : "The complete finished version, enclosure and all."}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {plan.tools?.length > 0 && (
@@ -242,6 +283,22 @@ export function PrepScreen({
           <p className="text-white/40 mt-1 text-[10px]">Tap to dismiss</p>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Numbered job header — prep reads as three sequential jobs, not ten
+    equal-weight cards. */
+function JobHeader({ n, title, hint }: { n: number; title: string; hint: string }) {
+  return (
+    <div className="mt-2 mb-4 flex items-baseline gap-3">
+      <span className="w-7 h-7 shrink-0 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center">
+        {n}
+      </span>
+      <div>
+        <h3 className="text-lg font-bold text-text font-serif leading-tight">{title}</h3>
+        <p className="text-xs text-text-muted">{hint}</p>
+      </div>
     </div>
   );
 }

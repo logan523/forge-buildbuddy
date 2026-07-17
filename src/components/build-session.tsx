@@ -20,7 +20,7 @@ import { generateFirmware, isSoftwareStep } from "@/lib/firmware";
 import { generatePcbPackage } from "@/lib/pcb";
 import { generateEnclosure } from "@/lib/enclosure";
 import { applyTrustPipeline } from "@/lib/trust";
-import { savePlan, touchPlan } from "@/lib/storage";
+import { onStorageWarning, savePlan, touchPlan } from "@/lib/storage";
 import { shareUrlForPlan } from "@/lib/share";
 import { filterStepsForMode } from "@/lib/modes";
 import { useProductVisual } from "@/components/product-hero";
@@ -42,6 +42,12 @@ export interface BuildSessionProps {
 export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSessionProps) {
   const router = useRouter();
   const [planPatch, setPlanPatch] = useState<Partial<BuildPlan>>({});
+  // B6: storage quota failures surface instead of silently losing progress.
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
+  useEffect(() => {
+    onStorageWarning((context) => setStorageWarning(context));
+    return () => onStorageWarning(null);
+  }, []);
   const plan = useMemo(
     () => applyTrustPipeline({ ...rawPlan, ...planPatch }),
     [rawPlan, planPatch]
@@ -190,6 +196,21 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
   return (
     <>
       {screen}
+      {storageWarning && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] p-3 rounded-xl border border-warning/40 bg-warning-soft shadow-raised flex items-start gap-2">
+          <p className="text-sm text-text flex-1">
+            Your browser storage is full — {storageWarning} may not stick. Clear old builds
+            from the homepage, or export a share link so nothing is lost.
+          </p>
+          <button
+            onClick={() => setStorageWarning(null)}
+            aria-label="Dismiss"
+            className="min-h-11 min-w-11 -m-1 flex items-center justify-center text-text-muted hover:text-text cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {buyAllQueue && buyAllQueue.length > 0 && (
         <BuyAllPanel
           parts={buyAllQueue}

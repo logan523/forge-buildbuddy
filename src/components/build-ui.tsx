@@ -419,6 +419,24 @@ export function UnstickDrawer({
   );
 }
 
+/** Hazard tags are internal enum tokens ([LIPO], [ESD_SENSITIVE]) — never
+    show them raw to a beginner. Unknown tags fall back to title case. */
+const HAZARD_TAG_LABEL: Record<string, string> = {
+  ESD_SENSITIVE: "Static-sensitive parts",
+  LIPO: "Lithium battery",
+  MAINS: "Wall-outlet voltage",
+  SOLDERING: "Soldering involved",
+  HEAT: "Gets hot",
+  HIGH_CURRENT: "High current",
+  MOVING: "Moving parts",
+};
+function hazardTagLabel(tag: string): string {
+  return (
+    HAZARD_TAG_LABEL[tag] ??
+    tag.toLowerCase().replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+  );
+}
+
 export function SafetyPanel({ report }: { report: NonNullable<BuildPlan["safetyReport"]> }) {
   const critical = report.findings.filter((f) => f.severity === "critical");
   const warnings = report.findings.filter((f) => f.severity === "warning");
@@ -437,8 +455,8 @@ export function SafetyPanel({ report }: { report: NonNullable<BuildPlan["safetyR
       {report.hazardTags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {report.hazardTags.map((tag) => (
-            <span key={tag} className="text-2xs font-mono font-semibold px-2 py-0.5 rounded bg-surface-overlay border border-border-subtle text-text-secondary">
-              [{tag}]
+            <span key={tag} className="text-2xs font-semibold px-2 py-0.5 rounded bg-surface-overlay border border-border-subtle text-text-secondary">
+              {hazardTagLabel(tag)}
             </span>
           ))}
         </div>

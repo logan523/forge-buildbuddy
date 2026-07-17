@@ -28,6 +28,22 @@ export function loadAllPlans(): Record<string, BuildPlan> {
   }
 }
 
+/** Quota failures were silently swallowed (a builder's progress could stop
+    saving with zero signal). Writes stay throw-free; interested UI subscribes
+    here to warn the user instead. */
+type StorageWarningCb = (context: string) => void;
+let storageWarningCb: StorageWarningCb | null = null;
+export function onStorageWarning(cb: StorageWarningCb | null): void {
+  storageWarningCb = cb;
+}
+function warnStorage(context: string): void {
+  try {
+    storageWarningCb?.(context);
+  } catch {
+    /* a warning must never break a write path */
+  }
+}
+
 export function savePlan(plan: BuildPlan): void {
   if (!browser()) return;
   try {
@@ -37,7 +53,7 @@ export function savePlan(plan: BuildPlan): void {
     plans[plan.id] = stripDerived(plan);
     localStorage.setItem(PLANS_KEY, JSON.stringify(plans));
   } catch {
-    /* quota */
+    warnStorage("saving your build");
   }
 }
 
