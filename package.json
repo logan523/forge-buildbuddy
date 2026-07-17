@@ -14,7 +14,8 @@
     "generate:parts": "node scripts/generate-part-glbs.mjs",
     "generate:parts:ready": "node scripts/generate-part-glbs.mjs --ready",
     "models:optimize": "node scripts/optimize-parts.mjs",
-    "models:parts": "node scripts/author-esp32c3.mjs && node scripts/author-oled096.mjs && node scripts/author-tp4056.mjs && node scripts/author-ttp223.mjs && node scripts/author-sht30.mjs && node scripts/author-cell16340.mjs && node scripts/author-solarcell.mjs && node scripts/optimize-parts.mjs"
+    "models:parts": "node scripts/author-esp32c3.mjs && node scripts/author-oled096.mjs && node scripts/author-tp4056.mjs && node scripts/author-ttp223.mjs && node scripts/author-sht30.mjs && node scripts/author-cell16340.mjs && node scripts/author-solarcell.mjs && node scripts/optimize-parts.mjs",
+    "firmware:diag": "node scripts/compile-firmware.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -22,6 +23,7 @@
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",
     "@types/three": "^0.185.0",
+    "esptool-js": "^0.6.0",
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
     "postprocessing": "^6.39.2",

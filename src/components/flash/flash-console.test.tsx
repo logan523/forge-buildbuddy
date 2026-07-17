@@ -27,8 +27,14 @@ function makeFakePort(opts: { vendorId?: number; bootLines?: string[]; selfClose
       // selfClose simulates a device that goes away on its own (unplugged);
       // otherwise the stream stays open, like a board still connected and quiet.
       // Delayed rather than synchronous so the "connected" state has a real
-      // chance to render/settle first, same as an actual unplug would.
-      if (selfClose) setTimeout(() => controller.close(), 50);
+      // chance to render/settle first, same as an actual unplug would. This
+      // timer starts ticking the instant the port is constructed — before
+      // render() even runs — racing the async connect chain; 400ms (bumped
+      // from 50ms in C2) gives that chain comfortable headroom to actually
+      // reach and be *observed* in the "connected" state under a full-suite
+      // parallel test run, not just "eventually" but within the narrow
+      // window before this fires and flips it back to disconnected.
+      if (selfClose) setTimeout(() => controller.close(), 400);
     },
   });
   const writable = new WritableStream<Uint8Array>({ write() {} });
@@ -93,7 +99,10 @@ test("connect flow: full happy path shows the board, baud, and live output", asy
   render(<FlashConsole open onClose={() => {}} />);
   await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
 
-  await waitFor(() => assert.ok(screen.getByText("ESP32 native USB")));
+  // Generous timeout: C2's FlashFirmwareSection fires a manifest fetch as
+  // soon as this view reaches "connected," adding real async work a
+  // full-suite parallel run can occasionally push past the default 1000ms.
+  await waitFor(() => assert.ok(screen.getByText("ESP32 native USB")), { timeout: 2000 });
   assert.ok(screen.getByText(/115200 baud/));
   assert.ok(screen.getByRole("button", { name: /disconnect/i }));
 
@@ -115,7 +124,7 @@ test("Disconnect is a deliberate action — no 'unplugged' note afterward", asyn
 
   render(<FlashConsole open onClose={() => {}} />);
   await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
-  await waitFor(() => assert.ok(screen.getByRole("button", { name: /disconnect/i })));
+  await waitFor(() => assert.ok(screen.getByRole("button", { name: /disconnect/i })), { timeout: 2000 });
 
   await userEvent.click(screen.getByRole("button", { name: /disconnect/i }));
   await waitFor(() => assert.ok(screen.getByRole("button", { name: /connect your board/i })));
@@ -129,7 +138,11 @@ test("the board going away on its own surfaces a gentle reconnect note", async (
 
   render(<FlashConsole open onClose={() => {}} />);
   await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
-  await waitFor(() => assert.ok(screen.getByRole("button", { name: /disconnect/i })));
+  // C2 added a manifest fetch to the "connected" render path (FlashFirmwareSection),
+  // which under a full-suite parallel run adds enough real async/scheduling
+  // pressure to occasionally miss testing-library's default 1000ms budget —
+  // same generous-timeout treatment the very next assertion already uses below.
+  await waitFor(() => assert.ok(screen.getByRole("button", { name: /disconnect/i })), { timeout: 2000 });
 
   // The fake stream closes itself right after its boot lines — same shape as
   // an unplug: the read loop ends without anyone clicking Disconnect.
