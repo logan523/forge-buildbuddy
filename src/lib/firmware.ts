@@ -26,7 +26,7 @@ export interface FirmwarePackage {
   libraries: string[];
 }
 
-type BoardFamily = "esp32c3" | "esp32" | "nano" | "pico" | "unknown";
+export type BoardFamily = "esp32c3" | "esp32" | "nano" | "pico" | "unknown";
 
 function detectBoard(parts: Part[]): { family: BoardFamily; id: string; label: string; arduinoBoard: string } {
   const ids = parts.map((p) => p.catalogId).filter(Boolean) as string[];
@@ -63,6 +63,92 @@ function detectBoard(parts: Part[]): { family: BoardFamily; id: string; label: s
     };
   }
   return { family: "unknown", id: "unknown", label: "Unknown MCU", arduinoBoard: "Select your board in the IDE" };
+}
+
+/* ── Get-your-computer-ready reference data (C4) ─────────────────────────
+ * The "what do I even install" step before any code ever gets to the board.
+ * Kept separate from generateFirmware() on purpose: this data is useful even
+ * when we have no sketches for the board (see the honest unknown-board state
+ * in build-ui.tsx), and it never changes with the plan's wiring.
+ */
+
+export interface BoardSetupDriverNote {
+  /** USB-to-serial chip name, e.g. "CH340". */
+  chip: string;
+  /** Official vendor driver download page. */
+  url: string;
+  /** One-line context for when this chip shows up. */
+  hint: string;
+}
+
+export interface BoardSetupInfo {
+  /** Arduino IDE download page — same URL for every family. */
+  ideUrl: string;
+  /** Paste into Arduino IDE → Settings → Additional boards manager URLs. null = ships built-in, nothing to add. */
+  boardManagerUrl: string | null;
+  /** What to type into Boards Manager's search box. */
+  boardPackageName: string;
+  /** The exact Tools → Board menu entry to select. */
+  boardSelectName: string;
+  /** Common USB-to-serial chips this family ships with, for when no port shows up. */
+  driverNotes: BoardSetupDriverNote[];
+}
+
+const ARDUINO_IDE_URL = "https://www.arduino.cc/en/software";
+
+// The same two chips cover the overwhelming majority of budget ESP32 /
+// Nano-clone boards — official vendor driver pages only (WCH, Silicon Labs).
+// Many boards (native-USB ESP32-C3/S3, genuine Nano, Pico) need neither on a
+// modern macOS or Windows 10/11 — that caveat is UI copy (see ComputerReady),
+// not per-chip data.
+const USB_UART_DRIVER_NOTES: BoardSetupDriverNote[] = [
+  { chip: "CH340", url: "https://www.wch-ic.com/downloads/CH341SER_ZIP.html", hint: "most common on budget boards" },
+  { chip: "CP210x", url: "https://www.silabs.com/developer-tools/usb-to-uart-bridge-vcp-drivers", hint: "common on official ESP32 dev boards" },
+];
+
+const BOARD_SETUP: Record<Exclude<BoardFamily, "unknown">, BoardSetupInfo> = {
+  esp32c3: {
+    ideUrl: ARDUINO_IDE_URL,
+    boardManagerUrl: "https://espressif.github.io/arduino-esp32/package_esp32_index.json",
+    boardPackageName: "esp32 by Espressif Systems",
+    boardSelectName: "ESP32C3 Dev Module",
+    driverNotes: USB_UART_DRIVER_NOTES,
+  },
+  esp32: {
+    ideUrl: ARDUINO_IDE_URL,
+    boardManagerUrl: "https://espressif.github.io/arduino-esp32/package_esp32_index.json",
+    boardPackageName: "esp32 by Espressif Systems",
+    boardSelectName: "ESP32 Dev Module",
+    driverNotes: USB_UART_DRIVER_NOTES,
+  },
+  nano: {
+    ideUrl: ARDUINO_IDE_URL,
+    boardManagerUrl: null,
+    boardPackageName: "Arduino AVR Boards (built-in — nothing to add)",
+    boardSelectName: "Arduino Nano",
+    driverNotes: USB_UART_DRIVER_NOTES,
+  },
+  pico: {
+    ideUrl: ARDUINO_IDE_URL,
+    boardManagerUrl:
+      "https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json",
+    boardPackageName: "Raspberry Pi Pico/RP2040 by Earle F. Philhower, III",
+    boardSelectName: "Raspberry Pi Pico",
+    driverNotes: USB_UART_DRIVER_NOTES,
+  },
+};
+
+/**
+ * "Get your computer ready" reference data for a detected board family —
+ * official vendor sources only (arduino.cc, Espressif's own package index,
+ * the community RP2040 core's own package index, WCH/Silicon Labs for
+ * USB-UART drivers). Returns null for "unknown": there's no board-support
+ * package to name when Forge couldn't identify the board — see the honest
+ * unknown-board state in build-ui.tsx, which falls back to IDE + driver
+ * info only in that case.
+ */
+export function boardSetupInfo(family: BoardFamily): BoardSetupInfo | null {
+  return family === "unknown" ? null : BOARD_SETUP[family];
 }
 
 function extractGpio(endpoint: string): number | null {

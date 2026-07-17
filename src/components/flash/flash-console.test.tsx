@@ -4,6 +4,18 @@ import assert from "node:assert/strict";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FlashConsole } from "./flash-console";
+import { MISSING_AFTER_MS } from "@/lib/serial/verify";
+import { applyTrustPipeline } from "@/lib/trust";
+import type { BuildPlan } from "@/lib/types";
+import demo from "@/data/sat-line.json";
+
+// C3: same demo fixture + applyTrustPipeline pattern every other test in this
+// codebase uses (firmware.test.ts, cart.test.ts, ...) — enrichParts (which
+// binds the catalogIds expected-devices.ts reads) runs inside the trust
+// pipeline, not on the raw JSON. Expects OLED (0x3C/0x3D) + SHT31 (0x44/0x45).
+const planWithI2c = applyTrustPipeline(demo as unknown as BuildPlan);
+
+const realDateNow = Date.now;
 
 afterEach(() => {
   cleanup();
@@ -13,6 +25,7 @@ afterEach(() => {
   } catch {
     /* ignore */
   }
+  Date.now = realDateNow;
 });
 
 /** A fake SerialPort backed by a real ReadableStream, so session.ts's actual
@@ -148,4 +161,110 @@ test("the board going away on its own surfaces a gentle reconnect note", async (
   // an unplug: the read loop ends without anyone clicking Disconnect.
   await waitFor(() => assert.ok(screen.getByText(/board disconnected/i)), { timeout: 2000 });
   assert.ok(screen.getByRole("button", { name: /connect your board/i }));
+});
+
+// --- C3: Wiring check card -------------------------------------------------
+
+test("no plan prop: connecting never shows a Wiring check card (today's mounting passes none)", async () => {
+  const { port } = makeFakePort({ bootLines: ["Found device at 0x3C"] });
+  mockSerial(async () => port);
+
+  render(<FlashConsole open onClose={() => {}} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+  await waitFor(() => assert.ok(screen.getByRole("button", { name: /disconnect/i })), { timeout: 2000 });
+
+  assert.equal(screen.queryByText(/wiring check/i), null);
+});
+
+test("plan present + connected: one waiting row per expected I2C device before anything answers", async () => {
+  const { port } = makeFakePort({ bootLines: [] });
+  mockSerial(async () => port);
+
+  render(<FlashConsole open onClose={() => {}} plan={planWithI2c} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+
+  await waitFor(() => assert.ok(screen.getByText(/wiring check/i)), { timeout: 2000 });
+  assert.ok(screen.getByText(/checking for OLED display/i));
+  assert.ok(screen.getByText(/checking for temp\/humidity sensor/i));
+});
+
+test("plan present + connected: a matching found line flips that device's row to a green verdict, others stay waiting", async () => {
+  const { port } = makeFakePort({ bootLines: ["Found device at 0x3C"] });
+  mockSerial(async () => port);
+
+  render(<FlashConsole open onClose={() => {}} plan={planWithI2c} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+
+  await waitFor(() => assert.ok(screen.getByText(/✓ OLED display answered at 0x3C/)), { timeout: 2000 });
+  assert.ok(screen.getByText(/checking for temp\/humidity sensor/i), "SHT31 hasn't answered yet, still waiting");
+});
+
+test("plan present + connected: an address nobody expects shows as an unexpected-device info row, not a failure", async () => {
+  const { port } = makeFakePort({ bootLines: ["Found device at 0x27"] });
+  mockSerial(async () => port);
+
+  render(<FlashConsole open onClose={() => {}} plan={planWithI2c} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+
+  await waitFor(() => assert.ok(screen.getByText(/unexpected device at 0x27/i)), { timeout: 2000 });
+  // Neither expected device answered, so both are still legitimately waiting — an
+  // unexpected extra device is informational, never itself a "missing" verdict.
+  assert.ok(screen.getByText(/checking for OLED display/i));
+  assert.ok(screen.getByText(/checking for temp\/humidity sensor/i));
+});
+
+test("plan present + connected: a device that never answers turns amber with a working Debug button after the verification window", async () => {
+  const { port } = makeFakePort({ bootLines: ["FORGE-DIAG v1 sda=4 scl=5"] }); // boots, but never finds anything
+  mockSerial(async () => port);
+  const hints: string[] = [];
+
+  let now = 1_700_000_000_000;
+  Date.now = () => now;
+
+  render(<FlashConsole open onClose={() => {}} plan={planWithI2c} onOpenUnstick={(hint) => hints.push(hint)} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+  await waitFor(() => assert.ok(screen.getByText(/checking for OLED display/i)), { timeout: 2000 });
+
+  // Jump the mocked wall clock past the verification window — the console's
+  // own 1s ticking interval (a real timer) is what actually re-renders with
+  // this new value, so this still needs a short real wait below.
+  now += MISSING_AFTER_MS + 1000;
+
+  await waitFor(
+    () => assert.ok(screen.getByText(/OLED display \(0x3C\) hasn't answered yet/)),
+    { timeout: 2500 }
+  );
+  assert.ok(screen.getByText(/temp\/humidity sensor \(0x44\) hasn't answered yet/));
+
+  const debugButtons = screen.getAllByRole("button", { name: /debug this/i });
+  assert.equal(debugButtons.length, 2, "both the OLED and the sensor are missing");
+
+  await userEvent.click(debugButtons[0]);
+  assert.deepEqual(hints, ["blank_display"], "OLED's Debug button must emit unstick.ts's real blank_display symptom id");
+
+  await userEvent.click(debugButtons[1]);
+  assert.deepEqual(
+    hints,
+    ["blank_display", "sensor_wrong"],
+    "the sensor's Debug button must emit unstick.ts's real sensor_wrong symptom id"
+  );
+});
+
+test("plan present + connected, but onOpenUnstick omitted: missing devices show no Debug button (nothing to call)", async () => {
+  const { port } = makeFakePort({ bootLines: [] });
+  mockSerial(async () => port);
+
+  let now = 1_700_000_000_000;
+  Date.now = () => now;
+
+  render(<FlashConsole open onClose={() => {}} plan={planWithI2c} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+  await waitFor(() => assert.ok(screen.getByText(/checking for OLED display/i)), { timeout: 2000 });
+
+  now += MISSING_AFTER_MS + 1000;
+  await waitFor(
+    () => assert.ok(screen.getByText(/OLED display \(0x3C\) hasn't answered yet/)),
+    { timeout: 2500 }
+  );
+  assert.equal(screen.queryByRole("button", { name: /debug this/i }), null);
 });

@@ -4,7 +4,7 @@ import type { BuildPlan, Part } from "@/lib/types";
 import { estimateBom, formatUsdRange, type CartStrategy } from "@/lib/cart";
 import { filterStepsForMode, modeLabel, type BuildMode } from "@/lib/modes";
 import { presentErc } from "@/lib/electrical/present";
-import { PartRow, SafetyPanel, partIcon } from "@/components/build-ui";
+import { PartRow, SafetyPanel, partIcon, planNeedsFirmwareHelp } from "@/components/build-ui";
 import { PartsIdentifyWalk } from "@/components/build/parts-identify-walk";
 import { PowerCheck } from "@/components/build/power-check";
 import { ProductHero } from "@/components/product-hero";
@@ -223,6 +223,15 @@ export function PrepScreen({
               <p className="text-xs font-semibold text-text uppercase tracking-wider mb-1">Firmware included</p>
               <p className="text-sm text-text-secondary">
                 {firmware.sketches.length} sketches for {firmware.boardLabel} · SDA={String(firmware.pinMap.PIN_SDA)} SCL={String(firmware.pinMap.PIN_SCL)}
+              </p>
+            </div>
+          )}
+          {!firmware && planNeedsFirmwareHelp(plan) && (
+            <div className="mb-8 p-4 rounded-xl border border-border-subtle bg-surface">
+              <p className="text-xs font-semibold text-text uppercase tracking-wider mb-1">Code: bring your own</p>
+              <p className="text-sm text-text-secondary">
+                We don&apos;t have code templates for this board yet — the build view includes a
+                generic computer-setup guide instead.
               </p>
             </div>
           )}

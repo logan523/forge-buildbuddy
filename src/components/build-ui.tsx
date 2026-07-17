@@ -16,6 +16,8 @@ import {
   type SymptomId,
 } from "@/lib/unstick";
 import {
+  boardSetupInfo,
+  type BoardFamily,
   type FirmwarePackage,
   type FirmwareSketch,
 } from "@/lib/firmware";
@@ -23,6 +25,7 @@ import { confidenceTier, type BadgeTone } from "@/components/ui/badge";
 import { DrawerShell } from "@/components/ui/drawer-shell";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
+import { ComputerReady } from "@/components/flash/computer-ready";
 
 const VENDOR_LABEL: Record<string, string> = {
   amazon: "Amazon", aliexpress: "AliExpress", digikey: "DigiKey", mouser: "Mouser", lcsc: "LCSC", other: "Buy",
@@ -213,6 +216,17 @@ export function PartRow({
   );
 }
 
+// Mirrors detectBoard()'s id assignment in firmware.ts (not exported there —
+// it's a private detail of generateFirmware()) so FirmwareDrawer can ask
+// boardSetupInfo() for the right family using only the boardId that's
+// already sitting on the generated FirmwarePackage.
+const BOARD_ID_TO_FAMILY: Record<string, BoardFamily> = {
+  "esp32-c3": "esp32c3",
+  "esp32-devkit": "esp32",
+  "arduino-nano": "nano",
+  "raspberry-pi-pico": "pico",
+};
+
 export function FirmwareDrawer({
   fw,
   activeId,
@@ -228,6 +242,8 @@ export function FirmwareDrawer({
   onOpenSerial: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const family = BOARD_ID_TO_FAMILY[fw.boardId] ?? null;
+  const setupInfo = family ? boardSetupInfo(family) : null;
   const sketch: FirmwareSketch | undefined =
     fw.sketches.find((s) => s.id === activeId) || fw.sketches[0];
   const showingPins = activeId === "pins" || activeId === "pio";
@@ -299,6 +315,8 @@ export function FirmwareDrawer({
         </Button>
       </div>
 
+      <ComputerReady family={family} setupInfo={setupInfo} libraries={fw.libraries} />
+
       <div className="shrink-0 px-4 py-2 border-b border-border-subtle overflow-x-auto">
         <div className="flex gap-1 min-w-max">
           {fw.sketches.map((s) => (
@@ -358,6 +376,56 @@ export function FirmwareDrawer({
           {body}
         </pre>
       </div>
+    </DrawerShell>
+  );
+}
+
+// Broader than isolation-walk.ts's isBrain() on purpose: that heuristic only
+// needs to catch the boards Forge already knows how to isolate-walk on. This
+// one has to catch everything ELSE too — the whole point is naming boards
+// Forge does NOT have firmware templates for (Teensy, STM32 "Blue Pill",
+// ESP8266/NodeMCU/Wemos, Feather, Trinket, a bare "Raspberry Pi", etc.) so
+// the honest state below can say which part it means.
+const MCU_ISH =
+  /esp32|esp8266|\bmcu\b|microcontroller|arduino|xiao|teensy|stm32|atmega|attiny|raspberry\s*pi|pico|rp2040|nrf52|samd21|feather|trinket|nodemcu|wemos|blue\s*pill|d1\s*mini/i;
+
+function findMcuPart(parts: Part[]): Part | null {
+  return parts.find((p) => MCU_ISH.test(`${p.name} ${p.specification}`)) ?? null;
+}
+
+/** Gate helper for callers: the plan clearly has a microcontroller, so
+    firmware UI should exist even when generateFirmware() returned null
+    (the honest unknown-board state instead of a vanished section). */
+export function planNeedsFirmwareHelp(plan: BuildPlan): boolean {
+  return !!findMcuPart(plan.parts || []);
+}
+
+/**
+ * Honest unknown-board state (C4) — for when generateFirmware() returned
+ * null (see firmware.ts: any family outside esp32c3/esp32/nano/pico) but
+ * the BOM clearly has a microcontroller in it. Today the caller just gates
+ * on `firmware &&` and the whole firmware UI silently vanishes; this is the
+ * honest alternative, ready to drop in wherever that gate lives — swap
+ * `firmware && <FirmwareDrawer .../>` for
+ * `firmware ? <FirmwareDrawer .../> : <FirmwareUnavailableDrawer plan={plan} onClose={onClose} />`.
+ * Renders nothing (same as today) when there's no MCU-ish part at all —
+ * a non-electronics build has nothing to set up.
+ */
+export function FirmwareUnavailableDrawer({ plan, onClose }: { plan: BuildPlan; onClose: () => void }) {
+  const mcu = findMcuPart(plan.parts || []);
+  if (!mcu) return null;
+
+  return (
+    <DrawerShell title="Firmware package" onClose={onClose} width="lg">
+      <div className="p-4 rounded-xl border border-border-subtle bg-surface-raised">
+        <p className="text-sm font-semibold text-text mb-1">We don&apos;t have code templates for this board yet</p>
+        <p className="text-xs text-text-secondary">
+          Forge doesn&apos;t recognize <strong className="text-text">{mcu.name}</strong> well enough to generate
+          ready-made sketches. The setup steps below are the same for almost every board — install the IDE and
+          drivers, then look up example code for your specific board.
+        </p>
+      </div>
+      <ComputerReady family={null} setupInfo={null} libraries={[]} />
     </DrawerShell>
   );
 }
