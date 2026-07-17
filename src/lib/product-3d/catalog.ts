@@ -9,6 +9,7 @@ import {
   catalogDefaultSize,
   type CatalogPartId,
 } from "./real-parts";
+import { PART_MODELS, partModelFor } from "./part-models";
 
 export type { CatalogPartId };
 
@@ -53,9 +54,32 @@ export const CATALOG: Record<CatalogPartId, CatalogEntry> = {
   generic_pcb: entryFromReal("generic_pcb", "PCB"),
 };
 
-/** Infer catalog id from node role / label. */
+/**
+ * Geometry kinds that are STRUCTURE, not electronics — spars, cages, stands,
+ * panels, straps. They must never receive a catalog identity: since GLBs went
+ * live, catalogId attaches a whole 3D body, so an overmatched structural node
+ * renders as a phantom part (a wing SPAR on the "wings" layer became a full
+ * solar panel — the floating "extra satellite" bug).
+ */
+const STRUCTURAL_KINDS = new Set<SceneNode3D["geom"]["kind"]>([
+  "tube",
+  "cylinder",
+  "disk",
+  "wire_cube_cage",
+  "metal_stand",
+  "battery_straps",
+  "face_panel",
+  "rear_panel",
+  "shell_panel",
+  "bamboo_base",
+  "brass_frame",
+  "wire_frame",
+]);
+
+/** Infer catalog id from node role / label. Structural geometry never matches. */
 export function inferCatalogId(node: SceneNode3D): CatalogPartId | null {
   if (node.catalogId && node.catalogId in CATALOG) return node.catalogId as CatalogPartId;
+  if (STRUCTURAL_KINDS.has(node.geom.kind)) return null;
   const t = `${node.id} ${node.label} ${node.ref || ""}`.toLowerCase();
   if (node.id === "brain" || /esp|mcu|c3|xiao/.test(t)) return "esp32_c3";
   if (node.id === "face" || /oled|ssd1306|display/.test(t)) return "oled_096";
@@ -81,10 +105,14 @@ export function applyCatalogHints(nodes: SceneNode3D[]): SceneNode3D[] {
     const id = inferCatalogId(n);
     if (!id) return n;
     const entry = CATALOG[id];
+    // OPEN model registry wins: any catalog id with a ready GLB resolves here,
+    // independent of the closed union. Falls back to the real-parts asset (all
+    // false today) so nothing regresses for parts without an open-registry model.
+    const assetUrl = partModelFor(id)?.url ?? resolveCatalogAssetUrl(entry, n.assetUrl);
     return {
       ...n,
       catalogId: id,
-      assetUrl: resolveCatalogAssetUrl(entry, n.assetUrl),
+      assetUrl,
       material: {
         ...n.material,
         preset: n.material.preset || entry.materialPreset,
@@ -102,9 +130,13 @@ export function catalogAssetPaths(): string[] {
     .filter((u): u is string => !!u);
 }
 
-/** Paths that are ready to load in the viewer. */
+/** Paths that are ready to load in the viewer (open registry is the authority). */
 export function readyCatalogAssetPaths(): string[] {
-  return Object.values(CATALOG)
+  const fromModels = Object.values(PART_MODELS)
+    .filter((m) => m.glbReady)
+    .map((m) => m.url);
+  const fromCatalog = Object.values(CATALOG)
     .filter((e) => e.assetReady && e.assetUrl)
     .map((e) => e.assetUrl!);
+  return Array.from(new Set([...fromModels, ...fromCatalog]));
 }

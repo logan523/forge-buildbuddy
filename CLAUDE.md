@@ -28,8 +28,17 @@ User describes project → /api/analyze (Claude single pass) → BuildPlan JSON
 | `src/app/build/[id]/page.tsx` | Session route — resume plan by id |
 | `src/app/build/import/page.tsx` | Import shared plan from URL hash |
 | `src/components/build-session.tsx` | Orchestrator: state → PrepScreen/BuildScreen/BuildDrawers |
-| `src/components/build/` | prep-screen, build-screen, build-drawers, step-hero, use-build-state (pure reducer) |
-| `src/components/build-ui.tsx` | Part rows, safety panel, firmware/unstick drawers |
+| `src/components/build/` | prep-screen (3-job decision flow), build-screen (workbench: pinned sub-header, PrimaryActionBar, StepListSheet, CoverageBanner), build-drawers, step-hero, guided-steps (technique primer), use-build-state (pure reducer) |
+| `src/components/build/parts/` | PartCard + ShoppingList (honest tiers, visible buy guidance, mpnNote trust lines, substitutes) |
+| `src/components/ui/` | Primitive library: Button/Card/Badge (+confidenceTier)/DrawerShell/Icon (lucide)/InfoPopover — `/dev/ui-kit` catalog |
+| `src/components/home/` | demo-hero (lazy live Stage, three.js out of critical path), generation-progress (+Cancel + rate-budget honesty), principles-check |
+| `src/components/flash/` | Web Serial console + esptool-js flash flow + wiring-check verdicts + ComputerReady onramp |
+| `src/lib/serial/` | Pure Web Serial domain: session, line-parser (scanner format), expected-devices (catalog-derived I2C addrs), verify, manifest |
+| `src/app/themes/` + `src/components/dev/theme-switcher.tsx` | Rebrand candidates as [data-theme] token files; dev pill + `/dev/themes` judging board (parked — incumbent active) |
+| `src/components/build-ui.tsx` | Part rows (thin wrapper over PartCard), safety panel (human hazard labels), firmware/unstick drawers, FirmwareUnavailableDrawer |
+| `src/components/stage/` | THE 3D system (StageApp seam ← product-hero/step-hero): studio staging, deterministic CameraRig, GLB parts-layer + parametric fallback, netlist wiring-layer (tap → exact callout), assembly-director |
+| `src/lib/stage/` | Pure 3D domain: derive-recipe (assembly recipe for ANY template), wire-plan (exact wires + cut lengths), shots, ghost-target, wire-reveal, part-detail |
+| `scripts/author-*.mjs` + `scripts/lib/author-kit.mjs` | Part-model authoring (headless three.js → GLB, extruded silkscreen); `npm run models:parts` regenerates + optimizes the library |
 | `src/components/step-facts.tsx` | ConnectionsTable / CheckYourWorkCard / ActionChecklist / GlossaryText (render step.compiled) |
 | `src/lib/steps/` | classify (THE step classifier), compile (netlist → per-step facts), validate (content vs truth), instruction resolvers |
 | `src/lib/wire-colors.ts` | THE wire-color authority (text + 2D + 3D + legend; class wins, SDA blue / SCL yellow) |

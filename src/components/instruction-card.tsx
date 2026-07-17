@@ -11,7 +11,9 @@
  *   deep     — + why this works · tool technique · full notes
  */
 
+import { useMemo } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
+import { generateFirmware, type FirmwarePackage } from "@/lib/firmware";
 import {
   resolveActions,
   resolveGoal,
@@ -27,7 +29,7 @@ import {
 import { PhotoCheck } from "@/components/build/photo-check";
 import { GuidedSteps } from "@/components/build/guided-steps";
 
-const TIME_BY_KIND: Record<ReturnType<typeof stepKind>, string> = {
+export const TIME_BY_KIND: Record<ReturnType<typeof stepKind>, string> = {
   wiring: "≈15 min",
   mechanical: "≈10 min",
   software: "≈10 min",
@@ -37,31 +39,39 @@ const TIME_BY_KIND: Record<ReturnType<typeof stepKind>, string> = {
 
 export function InstructionCard({
   step,
-  stepIndex,
-  totalSteps,
-  kindLabel,
   detailLevel = "standard",
   planId,
   plan,
   stepCompleted = false,
   onAutoComplete,
   onActiveWire,
+  firmware,
 }: {
   step: BuildStep;
-  stepIndex: number;
-  totalSteps: number;
-  kindLabel: string;
   detailLevel?: "quick" | "standard" | "deep";
   planId?: string;
   plan?: BuildPlan;
   stepCompleted?: boolean;
   onAutoComplete?: () => void;
   onActiveWire?: (m: MicroStep | null) => void;
+  /**
+   * Optional — powers the sketch-derived doneWhen (steps/instruction.ts) for
+   * software steps. Undefined means "not wired yet": falls back to deriving
+   * it locally from `plan` (already received here) so the feature is live
+   * today. Pass explicitly once the orchestrator threads build-screen's own
+   * memoized package down — an explicit value (including `null`) always
+   * wins over the local fallback.
+   */
+  firmware?: FirmwarePackage | null;
 }) {
   const goal = resolveGoal(step);
   const youNeed = resolveYouNeed(step);
   const actions = resolveActions(step);
   const kind = stepKind(step);
+  const resolvedFirmware = useMemo(
+    () => (firmware !== undefined ? firmware : plan ? generateFirmware(plan) : null),
+    [firmware, plan]
+  );
   // Wiring steps with compiled micro-steps get the guided one-wire-at-a-time
   // experience (hand-holding) in place of the coarse checklist + separate table.
   const guided =
@@ -73,17 +83,10 @@ export function InstructionCard({
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-xs text-text-muted font-mono mb-1">
-          Step {stepIndex + 1} of {totalSteps}
-          {kindLabel ? ` · ${kindLabel}` : ""}
-          <span className="ml-2 px-1.5 py-0.5 rounded bg-surface-overlay text-[10px] align-middle">
-            {TIME_BY_KIND[kind]}
-          </span>
-        </p>
-        <h2 className="text-xl font-bold text-text font-serif mb-1">{step.title}</h2>
-        <GlossaryText text={goal} className="text-sm text-text leading-relaxed block" />
-      </div>
+      {/* Step N of M / title / kind chip / time now render once in
+          BuildScreen's persistent sub-header (Slice A1) — this column
+          starts at the goal. */}
+      <GlossaryText text={goal} className="text-sm text-text leading-relaxed block" />
 
       {/* Safety renders at EVERY detail level — quick mode must never hide it. */}
       {(step.safetyNotes?.length ?? 0) > 0 && (
@@ -162,7 +165,7 @@ export function InstructionCard({
         </>
       )}
 
-      <CheckYourWorkCard step={step} />
+      <CheckYourWorkCard step={step} firmware={resolvedFirmware} />
 
       {/* Eval-gated (self-hides unless public/photo-check.pass.json + a
           reference photo for this step both exist — see Tension C). */}
@@ -174,7 +177,7 @@ export function InstructionCard({
 
       {detailLevel !== "quick" && (step.commonMistakes?.length ?? 0) > 0 && (
         <details className="group">
-          <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer py-1.5 min-h-[28px]">
+          <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer py-1.5 min-h-11">
             Common mistakes
           </summary>
           <div className="mt-2 space-y-2">
@@ -194,7 +197,7 @@ export function InstructionCard({
         <>
           {step.whyThisWorks && (
             <details className="group">
-              <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer py-1.5 min-h-[28px]">
+              <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer py-1.5 min-h-11">
                 Why this matters
               </summary>
               <p className="text-xs text-text-secondary leading-relaxed mt-1 pl-2 border-l-2 border-info/30">
@@ -205,7 +208,7 @@ export function InstructionCard({
 
           {step.toolTechnique && (
             <details className="group">
-              <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer py-1.5 min-h-[28px]">
+              <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer py-1.5 min-h-11">
                 Tool technique — {step.toolTechnique.tool}
               </summary>
               <div className="mt-1 pl-2 border-l-2 border-accent/30 space-y-1">
@@ -226,7 +229,7 @@ export function InstructionCard({
 
           {step.description && (
             <details>
-              <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer py-1.5 min-h-[28px]">
+              <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer py-1.5 min-h-11">
                 Full notes
               </summary>
               <p className="text-xs text-text-secondary leading-relaxed mt-1 whitespace-pre-wrap">

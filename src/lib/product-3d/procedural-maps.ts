@@ -534,13 +534,18 @@ export function makeSpaceBackdrop(): CanvasTexture {
   // Deterministic star scatter (LCG — stable across renders + tests)
   let seed = 1337;
   const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
-  for (let i = 0; i < 2600; i++) {
+  // A dim, sparse field (the user asked to dim the starfield). The backdrop is
+  // toneMapped:false, so bright texels reach the composer's Bloom buffer raw;
+  // 'lighten' keeps overlapping stars from summing, and the brightness cap sits
+  // well under the Bloom threshold (0.96) — so the field stays a quiet scatter,
+  // never a glow. (Was 5000 stars up to full-white.)
+  ctx.globalCompositeOperation = "lighten";
+  for (let i = 0; i < 2400; i++) {
     const x = rnd() * W;
     const y = rnd() * H;
-    // Mostly fine crisp dots; a few slightly larger bright ones for depth.
-    const big = rnd() > 0.9;
-    const r = big ? 1.4 + rnd() * 1.0 : 0.6 + rnd() * 0.9;
-    const b = big ? 0.85 + rnd() * 0.15 : 0.5 + rnd() * 0.4;
+    const big = rnd() > 0.93;
+    const r = big ? 0.9 + rnd() * 0.4 : 0.5 + rnd() * 0.6;
+    const b = big ? 0.4 + rnd() * 0.14 : 0.28 + rnd() * 0.12;
     const t = rnd();
     ctx.beginPath();
     ctx.fillStyle =
@@ -548,10 +553,11 @@ export function makeSpaceBackdrop(): CanvasTexture {
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
   }
-  // Tile stars horizontally around the sphere for in-view density; the vertical
-  // gradient stays 1× (repeat.y = 1) so there's no banding.
+  ctx.globalCompositeOperation = "source-over";
+  // 1× wrap: a 2:1 texture on the sphere gives ~square texels → round stars.
+  // (Prior 3× horizontal tiling compressed the dots into vertical streaks.)
   const out = finalize(tex, 1, "color");
-  out.repeat.set(3, 1);
+  out.repeat.set(1, 1);
   out.needsUpdate = true;
   cache.set(key, out);
   return out;

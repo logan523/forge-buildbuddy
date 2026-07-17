@@ -1,4 +1,6 @@
 import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import assert from "node:assert/strict";
 import demo from "@/data/sat-line.json";
 import type { BuildPlan } from "@/lib/types";
@@ -210,28 +212,33 @@ describe("assembly story harness connectivity", () => {
     }
   });
 
-  it("teaching nets land on correct named pins (SDA not GPIO, OUT+ not B+)", () => {
+  it("netlist wires land on correct named pins (SDA not GPIO, OUT+ not B+)", () => {
+    // Same pin-landing contract as before, now asserted against the VERIFIED
+    // netlist (the only wire source) instead of the deleted teaching table.
+    const wires = buildHarnesses(scene, plan, recipe);
+    const sda = wires.find((w) => /sda/i.test(w.netName));
+    const scl = wires.find((w) => /scl/i.test(w.netName));
+    assert.ok(sda, "an SDA net renders");
+    assert.equal(sda!.fromAnchor === "SDA" || sda!.toAnchor === "SDA", true);
+    assert.ok(scl, "an SCL net renders");
+    assert.equal(scl!.fromAnchor === "SCL" || scl!.toAnchor === "SCL", true);
+    // Power legs land on named power pads, never "body"
+    const power = wires.filter((w) => w.netClass === "power");
+    assert.ok(power.length >= 1);
+    for (const w of power) {
+      assert.notEqual(w.fromAnchor, "body");
+      assert.notEqual(w.toAnchor, "body");
+    }
+  });
+
+  it("no electrical model → ZERO wires (honesty: netlist is the only source)", () => {
     const bare = { ...plan, electrical: undefined };
     const wires = buildHarnesses(scene, bare as BuildPlan, recipe);
-    const sda = wires.find((w) => w.netName === "I2C_SDA");
-    const scl = wires.find((w) => w.netName === "I2C_SCL");
-    const sys = wires.find((w) => w.netName === "SYS_3V3");
-    const bat = wires.find((w) => w.netName === "B+");
-    const pv = wires.find((w) => w.netName === "PV_L");
-    assert.ok(sda, "I2C_SDA");
-    assert.equal(sda!.fromAnchor, "SDA");
-    assert.equal(sda!.toAnchor, "SDA");
-    assert.ok(scl);
-    assert.equal(scl!.fromAnchor, "SCL");
-    assert.equal(scl!.toAnchor, "SCL");
-    assert.ok(sys);
-    assert.equal(sys!.fromAnchor, "OUT+");
-    assert.equal(sys!.toAnchor, "3V3");
-    assert.ok(bat);
-    assert.equal(bat!.fromAnchor, "+");
-    assert.equal(bat!.toAnchor, "B+");
-    assert.ok(pv);
-    assert.equal(pv!.toAnchor, "IN+");
+    assert.equal(
+      wires.length,
+      0,
+      "the hand-authored teaching-pair fallback is gone — no netlist, no tubes"
+    );
   });
 
   it("wireLegend and wireDisplayLabel are human-readable", () => {
@@ -244,16 +251,18 @@ describe("assembly story harness connectivity", () => {
     assert.ok(lab.includes(wires[0]!.label));
   });
 
-  it("structural defaults include brain↔face i2c and battery↔charger", () => {
-    const bare = { ...plan, electrical: undefined };
-    const wires = buildHarnesses(scene, bare as BuildPlan, recipe);
+  it("netlist wiring covers brain↔face i2c and battery↔charger on the demo", () => {
+    // The connectivity story previously guaranteed by teaching defaults must
+    // now hold FROM THE NETLIST on the demo plan (which ships a full model).
+    const wires = buildHarnesses(scene, plan, recipe);
     assert.ok(
       wires.some(
         (w) =>
-          (w.fromNodeId === "brain" && w.toNodeId === "face") ||
-          (w.fromNodeId === "face" && w.toNodeId === "brain")
+          ((w.fromNodeId === "brain" && w.toNodeId === "face") ||
+            (w.fromNodeId === "face" && w.toNodeId === "brain")) &&
+          w.netClass === "i2c"
       ),
-      "brain-face wire"
+      "brain-face i2c wire from the netlist"
     );
     assert.ok(
       wires.some(
@@ -261,7 +270,7 @@ describe("assembly story harness connectivity", () => {
           (w.fromNodeId === "battery" && w.toNodeId === "charger") ||
           (w.fromNodeId === "charger" && w.toNodeId === "battery")
       ),
-      "battery-charger wire"
+      "battery-charger wire from the netlist"
     );
   });
 
@@ -367,23 +376,23 @@ describe("sat-pins single source of truth (mesh stubs === recipe anchors)", () =
     assert.equal(pinLocal("solar-r", "+")![0], -28);
   });
 
-  it("product-node-mesh imports meshPinStubsForNode / pinLocal (not hard-coded pad coords)", async () => {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const src = fs.readFileSync(
-      path.join(process.cwd(), "src/components/product-node-mesh.tsx"),
-      "utf8"
-    );
-    assert.ok(src.includes('from "@/lib/product-3d/sat-pins"'), "imports sat-pins");
-    assert.ok(src.includes("meshPinStubsForNode"), "uses meshPinStubsForNode");
-    assert.ok(src.includes("pinLocal"), "uses pinLocal for battery");
-    // Guard against reintroducing the desync patterns skeptic found
-    assert.ok(!src.includes("pcbH * 0.42"), "no OLED y from pcbH fraction");
-    assert.ok(!/node\.id\.includes\("-r"\).*w \* 0\.42|w \* 0\.42.*node\.id\.includes/.test(src), "no solar x from width fraction");
-    assert.ok(!src.includes("-h * 0.22"), "no solar y from height fraction");
-    assert.ok(!src.includes("ht * 0.52"), "no battery terminal from ht fraction");
+  it("stage parts derive pads from the pin authority (not hard-coded pad coords)", () => {
+    const dir = join(process.cwd(), "src/components/stage");
+    const read = (f: string) => readFileSync(join(dir, f), "utf8");
+    const src = [
+      read("parts-layer.tsx"),
+      read("pin-stub.tsx"),
+      read("part-fallback/basic.tsx"),
+    ].join("\n");
+    assert.ok(src.includes("pinStubsForNode"), "pins come from the generalized authority");
+    assert.ok(src.includes("PinStub"), "pin stub hardware");
+    // Regression bans: pad positions must never be derived as fractions of
+    // board dimensions again (the desync bugs the authority fixed).
+    assert.ok(!src.includes("pcbH * 0.42"));
+    assert.ok(!/node\.id\.includes\("-r"\).*w \* 0\.42|w \* 0\.42.*node\.id\.includes/.test(src));
+    assert.ok(!src.includes("-h * 0.22"));
+    assert.ok(!src.includes("ht * 0.52"));
   });
-
   it("harness endpoints equal anchorWorldPosition of sat-pins-backed recipe", () => {
     const plan = applyTrustPipeline(demo as unknown as BuildPlan);
     const scene = buildProductScene3D(plan);

@@ -1,9 +1,17 @@
 import { YoutubeTranscript } from "youtube-transcript";
+import { classifyYoutubeError, YoutubeVideoError } from "./youtube-errors";
 
 export async function fetchTranscript(url: string): Promise<string> {
-  const transcript = await YoutubeTranscript.fetchTranscript(url);
+  let transcript;
+  try {
+    transcript = await YoutubeTranscript.fetchTranscript(url);
+  } catch (err) {
+    // Re-classify into our taxonomy so route.ts can give an honest,
+    // type-specific status + message instead of one flat 422 (B2 #6).
+    throw classifyYoutubeError(err);
+  }
   if (!transcript || transcript.length === 0) {
-    throw new Error("No transcript available for this video");
+    throw new YoutubeVideoError("no-captions", "No transcript available for this video");
   }
   return transcript.map((entry) => entry.text).join(" ");
 }

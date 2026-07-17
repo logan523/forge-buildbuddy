@@ -74,6 +74,7 @@ export {
   SAT_PIN_NODE_IDS,
   pinAnchorsForNode,
   meshPinStubsForNode,
+  pinStubsForNode,
   pinLocal,
 } from "./sat-pins";
 export type { PinLocal } from "./sat-pins";
@@ -123,13 +124,6 @@ export {
   posesFromFormLayout,
   uniqueLayers,
 } from "./build-scene";
-export {
-  poseStorageKey,
-  loadPoseLayout,
-  savePoseLayout,
-  clearPoseLayout,
-  upsertNodePose,
-} from "./pose-storage";
 export {
   REAL_PARTS,
   LIFE_LAYOUT,

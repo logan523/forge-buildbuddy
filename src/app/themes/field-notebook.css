@@ -1,0 +1,42 @@
+/* Field notebook: warm kraft paper + safety-orange ink. Every neutral is
+   re-tuned off the kraft bg (not just swapped in isolation) so cards,
+   overlays, and borders sit on the same paper rather than looking like the
+   incumbent cream palette with a filter over it. Semantic colors go earthier
+   to match — success stays a teal-green family but pulled toward moss,
+   warning shifts toward a gold distinct from the orange accent (so caution
+   chips don't read as "more accent"), danger goes brick instead of alarm-red.
+   Console becomes a true amber-on-black instrument panel. */
+[data-theme="field-notebook"] {
+  --color-bg: #f2ead9;
+  --color-surface: #fbf7ee;
+  --color-surface-raised: #f6f0e2;
+  --color-surface-overlay: #ece1c8;
+  --color-surface-hover: #e4d6b8;
+  --color-border-subtle: #dcc9a4;
+  --color-border: #c3ab7c;
+  --color-border-strong: #9c8455;
+
+  --color-accent: #e8672c;
+  --color-accent-soft: #b8501f;
+
+  --color-text: #17140e;
+  --color-text-secondary: #5c5347;
+  --color-text-muted: #8c8171;
+
+  --color-success: #3f7d5c;
+  --color-success-soft: #dfead9;
+  --color-warning: #a3740d;
+  --color-warning-soft: #f6ecc9;
+  --color-danger: #a1402c;
+  --color-danger-soft: #f0d9cf;
+
+  --color-console-bg: #0f0d0a;
+  --color-console-surface: #1a1712;
+  --color-console-surface-raised: #211d17;
+  --color-console-overlay: rgba(15, 13, 10, 0.85);
+  --color-console-text: #f0ebe0;
+  --color-console-text-muted: #a89e8c;
+  --color-console-accent: #f5a623;
+
+  --color-grid-line: rgba(120, 90, 40, 0.05);
+}

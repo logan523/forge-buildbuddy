@@ -4,9 +4,12 @@ import {
   attachBuyData,
   bestLink,
   estimateBom,
+  formatUsdMidpoint,
   formatUsdRange,
   offersFromModule,
   planCartOpens,
+  usdMidpoint,
+  VENDOR_LABEL,
 } from "./cart";
 import { enrichParts, getModuleById } from "./catalog";
 import { applyTrustPipeline } from "./trust";
@@ -73,5 +76,31 @@ describe("cart buy loop", () => {
   it("formatUsdRange formats bands", () => {
     assert.equal(formatUsdRange(3, 7), "$3–$7");
     assert.equal(formatUsdRange(undefined, undefined), "—");
+  });
+
+  it("usdMidpoint averages a band, passes through a single price, and degrades to undefined", () => {
+    assert.equal(usdMidpoint(41, 127), 84);
+    assert.equal(usdMidpoint(5), 5);
+    assert.equal(usdMidpoint(undefined, 10), undefined);
+    assert.equal(usdMidpoint(undefined, undefined), undefined);
+  });
+
+  it("formatUsdMidpoint headlines a midpoint and keeps the honest range alongside it", () => {
+    assert.equal(formatUsdMidpoint(41, 127), "~$84 · typically $41–$127 depending on vendor");
+  });
+
+  it("formatUsdMidpoint collapses to a bare midpoint when the band is effectively a single price", () => {
+    assert.equal(formatUsdMidpoint(65, 65), "~$65");
+    assert.equal(formatUsdMidpoint(65), "~$65");
+  });
+
+  it("formatUsdMidpoint degrades to em dash with no price data", () => {
+    assert.equal(formatUsdMidpoint(undefined, undefined), "—");
+  });
+
+  it("VENDOR_LABEL covers every Vendor union member with a display name", () => {
+    for (const v of ["amazon", "aliexpress", "digikey", "mouser", "lcsc", "other"] as const) {
+      assert.ok(VENDOR_LABEL[v] && VENDOR_LABEL[v].length > 0);
+    }
   });
 });

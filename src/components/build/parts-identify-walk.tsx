@@ -13,7 +13,16 @@ import type { Part } from "@/lib/types";
 import { partIcon } from "@/components/build-ui";
 import { spotTells } from "@/lib/part-identity";
 
-export function PartsIdentifyWalk({ parts }: { parts: Part[] }) {
+export function PartsIdentifyWalk({
+  parts,
+  context = "identify",
+}: {
+  parts: Part[];
+  /** "identify" = sorting the pile before building; "confirm" = the order
+      arrived and the builder checks they got the RIGHT items (B6). Same
+      walk, different framing. */
+  context?: "identify" | "confirm";
+}) {
   const [open, setOpen] = useState(false);
   const [found, setFound] = useState<Set<string>>(new Set());
   const [index, setIndex] = useState(0);
@@ -42,10 +51,15 @@ export function PartsIdentifyWalk({ parts }: { parts: Part[] }) {
         className="w-full text-left mb-3 p-3 rounded-xl border border-accent/25 bg-accent/5 hover:bg-accent/10 cursor-pointer transition-colors"
       >
         <p className="text-sm font-medium text-text flex items-center gap-2">
-          <span aria-hidden>🔍</span> Not sure which is which? Identify your parts
+          <span aria-hidden>🔍</span>{" "}
+          {context === "confirm"
+            ? "Parts arrived? Confirm you got the right ones"
+            : "Not sure which is which? Identify your parts"}
         </p>
         <p className="text-xs text-text-muted mt-1 ml-6">
-          One at a time, with how to spot each in the pile.
+          {context === "confirm"
+            ? "One at a time, against what each should look like."
+            : "One at a time, with how to spot each in the pile."}
         </p>
       </button>
     );

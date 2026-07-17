@@ -55,6 +55,19 @@ export function getModuleById(id: string): CatalogModule | undefined {
   return modules.find((m) => m.id === id);
 }
 
+/**
+ * Resolve a module's substituteIds to their catalog entries — the field has
+ * existed since the schema shipped but nothing read it (PartCard is the
+ * first consumer). Unknown/typo'd ids drop silently rather than showing a
+ * broken "also works" line.
+ */
+export function resolveSubstitutes(mod: CatalogModule): CatalogModule[] {
+  if (!mod.substituteIds?.length) return [];
+  return mod.substituteIds
+    .map((id) => getModuleById(id))
+    .filter((m): m is CatalogModule => !!m);
+}
+
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { BuildPlan, BuildStep } from "@/lib/types";
 import type { PcbPackage } from "@/lib/pcb";
 import type { EnclosurePackage } from "@/lib/enclosure";
@@ -8,7 +9,8 @@ import type { CartStrategy } from "@/lib/cart";
 import type { SymptomId } from "@/lib/unstick";
 import { presentErc } from "@/lib/electrical/present";
 import { publishKit } from "@/lib/kits/store";
-import { PartRow, FirmwareDrawer, UnstickDrawer } from "@/components/build-ui";
+import { PartRow, FirmwareDrawer, FirmwareUnavailableDrawer, UnstickDrawer } from "@/components/build-ui";
+import { FlashConsole } from "@/components/flash/flash-console";
 import type { DrawerId } from "./use-build-state";
 
 function downloadText(filename: string, content: string) {
@@ -41,6 +43,9 @@ export interface BuildDrawersProps {
   onSetAuthorName: (name: string) => void;
   onSetPublishMsg: (msg: string) => void;
   onOpenPrep: () => void;
+  /** C3: the flash console's wiring check found a missing device — open the
+      unstick drawer preselected to the matching symptom. */
+  onOpenUnstick?: (symptom: SymptomId) => void;
 }
 
 /** All right-side sheets for the build view. Exactly one is open at a time. */
@@ -64,68 +69,104 @@ export function BuildDrawers({
   onSetAuthorName,
   onSetPublishMsg,
   onOpenPrep,
+  onOpenUnstick,
 }: BuildDrawersProps) {
-  if (!drawer) return null;
+  // The serial console isn't wired into the shared drawer reducer's dispatch
+  // yet (state.drawer becoming "flash" needs a caller with `actions`, and
+  // only build-session.tsx has that) — so its visibility is local state
+  // here instead, ORed with drawer === "flash" for forward-compat if a
+  // future caller ever dispatches openDrawer("flash") directly. FlashConsole
+  // itself always renders (open-prop-controlled, see its own doc comment) so
+  // an in-progress board connection survives switching to another drawer.
+  const [serialOpen, setSerialOpen] = useState(false);
+  const openSerial = () => {
+    setSerialOpen(true);
+    onClose(); // one sheet at a time — dismiss whatever central drawer is open
+  };
+  const closeSerial = () => setSerialOpen(false);
 
   return (
     <>
-      {drawer === "firmware" && firmware && (
-        <FirmwareDrawer fw={firmware} activeId={fwSketchId} onSelect={onSetFwSketch} onClose={onClose} />
-      )}
-      {drawer === "pcb" && pcb && <PcbDrawer pcb={pcb} onClose={onClose} />}
-      {drawer === "pcbBlocked" && plan.electrical && (
-        <PcbBlockedDrawer electrical={plan.electrical} onClose={onClose} onOpenPrep={onOpenPrep} />
-      )}
-      {drawer === "case" && <CaseDrawer enc={enclosure} onClose={onClose} />}
-      {drawer === "publish" && (
-        <PublishDrawer
-          authorName={authorName}
-          setAuthorName={onSetAuthorName}
-          message={publishMsg}
-          onClose={onClose}
-          onPublish={() => {
-            if (plan.electrical && !plan.electrical.erc.canPublishKit) {
-              onSetPublishMsg("Blocked: ERC has errors — fix electrical issues first.");
-              return;
-            }
-            const kit = publishKit({ plan, authorName, tags: [plan.difficulty, "community"] });
-            onSetPublishMsg(`Published /kits/${kit.slug}`);
-          }}
-          ercBlocked={!!(plan.electrical && !plan.electrical.erc.canPublishKit)}
-        />
-      )}
-      {drawer === "unstick" && (
-        <UnstickDrawer
-          plan={plan}
-          step={step}
-          stepIndex={stepIndex}
-          symptom={unstickSymptom}
-          onSelectSymptom={onSetUnstickSymptom}
-          onClose={onClose}
-        />
-      )}
-      {drawer === "parts" && (
+      <FlashConsole
+        open={serialOpen || drawer === "flash"}
+        onClose={closeSerial}
+        plan={plan}
+        onOpenUnstick={(hint) => {
+          closeSerial();
+          onOpenUnstick?.(hint as SymptomId);
+        }}
+      />
+      {drawer && (
         <>
-          <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-          <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-surface border-l border-border shadow-raised z-50 overflow-y-auto">
-            <div className="sticky top-0 bg-surface border-b border-border-subtle px-5 py-4 flex items-center justify-between gap-2">
-              <h3 className="font-semibold text-text">Parts ({plan.parts.length})</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onBuyAll(plan.parts)}
-                  className="text-xs px-3 py-1.5 min-h-9 rounded-lg bg-accent text-white font-medium hover:bg-accent-soft cursor-pointer"
-                >
-                  Buy all →
-                </button>
-                <button onClick={onClose} className="text-text-muted text-lg cursor-pointer min-w-9 min-h-9" aria-label="Close parts">×</button>
+          {drawer === "firmware" &&
+            (firmware ? (
+              <FirmwareDrawer
+                fw={firmware}
+                activeId={fwSketchId}
+                onSelect={onSetFwSketch}
+                onClose={onClose}
+                onOpenSerial={openSerial}
+              />
+            ) : (
+              // Honest unknown-board state (C4) — self-gates on an MCU-ish part.
+              <FirmwareUnavailableDrawer plan={plan} onClose={onClose} />
+            ))}
+          {drawer === "pcb" && pcb && <PcbDrawer pcb={pcb} onClose={onClose} />}
+          {drawer === "pcbBlocked" && plan.electrical && (
+            <PcbBlockedDrawer electrical={plan.electrical} onClose={onClose} onOpenPrep={onOpenPrep} />
+          )}
+          {drawer === "case" && <CaseDrawer enc={enclosure} onClose={onClose} />}
+          {drawer === "publish" && (
+            <PublishDrawer
+              authorName={authorName}
+              setAuthorName={onSetAuthorName}
+              message={publishMsg}
+              onClose={onClose}
+              onPublish={() => {
+                if (plan.electrical && !plan.electrical.erc.canPublishKit) {
+                  onSetPublishMsg("Blocked: ERC has errors — fix electrical issues first.");
+                  return;
+                }
+                const kit = publishKit({ plan, authorName, tags: [plan.difficulty, "community"] });
+                onSetPublishMsg(`Published /kits/${kit.slug}`);
+              }}
+              ercBlocked={!!(plan.electrical && !plan.electrical.erc.canPublishKit)}
+            />
+          )}
+          {drawer === "unstick" && (
+            <UnstickDrawer
+              plan={plan}
+              step={step}
+              stepIndex={stepIndex}
+              symptom={unstickSymptom}
+              onSelectSymptom={onSetUnstickSymptom}
+              onClose={onClose}
+            />
+          )}
+          {drawer === "parts" && (
+            <>
+              <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+              <div className="fixed inset-y-0 right-0 w-full max-w-sm bg-surface border-l border-border shadow-raised z-50 overflow-y-auto">
+                <div className="sticky top-0 bg-surface border-b border-border-subtle px-5 py-4 flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-text">Parts ({plan.parts.length})</h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onBuyAll(plan.parts)}
+                      className="text-xs px-3 py-1.5 min-h-9 rounded-lg bg-accent text-white font-medium hover:bg-accent-soft cursor-pointer"
+                    >
+                      Buy all →
+                    </button>
+                    <button onClick={onClose} className="text-text-muted text-lg cursor-pointer min-w-9 min-h-9" aria-label="Close parts">×</button>
+                  </div>
+                </div>
+                <div className="p-5 space-y-3">
+                  {plan.parts.map((p) => (
+                    <PartRow key={p.id} part={p} compact strategy={cartStrategy} />
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="p-5 space-y-3">
-              {plan.parts.map((p) => (
-                <PartRow key={p.id} part={p} compact strategy={cartStrategy} />
-              ))}
-            </div>
-          </div>
+            </>
+          )}
         </>
       )}
     </>
@@ -224,8 +265,15 @@ function PcbDrawer({ pcb, onClose }: { pcb: PcbPackage; onClose: () => void }) {
             <button onClick={() => downloadText("forge.kicad_net", pcb.kicadNetlist)} className="text-xs px-3 py-2 rounded-lg border border-border-subtle cursor-pointer">KiCad netlist</button>
             <button onClick={() => downloadText("bom.csv", pcb.bomCsv)} className="text-xs px-3 py-2 rounded-lg border border-border-subtle cursor-pointer">BOM CSV</button>
             <button onClick={() => downloadText("board.svg", pcb.svg)} className="text-xs px-3 py-2 rounded-lg border border-border-subtle cursor-pointer">SVG</button>
-            <a href={pcb.jlcpcbUrl} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-2 rounded-lg border border-border-subtle no-underline text-text">JLCPCB quote →</a>
+            <a href={pcb.jlcpcbUrl} target="_blank" rel="noopener noreferrer" className="text-xs px-3 py-2 rounded-lg border border-border-subtle no-underline text-text">Open JLCPCB (upload Gerbers yourself) →</a>
           </div>
+          {/* Slice A6: honest about what the link above actually does — Forge
+              exports netlist/BOM/SVG, never Gerbers, so JLCPCB opens cold.
+              Complements pcb.disclaimer above (which already covers "not
+              fab-certified, verify in KiCad") rather than repeating it. */}
+          <p className="text-[11px] text-text-muted -mt-2">
+            This opens JLCPCB&apos;s site directly — it won&apos;t have your board loaded. Export Gerbers from KiCad first, then upload them there yourself.
+          </p>
         </div>
       </div>
     </>

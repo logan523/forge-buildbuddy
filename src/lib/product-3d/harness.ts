@@ -345,14 +345,15 @@ type PairDef = {
   toPin?: string;
   fromRole?: string;
   toRole?: string;
-  /** Prefer teaching pair over electrical star when true */
-  teaching?: boolean;
 };
 
 /**
- * Build pin-to-pin harnesses from electrical model (2-member nets only) +
- * sat teaching defaults. Multi-member star nets are skipped — they produce
- * wrong topology (brain GND to solar) and clunky spaghetti.
+ * Build pin-to-pin harnesses from the VERIFIED ELECTRICAL MODEL — the netlist
+ * is the only wire source. 2-member nets render as direct legs; multi-member
+ * nets fan hub→spoke using the SAME pickHub as the instruction compiler, so
+ * rendered tubes and compiled step text can never disagree. A plan with no
+ * electrical model renders zero wires (honesty over decoration — the old
+ * hand-authored "teaching pair" fallback is gone).
  */
 export function buildHarnesses(
   scene: ProductScene3D,
@@ -376,10 +377,6 @@ export function buildHarnesses(
   const pairs: PairDef[] = [];
 
   const model: ElectricalModel | null | undefined = plan.electrical;
-  // Every scene node the netlist references — used to keep the netlist as the
-  // authority on wiring and fall the teaching defaults back only to nodes it
-  // can't see (e.g. solar-r, which the model folds into solar-l).
-  const electricalNodes = new Set<string>();
   if (model?.nets?.length) {
     for (const net of model.nets) {
       const members = net.members || [];
@@ -388,7 +385,6 @@ export function buildHarnesses(
       for (const m of members) {
         const id = mapRefToNodeId(m.ref, scene.nodes, plan);
         if (!id) continue;
-        electricalNodes.add(id);
         const pin = (m as { pin?: string }).pin || m.ref;
         const role = (m as { role?: string }).role;
         // Keep first pin per node (electrical may list BATT and OUT on same ref)
@@ -425,84 +421,10 @@ export function buildHarnesses(
     }
   }
 
-  // Teaching defaults — full power + I²C + solar story with correct pin names
-  const defaults: [
-    string,
-    string,
-    string,
-    string,
-    string,
-    string,
-    string?,
-    string?,
-  ][] = [
-    ["brain", "face", "I2C_SDA", "i2c", "SDA", "SDA", "i2c_sda", "i2c_sda"],
-    ["brain", "face", "I2C_SCL", "i2c", "SCL", "SCL", "i2c_scl", "i2c_scl"],
-    ["brain", "face", "OLED_VCC", "power", "3V3", "VCC", "power", "power"],
-    ["brain", "face", "OLED_GND", "gnd", "GND", "GND", "gnd", "gnd"],
-    ["battery", "charger", "B+", "power", "+", "B+", "power", "power"],
-    ["battery", "charger", "B-", "gnd", "-", "B-", "gnd", "gnd"],
-    ["charger", "brain", "SYS_3V3", "power", "OUT+", "3V3", "power", "power"],
-    ["charger", "brain", "SYS_GND", "gnd", "OUT-", "GND", "gnd", "gnd"],
-    ["brain", "sensor", "SENS_SDA", "i2c", "SDA", "SDA", "i2c_sda", "i2c_sda"],
-    ["brain", "sensor", "SENS_VCC", "power", "3V3", "VCC", "power", "power"],
-    ["brain", "sensor", "SENS_GND", "gnd", "GND", "GND", "gnd", "gnd"],
-    ["brain", "touch", "TOUCH_SIG", "digital", "GPIO", "SIG", "digital_io", "digital_out"],
-    ["brain", "touch", "TOUCH_VCC", "power", "3V3", "VCC", "power", "power"],
-    ["brain", "touch", "TOUCH_GND", "gnd", "GND", "GND", "gnd", "gnd"],
-    ["solar-l", "charger", "PV_L", "analog", "+", "IN+", "power", "power"],
-    ["solar-r", "charger", "PV_R", "analog", "+", "IN+", "power", "power"],
-    ["solar-l", "charger", "PV_L_GND", "gnd", "-", "IN-", "gnd", "gnd"],
-    ["solar-r", "charger", "PV_R_GND", "gnd", "-", "IN-", "gnd", "gnd"],
-  ];
-  const electricalPresent = !!model?.nets?.length;
-  for (const [a, b, name, cls, pa, pb, ra, rb] of defaults) {
-    if (!byId.has(a) || !byId.has(b)) continue;
-    // With a netlist present, IT owns the wiring — the generated stars above
-    // already cover every net-referenced node. Keep a teaching default only for
-    // a node the netlist can't see (solar-r). Absent a netlist, the full
-    // teaching table is the fallback (non-sat templates, tests with no model).
-    if (electricalPresent && electricalNodes.has(a) && electricalNodes.has(b)) continue;
-    // Skip if we already have same ends + class (electrical 2-member already covered)
-    const already = pairs.some(
-      (p) =>
-        p.netClass === cls &&
-        ((p.from === a && p.to === b) || (p.from === b && p.to === a)) &&
-        // allow parallel SDA+SCL (same class, different pins)
-        (cls !== "i2c" ||
-          (p.fromPin || "").toUpperCase().includes((pa || "").slice(0, 3)) ||
-          (p.toPin || "").toUpperCase().includes((pa || "").slice(0, 3)) ||
-          p.netName === name)
-    );
-    // Prefer teaching pair: replace electrical if same net name, else add if unique key
-    const nameKey = [a, b, name].sort().join("|");
-    if (pairs.some((p) => [p.from, p.to, p.netName].sort().join("|") === nameKey)) continue;
-    // For i2c SDA/SCL both needed — don't skip second on class match alone
-    if (cls !== "i2c" && already && !name.startsWith("PV_")) {
-      // still add if anchors would differ (e.g. B+ vs SYS_3V3 both power battery/charger vs charger/brain)
-      const sameEnds = pairs.some(
-        (p) =>
-          ((p.from === a && p.to === b) || (p.from === b && p.to === a)) &&
-          p.netClass === cls &&
-          (p.fromPin === pa || p.toPin === pa)
-      );
-      if (sameEnds) continue;
-    }
-    pairs.push({
-      from: a,
-      to: b,
-      netName: name,
-      netClass: cls,
-      color: netColorFor(cls, undefined, name),
-      fromPin: pa,
-      toPin: pb,
-      fromRole: ra,
-      toRole: rb,
-      teaching: true,
-    });
-  }
-
-  const frame = byId.get("frame");
+  // Cage-hug reference by GEOMETRY KIND, not node id — any future template
+  // with a wire-cube cage gets correct drape routing, and templates without
+  // one skip it (undefined center → straight lanes).
+  const frame = scene.nodes.find((n) => n.geom.kind === "wire_cube_cage");
   const cageHalf = frame?.geom.params.size
     ? frame.geom.params.size / 2
     : 34;

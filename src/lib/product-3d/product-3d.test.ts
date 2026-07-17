@@ -36,13 +36,6 @@ import {
 } from "./real-parts";
 import { SAT_PIN_LOCALS } from "./sat-pins";
 import {
-  poseStorageKey,
-  upsertNodePose,
-  savePoseLayout,
-  loadPoseLayout,
-  clearPoseLayout,
-} from "./pose-storage";
-import {
   enrichPosesFromParams,
   sanitizePoseHints,
   resolveHintsOntoScene,
@@ -87,7 +80,7 @@ describe("product-3d connection spars + sun + catalog", () => {
     assert.equal(r.length, 3);
   });
 
-  it("catalog tags brain as esp32; GLB stays off until quality-reviewed", async () => {
+  it("catalog tags brain as esp32 + attaches the authored GLB via the open registry", async () => {
     const {
       applyCatalogHints,
       inferCatalogId,
@@ -100,14 +93,25 @@ describe("product-3d connection spars + sun + catalog", () => {
     const brain = tagged.find((n) => n.id === "brain")!;
     assert.equal(inferCatalogId(brain), "esp32_c3");
     assert.equal(brain.catalogId, "esp32_c3");
-    // Parametric life-mm default — auto-GLBs not attached (avoids crude underlay junk)
-    assert.equal(brain.assetUrl, undefined);
-    assert.equal(resolveCatalogAssetUrl(CATALOG.esp32_c3), undefined);
-    assert.equal(readyCatalogAssetPaths().length, 0);
-    assert.equal(
-      resolveCatalogAssetUrl({ ...CATALOG.esp32_c3, assetReady: true }),
-      "/models/parts/esp32_c3.glb"
-    );
+    // The authored ESP32-C3 SuperMini GLB now attaches through PART_MODELS (open registry).
+    assert.equal(brain.assetUrl, "/models/parts/esp32_c3.glb");
+    assert.ok(readyCatalogAssetPaths().includes("/models/parts/esp32_c3.glb"));
+    // A part with NO authored model (unrecognized board → generic_pcb) still
+    // falls back to the parametric mesh (assetUrl unset).
+    const [proto] = applyCatalogHints([
+      {
+        id: "proto",
+        layer: "brain",
+        label: "Proto board",
+        geom: { kind: "board", params: { width: 30, height: 20, depth: 2 } },
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        material: { color: "#334155" },
+      },
+    ]);
+    assert.equal(proto!.catalogId, "generic_pcb");
+    assert.equal(proto!.assetUrl, undefined);
+    assert.equal(resolveCatalogAssetUrl(CATALOG.oled_096), undefined);
   });
 });
 
@@ -161,67 +165,65 @@ describe("product-3d materials + quality", () => {
     assert.ok(kinds.has("rear_panel"), "rear service panel");
   });
 
-  it("viewer ships continuous TubeGeometry harness + studio lighting (structural)", async () => {
+  it("stage ships continuous tube harness + studio lighting (structural)", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
-    const root = path.join(process.cwd(), "src/components");
-    const viewer = fs.readFileSync(path.join(root, "product-viewer-3d.tsx"), "utf8");
-    const mesh = fs.readFileSync(path.join(root, "product-node-mesh.tsx"), "utf8");
-    const assembly = fs.readFileSync(path.join(root, "product-assembly-app.tsx"), "utf8");
-    assert.ok(viewer.includes("WireTubeRoute"), "tube render path");
-    assert.ok(viewer.includes("TubeGeometry"), "continuous TubeGeometry wires");
-    assert.ok(viewer.includes("CatmullRomCurve3"), "spline wire path");
+    // The Stage tree replaced the old three-component viewer; read EVERY
+    // stage source so internal file splits never break this test again.
+    const stageDir = path.join(process.cwd(), "src/components/stage");
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const f of fs.readdirSync(dir)) {
+        const full = path.join(dir, f);
+        if (fs.statSync(full).isDirectory()) walk(full);
+        else if (f.endsWith(".tsx") || f.endsWith(".ts")) files.push(full);
+      }
+    };
+    walk(stageDir);
+    const src = files.map((f) => fs.readFileSync(f, "utf8")).join("\n");
+    assert.ok(src.includes("WireTubeRoute"), "tube render path");
+    assert.ok(/tubeGeometry/i.test(src), "continuous TubeGeometry wires");
+    assert.ok(src.includes("CatmullRomCurve3"), "spline wire path");
     assert.ok(
-      /const \[showWires,\s*setShowWires\]\s*=\s*useState\(\s*true\s*\)/.test(viewer),
+      /const \[showWires,\s*setShowWires\]\s*=\s*useState\(\s*true\s*\)/.test(src),
       "wires default ON"
     );
-    assert.ok(viewer.includes("highlightNodeId"), "selection isolation hook");
-    assert.ok(viewer.includes("ContactShadows"), "studio contact shadows");
+    assert.ok(src.includes("isolatedId") || src.includes("highlightNodeId"), "selection isolation hook");
+    assert.ok(src.includes("ContactShadows"), "studio contact shadows");
     // Avoid PCSS SoftShadows / MeshReflectorMaterial components (GPU blackout)
     assert.ok(
-      !/from ["']@react-three\/drei["'][\s\S]*SoftShadows|SoftShadows,/.test(viewer) &&
-        !viewer.includes("<SoftShadows"),
+      !/from ["']@react-three\/drei["'][\s\S]*SoftShadows|SoftShadows,/.test(src) &&
+        !src.includes("<SoftShadows"),
       "no SoftShadows component"
     );
-    assert.ok(!viewer.includes("<MeshReflectorMaterial"), "no MeshReflectorMaterial");
+    assert.ok(!src.includes("<MeshReflectorMaterial"), "no MeshReflectorMaterial");
     assert.ok(
-      viewer.includes("getProceduralMap") || viewer.includes("procedural-maps"),
-      "procedural wire maps"
+      src.includes("getProceduralMap") || src.includes("procedural-maps"),
+      "procedural PBR maps"
     );
     assert.ok(
-      viewer.includes("Environment") &&
-        (viewer.includes("warehouse") || viewer.includes("studio")),
-      "Environment preset"
+      src.includes("Environment") && (src.includes("warehouse") || src.includes("studio")),
+      "IBL environment"
     );
     assert.ok(
-      viewer.includes("ACESFilmicToneMapping") || viewer.includes("toneMapping"),
-      "ACES tone mapping"
+      src.includes("ACESFilmicToneMapping") || /ToneMapping/.test(src),
+      "filmic tone mapping"
     );
-    assert.ok(viewer.includes("onIsolate") || viewer.includes("isolateNodeId"), "isolate path");
-    assert.ok(mesh.includes('case "face_panel"'), "face panel mesh");
-    assert.ok(mesh.includes('case "rear_panel"'), "rear panel mesh");
-    assert.ok(mesh.includes("PinStub"), "board pin stubs");
-    assert.ok(mesh.includes("meshPinStubsForNode"), "pads from sat-pins");
-    assert.ok(
-      mesh.includes("getProceduralMap") || mesh.includes("brushed_normal"),
-      "mesh uses procedural normals"
-    );
-    assert.ok(mesh.includes("normalMap"), "normalMap on product meshes");
-    assert.ok(assembly.includes("wiresForPart"), "incident nets on select");
-    assert.ok(assembly.includes("wireLegend"), "wire legend");
-    assert.ok(
-      assembly.includes("isolateNode") || assembly.includes("Inspect"),
-      "JARVIS inspect UX"
-    );
-    assert.ok(
-      assembly.includes("Reassemble") || assembly.includes("clearIsolate"),
-      "reassemble UX"
-    );
-    assert.ok(assembly.includes("buildAssemblyTree") || assembly.includes("Parts"), "parts tree");
+    assert.ok(src.includes("isolatedId") || src.includes("onIsolate"), "isolate interaction");
+    assert.ok(src.includes('case "face_panel"'), "face panel parametric case");
+    assert.ok(src.includes('case "rear_panel"'), "rear panel parametric case");
+    assert.ok(src.includes("PinStub"), "pin stubs land wires on boards");
+    assert.ok(src.includes("pinStubsForNode"), "pins derive from the pin authority");
+    assert.ok(src.includes("normalMap"), "procedural normals");
+    assert.ok(src.includes("wiresForPart"), "incident-wire lookup");
+    assert.ok(src.includes("wireLegend"), "wiring legend from the color authority");
+    assert.ok(src.includes("Inspect"), "inspect affordance");
+    assert.ok(src.includes("Reassemble"), "reassemble affordance");
+    assert.ok(src.includes("buildAssemblyTree") || src.includes("Parts"), "parts tree");
   });
 });
 
-describe("product-3d beauty mesh (display only)", () => {
+describe("product-3d beauty mesh", () => {
   const plan = applyTrustPipeline(demo as unknown as BuildPlan);
 
   it("allows https glb urls only", () => {
@@ -500,29 +502,6 @@ describe("product-3d scene builder", () => {
     assert.notDeepEqual(moved, template);
     const restored = applyPoseLayout(posed, { face: { position: template } });
     assert.deepEqual(restored.nodes.find((n) => n.id === "face")!.position, template);
-    // pose-storage with mock Storage (no browser localStorage in node tests)
-    const store = new Map<string, string>();
-    const mock: Storage = {
-      get length() {
-        return store.size;
-      },
-      clear: () => store.clear(),
-      getItem: (k) => store.get(k) ?? null,
-      setItem: (k, v) => {
-        store.set(k, v);
-      },
-      removeItem: (k) => {
-        store.delete(k);
-      },
-      key: (i) => [...store.keys()][i] ?? null,
-    };
-    clearPoseLayout(plan.id, mock);
-    savePoseLayout(plan.id, { face: { position: moved } }, mock);
-    const loaded = loadPoseLayout(plan.id, mock);
-    assert.ok(loaded?.face?.position);
-    assert.deepEqual(loaded!.face!.position, moved);
-    clearPoseLayout(plan.id, mock);
-    assert.equal(loadPoseLayout(plan.id, mock), null);
   });
 });
 
@@ -736,34 +715,4 @@ describe("product-3d pose layout", () => {
     assert.ok(face.position[0] > orig.position[0]);
   });
 
-  it("upsertNodePose merges", () => {
-    const a = upsertNodePose({}, "face", { position: [1, 2, 3] });
-    const b = upsertNodePose(a, "face", { rotation: [0, 1, 0] });
-    assert.deepEqual(b.face.position, [1, 2, 3]);
-    assert.deepEqual(b.face.rotation, [0, 1, 0]);
-  });
-
-  it("pose storage round-trip with mock Storage", () => {
-    const store = new Map<string, string>();
-    const mock: Storage = {
-      get length() {
-        return store.size;
-      },
-      clear: () => store.clear(),
-      getItem: (k) => store.get(k) ?? null,
-      setItem: (k, v) => {
-        store.set(k, v);
-      },
-      removeItem: (k) => {
-        store.delete(k);
-      },
-      key: (i) => [...store.keys()][i] ?? null,
-    };
-    assert.equal(poseStorageKey("abc"), "bb:product3d:poses:abc");
-    savePoseLayout("abc", { face: { position: [9, 8, 7] } }, mock);
-    const loaded = loadPoseLayout("abc", mock);
-    assert.deepEqual(loaded?.face?.position, [9, 8, 7]);
-    clearPoseLayout("abc", mock);
-    assert.equal(loadPoseLayout("abc", mock), null);
-  });
 });

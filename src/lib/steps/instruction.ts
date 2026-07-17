@@ -1,4 +1,7 @@
 import type { BuildStep, StepAction } from "@/lib/types";
+import type { FirmwarePackage } from "@/lib/firmware";
+import { doneWhenForSoftwareStep } from "@/lib/firmware";
+import { stepKind } from "./classify";
 
 /** Derive beginner actions from free-text when structured actions missing. */
 export function resolveActions(step: BuildStep): StepAction[] {
@@ -33,9 +36,20 @@ export function resolveYouNeed(step: BuildStep): string[] {
   return [];
 }
 
-export function resolveDoneWhen(step: BuildStep): string {
+/**
+ * Success-criteria copy for a step. Priority: explicit author `doneWhen` →
+ * (software steps only, when a firmware package is available) a check
+ * derived from the actual sketch to upload → `afterState` → a leftover
+ * `verification.description` → an honest "nothing generated" fallback that
+ * never claims a check exists when none was produced (A4).
+ */
+export function resolveDoneWhen(step: BuildStep, firmware?: FirmwarePackage | null): string {
   if (step.doneWhen?.trim()) return step.doneWhen.trim();
+  if (firmware && stepKind(step) === "software") {
+    const derived = doneWhenForSoftwareStep(step, firmware);
+    if (derived) return derived;
+  }
   if (step.afterState?.trim()) return step.afterState.trim();
   if (step.verification?.description) return step.verification.description;
-  return "This step looks finished and safe to leave as-is.";
+  return "No specific check was generated for this step — look it over against the photo/goal before moving on.";
 }

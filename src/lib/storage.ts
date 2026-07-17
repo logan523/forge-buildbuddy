@@ -28,6 +28,22 @@ export function loadAllPlans(): Record<string, BuildPlan> {
   }
 }
 
+/** Quota failures were silently swallowed (a builder's progress could stop
+    saving with zero signal). Writes stay throw-free; interested UI subscribes
+    here to warn the user instead. */
+type StorageWarningCb = (context: string) => void;
+let storageWarningCb: StorageWarningCb | null = null;
+export function onStorageWarning(cb: StorageWarningCb | null): void {
+  storageWarningCb = cb;
+}
+function warnStorage(context: string): void {
+  try {
+    storageWarningCb?.(context);
+  } catch {
+    /* a warning must never break a write path */
+  }
+}
+
 export function savePlan(plan: BuildPlan): void {
   if (!browser()) return;
   try {
@@ -37,7 +53,7 @@ export function savePlan(plan: BuildPlan): void {
     plans[plan.id] = stripDerived(plan);
     localStorage.setItem(PLANS_KEY, JSON.stringify(plans));
   } catch {
-    /* quota */
+    warnStorage("saving your build");
   }
 }
 
@@ -172,4 +188,28 @@ export function touchPlan(id: string, patch?: Partial<PlanMeta>): void {
 
 export function newPlanId(prefix = "build"): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+// A5: one global (not per-plan) flag — has this browser ever seen the inline
+// solder-technique primer in the guided wiring flow? Gates the one-time
+// auto-expand on a step's first wire; every wire after that stays reachable
+// via a small re-openable chip regardless of this flag.
+const TECHNIQUE_PRIMER_SEEN_KEY = "forge-technique-primer-seen";
+
+export function hasSeenTechniquePrimer(): boolean {
+  if (!browser()) return false;
+  try {
+    return localStorage.getItem(TECHNIQUE_PRIMER_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markTechniquePrimerSeen(): void {
+  if (!browser()) return;
+  try {
+    localStorage.setItem(TECHNIQUE_PRIMER_SEEN_KEY, "1");
+  } catch {
+    /* quota */
+  }
 }

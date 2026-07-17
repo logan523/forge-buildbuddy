@@ -54,21 +54,23 @@ const PRESETS: Record<MaterialPresetId, PhysicalMatProps> = {
   },
   brass: {
     color: "#d4a84b",
-    metalness: 0.97,
-    roughness: 0.09,
-    clearcoat: 0.25,
-    clearcoatRoughness: 0.2,
-    envMapIntensity: 1.65,
+    // Satin brass, not mirror: roughness up + envMap down so the cage stops
+    // throwing white glints that bloom and wash out the parts inside it.
+    metalness: 0.92,
+    roughness: 0.28,
+    clearcoat: 0.18,
+    clearcoatRoughness: 0.3,
+    envMapIntensity: 1.05,
     // Machined brass: the highlight stretches into a streak, not a plastic dot.
     anisotropy: 0.55,
   },
   copper: {
     color: "#c47a3a",
-    metalness: 0.96,
-    roughness: 0.2,
-    clearcoat: 0.28,
-    clearcoatRoughness: 0.18,
-    envMapIntensity: 1.45,
+    metalness: 0.94,
+    roughness: 0.3,
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.24,
+    envMapIntensity: 1.05,
     anisotropy: 0.45,
   },
   oled_glass: {

@@ -68,7 +68,7 @@ describe("real-parts dimension authority", () => {
     assert.ok(src.includes("deriveCageEdgeMm"), "cage from contents");
   });
 
-  it("Phase 3 GLB files exist on disk (optional underlay; glbReady off by default)", () => {
+  it("Phase 3 GLB files exist on disk; legacy real-parts glbReady stays off", () => {
     const ids = [
       "esp32_c3",
       "oled_096",
@@ -79,7 +79,8 @@ describe("real-parts dimension authority", () => {
       "solar_cell",
     ] as const;
     for (const id of ids) {
-      // Default: parametric path — crude auto-GLBs stay off until quality-reviewed
+      // Legacy gate: the crude auto-GLB path stays off. Real/authored models are
+      // switched on separately via the open PART_MODELS registry (see below).
       assert.equal(REAL_PARTS[id].mesh.glbReady, false, `${id} glbReady default off`);
       assert.equal(CATALOG[id].assetReady, false, `${id} assetReady default off`);
       const file = join(process.cwd(), "public", "models", "parts", `${id}.glb`);
@@ -88,11 +89,15 @@ describe("real-parts dimension authority", () => {
       assert.equal(buf.toString("utf8", 0, 4), "glTF", `${id} magic`);
       assert.ok(buf.length > 500, `${id} non-empty`);
     }
-    assert.equal(readyCatalogAssetPaths().length, 0);
+    // Authored models are live via the open registry; the rest stay parametric.
+    const ready = readyCatalogAssetPaths();
+    assert.ok(ready.includes("/models/parts/esp32_c3.glb"), "esp32 live");
+    assert.ok(ready.includes("/models/parts/oled_096.glb"), "oled live");
   });
 
-  it("applyCatalogHints does not attach assetUrl while glbReady is false", () => {
-    const nodes = applyCatalogHints([
+  it("applyCatalogHints attaches a GLB only where an open-registry model is ready", () => {
+    // ESP32-C3: authored model is live → assetUrl attached, parametric bypassed.
+    const [brain] = applyCatalogHints([
       {
         id: "brain",
         layer: "brain",
@@ -103,7 +108,22 @@ describe("real-parts dimension authority", () => {
         material: { color: "#14532d" },
       },
     ]);
-    assert.equal(nodes[0]!.catalogId, "esp32_c3");
-    assert.equal(nodes[0]!.assetUrl, undefined);
+    assert.equal(brain!.catalogId, "esp32_c3");
+    assert.equal(brain!.assetUrl, "/models/parts/esp32_c3.glb");
+
+    // Unrecognized board → generic_pcb has no model → no assetUrl, parametric fallback.
+    const [proto] = applyCatalogHints([
+      {
+        id: "proto",
+        layer: "brain",
+        label: "Proto board",
+        geom: { kind: "board", params: { width: 30, height: 20, depth: 2 } },
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        material: { color: "#0f172a" },
+      },
+    ]);
+    assert.equal(proto!.catalogId, "generic_pcb");
+    assert.equal(proto!.assetUrl, undefined);
   });
 });

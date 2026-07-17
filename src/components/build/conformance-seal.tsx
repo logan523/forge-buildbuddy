@@ -38,7 +38,9 @@ export function ConformanceSeal({ plan }: { plan: BuildPlan }) {
         }`}
       >
         <span aria-hidden>{traced ? "✓" : "⚠"}</span>
-        Instructions {traced ? "traced to the model" : `${table.pct}% traced`}
+        {traced
+          ? "Every wire in these steps is checked against your circuit"
+          : `${table.pct}% of wires checked against your circuit`}
         {!traced && table.issues.length > 0 && (
           <span className="opacity-70">· {table.issues.length}</span>
         )}
@@ -49,20 +51,28 @@ export function ConformanceSeal({ plan }: { plan: BuildPlan }) {
           <div>
             <p className="text-[10px] text-white/70">
               Instructions: {table.coveredNets}/{table.renderableNets} nets rendered in the steps
-              {table.decorativeCount > 0 ? ` · ${table.decorativeCount} decorative` : ""}
+              {table.decorativeCount > 0 ? ` · ${table.decorativeCount} teaching-only` : ""}
             </p>
             {traced ? (
               <p className="text-[10px] text-emerald-300/90">
-                Every wire in the steps traces to the verified model — the steps can&apos;t tell you to wire one it didn&apos;t check.
+                Every wire in the steps is checked against your circuit — the steps can&apos;t tell you to wire one it didn&apos;t check.
               </p>
             ) : (
               <ul className="space-y-0.5 max-h-24 overflow-y-auto mt-0.5">
                 {table.issues.slice(0, 6).map((iss, i) => (
                   <li key={i} className="text-[10px] text-white/70 leading-snug">
-                    <span className={iss.kind === "decorative" ? "text-amber-300" : "text-white/50"}>
-                      {iss.kind === "decorative" ? "decorative" : iss.kind === "orphan-net" ? "missing" : "partial"}:
-                    </span>{" "}
-                    {iss.detail}
+                    {iss.kind === "decorative" ? (
+                      <span className="text-amber-300">
+                        teaching-only visuals — the checked list above is what&apos;s verified
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-white/50">
+                          {iss.kind === "orphan-net" ? "missing" : "partial"}:
+                        </span>{" "}
+                        {iss.detail}
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -79,12 +89,13 @@ export function ConformanceSeal({ plan }: { plan: BuildPlan }) {
                     harness.traced ? "bg-emerald-400" : "bg-amber-400"
                   }`}
                 />
-                3D wires: {harness.backedTubes}/{harness.totalTubes} netlist-backed
+                {harness.backedTubes} of {harness.totalTubes} 3D wires verified against the wiring plan
               </p>
               {!harness.traced && (
                 <p className="text-[10px] text-amber-200/80">
-                  {harness.decorativeTubes} tubes are a teaching layout, not yet drawn from the netlist. The
-                  steps above are the proven source; the 3D wiring is an illustration.
+                  {harness.decorativeTubes} tubes are teaching-only visuals — the checked list above is
+                  what&apos;s verified. The steps above are the proven source; the 3D wiring is an
+                  illustration.
                 </p>
               )}
             </div>

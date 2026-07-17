@@ -8,7 +8,7 @@
  * who don't need the hand-holding. Progress keys on the stable wire id.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { GlossaryText, ConnectionsTable } from "@/components/step-facts";
 import { WireAndPartsIdentity } from "@/components/build/part-identity-card";
@@ -16,7 +16,43 @@ import { WireDoubleCheck } from "@/components/build/wire-double-check";
 import { diagnose, type SymptomId } from "@/lib/unstick";
 import { encouragement } from "@/lib/steps/buddy";
 import { recordStruggle, preemptiveRock, frictionCount, type Rock } from "@/lib/steps/friction";
-import { loadWireChecks, saveWireChecks } from "@/lib/storage";
+import {
+  loadWireChecks,
+  saveWireChecks,
+  hasSeenTechniquePrimer,
+  markTechniquePrimerSeen,
+} from "@/lib/storage";
+
+// A5: module-scoped (not component state/ref) cache of the technique-primer
+// open/closed decision per wire — see the long comment where it's read,
+// inside GuidedSteps, for why this needs to live above the component
+// lifecycle rather than inside it. Keyed by the wire's stable string id
+// (not the MicroStep object itself): the compiler re-derives fresh
+// MicroStep objects from the netlist on every plan load, so object
+// identity is not a safe cache key across everything that can trigger a
+// recompile — the id string is.
+const primerOpenByWire = new Map<string, boolean>();
+
+/** The current wire's toggle, shaped for BuildScreen's primary action bar. */
+export interface GuidedActionState {
+  label: string;
+  done: boolean;
+  onToggle: () => void;
+}
+
+/**
+ * A2: mirrors the current wire's toggle onto BuildScreen's primary action
+ * bar. InstructionCard sits between GuidedSteps and BuildScreen and has no
+ * reason to know about "guided action state" — Context skips it instead of
+ * adding a prop InstructionCard would only ever forward untouched.
+ * BuildScreen provides the setter around InstructionCard; every other
+ * render path (including every existing test below, which mounts
+ * GuidedSteps directly with no provider) gets the default `null`, a safe
+ * no-op. See also the `onGuidedState` prop — same data, for direct callers.
+ */
+export const GuidedActionContext = createContext<
+  ((state: GuidedActionState | null) => void) | null
+>(null);
 
 export function GuidedSteps({
   step,
@@ -25,6 +61,7 @@ export function GuidedSteps({
   stepCompleted = false,
   onAutoComplete,
   onActiveWire,
+  onGuidedState,
 }: {
   step: BuildStep;
   plan: BuildPlan;
@@ -33,6 +70,13 @@ export function GuidedSteps({
   onAutoComplete?: () => void;
   /** Slice 3: the parent highlights this wire's pins in the 3D view. */
   onActiveWire?: (m: MicroStep | null) => void;
+  /**
+   * Slice A2: same pattern as onActiveWire — additive, optional, driven from
+   * an effect, null when the guided flow is showing the full table or has
+   * no wires at all. Lets a direct parent mirror the current wire's toggle
+   * onto its own UI without reaching into GuidedSteps' internals.
+   */
+  onGuidedState?: (s: GuidedActionState | null) => void;
 }) {
   const micro = step.compiled?.microSteps ?? [];
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -40,6 +84,7 @@ export function GuidedSteps({
   const [showAll, setShowAll] = useState(false);
   const [rescueOpens, setRescueOpens] = useState(0);
   const autoFired = useRef(false);
+  const setGuidedAction = useContext(GuidedActionContext);
 
   useEffect(() => {
     const c = loadWireChecks(planId, step.stepNumber);
@@ -52,6 +97,27 @@ export function GuidedSteps({
   }, [planId, step.stepNumber]);
 
   const cur = micro[current];
+
+  // Moved above the `if (!micro.length) return null` guard (was declared
+  // further down, after the guard) so the A2 mirror effect below — which
+  // must run unconditionally, before any early return, same as every hook —
+  // can reference it. Depends only on state/props already available here.
+  const toggle = (m: MicroStep) => {
+    const next = new Set(checked);
+    if (next.has(m.id)) next.delete(m.id);
+    else next.add(m.id);
+    setChecked(next);
+    saveWireChecks(planId, step.stepNumber, next);
+    if (next.has(m.id)) {
+      const nextUnchecked = micro.findIndex((x, i) => i > current && !next.has(x.id));
+      if (nextUnchecked >= 0) setCurrent(nextUnchecked);
+    }
+    // F4: completing the last wire auto-completes the step; unchecking never un-completes.
+    if (next.size === micro.length && !autoFired.current && !stepCompleted) {
+      autoFired.current = true;
+      onAutoComplete?.();
+    }
+  };
 
   // Reset the "struggling" signal whenever the builder moves to a new wire.
   useEffect(() => setRescueOpens(0), [current]);
@@ -73,10 +139,73 @@ export function GuidedSteps({
     if (rescueOpens === 2) recordStruggle({ kind: "wiring", netClasses: stepNetClasses });
   }, [rescueOpens, stepNetClasses]);
 
+  // A5: technique-in-flow primer — auto-expanded the very first time EVER
+  // (a global flag, not per-plan/per-step) that a builder reaches a step's
+  // first wire; every wire after that (this one included, on later visits,
+  // including a later step's own first wire) defaults collapsed to a small
+  // re-openable chip so it's never fully hidden. hasSeenTechniquePrimer is
+  // client-only localStorage, so the decision is computed post-mount — same
+  // hydration-mismatch guard as the Rock preempt effect above.
+  //
+  // primerOpenByWire (module scope, see top of file) caches the resolved
+  // open/closed decision per wire so it's made exactly once per wire, not
+  // once per effect invocation: dev-mode React can re-run a mount's effects
+  // more than once (Strict Mode's mount→cleanup→mount replay), and neither
+  // component state nor refs are a safe guard against that — both are tied
+  // to the component instance, which is exactly what gets replayed. A
+  // module-level cache sits above the component lifecycle entirely, so a
+  // replayed pass reads its own prior resolution instead of re-reading
+  // storage and computing a different answer. Keying by `cur.id` (not
+  // "ever") is deliberate too — GuidedSteps isn't remounted between wiring
+  // steps, so freezing the very first read for the module's whole lifetime
+  // would wrongly auto-reopen on every later step's first wire as well.
+  const [primerOpen, setPrimerOpen] = useState(false);
+  useEffect(() => {
+    if (!cur) return;
+    if (!primerOpenByWire.has(cur.id)) {
+      const open = !!cur.showTechnique && !hasSeenTechniquePrimer();
+      if (open) markTechniquePrimerSeen();
+      primerOpenByWire.set(cur.id, open);
+    }
+    // Syncing local render state from the module-level cache above
+    // (client-only localStorage backs it) — same class of exception as the
+    // Rock preempt effect a few lines up.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPrimerOpen(!!primerOpenByWire.get(cur.id));
+  }, [cur]);
+
   useEffect(() => {
     onActiveWire?.(showAll ? null : cur ?? null);
     return () => onActiveWire?.(null);
   }, [cur, showAll, onActiveWire]);
+
+  // A2: mirror the current wire's own toggle onto BuildScreen's primary
+  // action bar — two sinks, the explicit prop (direct callers/tests) and
+  // GuidedActionContext (the production path from BuildScreen). done+label
+  // track checked state, not just which wire is current, so re-visiting an
+  // already-soldered wire (progress dots, Previous wire) mirrors correctly.
+  useEffect(() => {
+    let state: GuidedActionState | null = null;
+    if (!showAll && cur) {
+      const wire = cur;
+      const isDoneNow = checked.has(wire.id);
+      state = {
+        label: isDoneNow ? "✓ Done — tap to undo" : "I soldered this wire ✓",
+        done: isDoneNow,
+        onToggle: () => toggle(wire),
+      };
+    }
+    onGuidedState?.(state);
+    setGuidedAction?.(state);
+    return () => {
+      onGuidedState?.(null);
+      setGuidedAction?.(null);
+    };
+    // toggle is intentionally omitted: it's a fresh closure every render that
+    // already closes over the latest `checked`/`current`, both of which ARE
+    // in the deps below (same shape as the exhaustive-deps opt-out above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur, showAll, checked, onGuidedState, setGuidedAction]);
 
   const rescue = useMemo(() => {
     if (!cur?.rescueSymptomId) return null;
@@ -93,23 +222,6 @@ export function GuidedSteps({
     netClass: cur.netClass,
     struggling: rescueOpens > 1,
   });
-
-  const toggle = (m: MicroStep) => {
-    const next = new Set(checked);
-    if (next.has(m.id)) next.delete(m.id);
-    else next.add(m.id);
-    setChecked(next);
-    saveWireChecks(planId, step.stepNumber, next);
-    if (next.has(m.id)) {
-      const nextUnchecked = micro.findIndex((x, i) => i > current && !next.has(x.id));
-      if (nextUnchecked >= 0) setCurrent(nextUnchecked);
-    }
-    // F4: completing the last wire auto-completes the step; unchecking never un-completes.
-    if (next.size === micro.length && !autoFired.current && !stepCompleted) {
-      autoFired.current = true;
-      onAutoComplete?.();
-    }
-  };
 
   if (showAll) {
     return (
@@ -156,16 +268,23 @@ export function GuidedSteps({
         </button>
       </div>
       <div className="flex gap-1">
+        {/* 44px floor: the button is the full hit area; the thin bar inside
+            is purely visual (aria-hidden — the button already has the label). */}
         {micro.map((m, i) => (
           <button
             key={m.id}
             type="button"
             aria-label={`Wire ${i + 1}`}
             onClick={() => setCurrent(i)}
-            className={`h-1.5 flex-1 rounded-full ${
-              checked.has(m.id) ? "bg-success" : i === current ? "bg-accent" : "bg-border"
-            }`}
-          />
+            className="flex-1 min-w-11 min-h-11 flex items-center justify-center cursor-pointer"
+          >
+            <span
+              aria-hidden
+              className={`h-1.5 w-full rounded-full ${
+                checked.has(m.id) ? "bg-success" : i === current ? "bg-accent" : "bg-border"
+              }`}
+            />
+          </button>
         ))}
       </div>
 
@@ -179,6 +298,58 @@ export function GuidedSteps({
           <span>{buddyLine}</span>
         </p>
       )}
+
+      {/* A5: technique-in-flow — soldering technique now lives inline with
+          the wire card instead of buried in a deep-detail-only drawer.
+          Sourced from this step's own toolTechnique when the plan authored
+          one, else a generic static solder primer (authored here). The chip
+          is on every wire so it's never fully hidden; the panel itself
+          auto-expands once, globally, the first time a builder ever
+          reaches it (see the effect above). */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setPrimerOpen((v) => !v)}
+          aria-expanded={primerOpen}
+          className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-full text-xs font-medium text-accent bg-accent/10 hover:bg-accent/15 cursor-pointer"
+        >
+          Technique ↺
+        </button>
+        {primerOpen && (
+          <div className="mt-2 p-3 rounded-xl border border-accent/25 bg-accent/5 space-y-1.5">
+            {step.toolTechnique ? (
+              <>
+                <p className="text-xs font-semibold text-text">{step.toolTechnique.tool}</p>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {step.toolTechnique.usage}
+                </p>
+                {step.toolTechnique.safety && (
+                  <p className="text-xs text-warning">⚠ {step.toolTechnique.safety}</p>
+                )}
+                {step.toolTechnique.mistake && (
+                  <p className="text-xs text-text-secondary">
+                    <span className="font-medium">Avoid:</span> {step.toolTechnique.mistake}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-text">Soldering technique</p>
+                <ol className="text-xs text-text-secondary leading-relaxed space-y-1 list-decimal list-inside">
+                  <li>Heat both surfaces for 2–3 seconds before adding solder.</li>
+                  <li>Feed solder to the joint, not the iron.</li>
+                  <li>Remove the solder first, then the iron.</li>
+                  <li>Let it cool undisturbed — don&apos;t blow on it.</li>
+                </ol>
+                <p className="text-xs text-text-secondary">
+                  <span className="font-medium">Good joint looks like:</span> a shiny cone, not a
+                  ball.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* The wire card: find → do → verify */}
       <div className="p-4 rounded-2xl border border-border bg-surface space-y-3">
@@ -209,7 +380,7 @@ export function GuidedSteps({
 
         {/* "Is this the part I'm holding?" — wire + both parts, on demand */}
         <details className="group">
-          <summary className="text-xs font-medium text-accent cursor-pointer py-1 min-h-[24px]">
+          <summary className="text-xs font-medium text-accent cursor-pointer py-1 min-h-11">
             What am I connecting? See both parts
           </summary>
           <div className="mt-2">

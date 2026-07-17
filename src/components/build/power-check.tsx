@@ -38,7 +38,9 @@ export function PowerCheck({ plan }: { plan: BuildPlan }) {
           <div key={r.netName} className={`rounded-lg border px-2.5 py-1.5 ${TONE[r.status] ?? TONE.ok}`}>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-text">
-                {r.nominalV}V rail
+                {/* netName disambiguates same-voltage rails (two 5V rails read
+                    as duplicates without it). */}
+                {r.netName} · {r.nominalV}V
               </span>
               <span className="text-[10px] font-medium uppercase tracking-wide">{LABEL[r.status]}</span>
             </div>

@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "./themes/blueprint-evolved.css";
+import "./themes/field-notebook.css";
+import "./themes/kit-box.css";
+import { ThemeSwitcher } from "@/components/dev/theme-switcher";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -10,6 +14,11 @@ export const metadata: Metadata = {
   description: "Paste a YouTube link or describe a project. AI finds every part, checks prices, and walks you through the build.",
 };
 
+// CONSTRAINT: no root loading.tsx in this segment. A root-level Suspense
+// boundary re-mounts the R3F Canvas mid-hydration; the postprocessing
+// composer then initializes against a renderer whose WebGL context the
+// interrupted mount already disposed ("null.alpha" crash in addPass).
+// error.tsx / not-found.tsx are error boundaries, not Suspense — safe.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
@@ -33,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
         <main className="flex-1">{children}</main>
+        {process.env.NODE_ENV !== "production" && <ThemeSwitcher />}
         <script
           dangerouslySetInnerHTML={{
             __html: `

@@ -211,10 +211,11 @@ export function nodeOpacity(node: SceneNode3D, view: LayerViewState): number {
   if (view.isolateNodeId) {
     return view.isolateNodeId === node.id ? 1 : 0.14;
   }
-  // Wiring-map: ghost part bodies so wires + connection pads are the subject.
-  // The selected/tapped part stays readable.
+  // Wiring-map: part bodies stay clearly visible (you need to SEE what you're
+  // wiring to), just slightly back so the bold pads + colored wires read on top.
+  // The selected/tapped part is fully solid.
   if (view.connectionMap) {
-    return view.selectedNodeId === node.id ? 0.9 : 0.4;
+    return view.selectedNodeId === node.id ? 1 : 0.72;
   }
   if (view.soloLayerId && view.soloLayerId !== node.layer) return 0.08;
   if (view.selectedNodeId && view.selectedNodeId === node.id) return 1;

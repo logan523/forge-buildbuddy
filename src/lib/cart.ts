@@ -3,6 +3,17 @@ import { getModuleById, type CatalogModule } from "./catalog";
 
 export type CartStrategy = "fast" | "electronics" | "split";
 
+// Single source of truth for vendor display names — was duplicated between
+// build-ui.tsx and build-session.tsx; both now import this one.
+export const VENDOR_LABEL: Record<Vendor, string> = {
+  amazon: "Amazon",
+  aliexpress: "AliExpress",
+  digikey: "DigiKey",
+  mouser: "Mouser",
+  lcsc: "LCSC",
+  other: "Buy",
+};
+
 const VENDOR_PRIORITY_FAST: Vendor[] = ["amazon", "aliexpress", "lcsc", "digikey", "mouser", "other"];
 const VENDOR_PRIORITY_ELECTRONICS: Vendor[] = ["lcsc", "digikey", "mouser", "amazon", "aliexpress", "other"];
 
@@ -274,6 +285,32 @@ export function formatUsdRange(min?: number, max?: number): string {
   const a = fmt(min);
   if (max == null || Math.abs(max - min) < 0.01) return `$${a}`;
   return `$${a}–$${fmt(max)}`;
+}
+
+/** Midpoint of a price band — a single number reads faster than a bare range. */
+export function usdMidpoint(min?: number, max?: number): number | undefined {
+  if (min == null) return undefined;
+  if (max == null) return min;
+  return (min + max) / 2;
+}
+
+/**
+ * Cart estimate headline: a midpoint first ("~$65"), with the honest range
+ * kept alongside instead of hidden ("~$65 · typically $41–$127 depending on
+ * vendor") whenever the band is wide enough to matter. A bare "$41–$127"
+ * forces the reader to average it themselves; a bare midpoint alone hides
+ * how much vendor actually moves the price.
+ */
+export function formatUsdMidpoint(min?: number, max?: number): string {
+  const mid = usdMidpoint(min, max);
+  if (mid == null) return "—";
+  const headline = `~${formatUsdRange(mid)}`;
+  if (min == null || max == null) return headline;
+  // Suppress the range clause whenever the FORMATTED endpoints collapse to the
+  // same string — a raw epsilon misses bands like 65..65.02, which the dollar
+  // rounding would otherwise render as the nonsense "typically $65–$65".
+  if (formatUsdRange(min) === formatUsdRange(max)) return headline;
+  return `${headline} · typically ${formatUsdRange(min, max)} depending on vendor`;
 }
 
 /** Attach catalog offers + price estimates onto parts (used by trust pipeline). */
