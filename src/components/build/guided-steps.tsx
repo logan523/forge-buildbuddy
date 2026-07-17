@@ -8,7 +8,7 @@
  * who don't need the hand-holding. Progress keys on the stable wire id.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { GlossaryText, ConnectionsTable } from "@/components/step-facts";
 import { WireAndPartsIdentity } from "@/components/build/part-identity-card";
@@ -18,6 +18,27 @@ import { encouragement } from "@/lib/steps/buddy";
 import { recordStruggle, preemptiveRock, frictionCount, type Rock } from "@/lib/steps/friction";
 import { loadWireChecks, saveWireChecks } from "@/lib/storage";
 
+/** The current wire's toggle, shaped for BuildScreen's primary action bar. */
+export interface GuidedActionState {
+  label: string;
+  done: boolean;
+  onToggle: () => void;
+}
+
+/**
+ * A2: mirrors the current wire's toggle onto BuildScreen's primary action
+ * bar. InstructionCard sits between GuidedSteps and BuildScreen and has no
+ * reason to know about "guided action state" — Context skips it instead of
+ * adding a prop InstructionCard would only ever forward untouched.
+ * BuildScreen provides the setter around InstructionCard; every other
+ * render path (including every existing test below, which mounts
+ * GuidedSteps directly with no provider) gets the default `null`, a safe
+ * no-op. See also the `onGuidedState` prop — same data, for direct callers.
+ */
+export const GuidedActionContext = createContext<
+  ((state: GuidedActionState | null) => void) | null
+>(null);
+
 export function GuidedSteps({
   step,
   plan,
@@ -25,6 +46,7 @@ export function GuidedSteps({
   stepCompleted = false,
   onAutoComplete,
   onActiveWire,
+  onGuidedState,
 }: {
   step: BuildStep;
   plan: BuildPlan;
@@ -33,6 +55,13 @@ export function GuidedSteps({
   onAutoComplete?: () => void;
   /** Slice 3: the parent highlights this wire's pins in the 3D view. */
   onActiveWire?: (m: MicroStep | null) => void;
+  /**
+   * Slice A2: same pattern as onActiveWire — additive, optional, driven from
+   * an effect, null when the guided flow is showing the full table or has
+   * no wires at all. Lets a direct parent mirror the current wire's toggle
+   * onto its own UI without reaching into GuidedSteps' internals.
+   */
+  onGuidedState?: (s: GuidedActionState | null) => void;
 }) {
   const micro = step.compiled?.microSteps ?? [];
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -40,6 +69,7 @@ export function GuidedSteps({
   const [showAll, setShowAll] = useState(false);
   const [rescueOpens, setRescueOpens] = useState(0);
   const autoFired = useRef(false);
+  const setGuidedAction = useContext(GuidedActionContext);
 
   useEffect(() => {
     const c = loadWireChecks(planId, step.stepNumber);
@@ -52,6 +82,27 @@ export function GuidedSteps({
   }, [planId, step.stepNumber]);
 
   const cur = micro[current];
+
+  // Moved above the `if (!micro.length) return null` guard (was declared
+  // further down, after the guard) so the A2 mirror effect below — which
+  // must run unconditionally, before any early return, same as every hook —
+  // can reference it. Depends only on state/props already available here.
+  const toggle = (m: MicroStep) => {
+    const next = new Set(checked);
+    if (next.has(m.id)) next.delete(m.id);
+    else next.add(m.id);
+    setChecked(next);
+    saveWireChecks(planId, step.stepNumber, next);
+    if (next.has(m.id)) {
+      const nextUnchecked = micro.findIndex((x, i) => i > current && !next.has(x.id));
+      if (nextUnchecked >= 0) setCurrent(nextUnchecked);
+    }
+    // F4: completing the last wire auto-completes the step; unchecking never un-completes.
+    if (next.size === micro.length && !autoFired.current && !stepCompleted) {
+      autoFired.current = true;
+      onAutoComplete?.();
+    }
+  };
 
   // Reset the "struggling" signal whenever the builder moves to a new wire.
   useEffect(() => setRescueOpens(0), [current]);
@@ -78,6 +129,34 @@ export function GuidedSteps({
     return () => onActiveWire?.(null);
   }, [cur, showAll, onActiveWire]);
 
+  // A2: mirror the current wire's own toggle onto BuildScreen's primary
+  // action bar — two sinks, the explicit prop (direct callers/tests) and
+  // GuidedActionContext (the production path from BuildScreen). done+label
+  // track checked state, not just which wire is current, so re-visiting an
+  // already-soldered wire (progress dots, Previous wire) mirrors correctly.
+  useEffect(() => {
+    let state: GuidedActionState | null = null;
+    if (!showAll && cur) {
+      const wire = cur;
+      const isDoneNow = checked.has(wire.id);
+      state = {
+        label: isDoneNow ? "✓ Done — tap to undo" : "I soldered this wire ✓",
+        done: isDoneNow,
+        onToggle: () => toggle(wire),
+      };
+    }
+    onGuidedState?.(state);
+    setGuidedAction?.(state);
+    return () => {
+      onGuidedState?.(null);
+      setGuidedAction?.(null);
+    };
+    // toggle is intentionally omitted: it's a fresh closure every render that
+    // already closes over the latest `checked`/`current`, both of which ARE
+    // in the deps below (same shape as the exhaustive-deps opt-out above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur, showAll, checked, onGuidedState, setGuidedAction]);
+
   const rescue = useMemo(() => {
     if (!cur?.rescueSymptomId) return null;
     return diagnose(plan, cur.rescueSymptomId as SymptomId, step)[0] ?? null;
@@ -93,23 +172,6 @@ export function GuidedSteps({
     netClass: cur.netClass,
     struggling: rescueOpens > 1,
   });
-
-  const toggle = (m: MicroStep) => {
-    const next = new Set(checked);
-    if (next.has(m.id)) next.delete(m.id);
-    else next.add(m.id);
-    setChecked(next);
-    saveWireChecks(planId, step.stepNumber, next);
-    if (next.has(m.id)) {
-      const nextUnchecked = micro.findIndex((x, i) => i > current && !next.has(x.id));
-      if (nextUnchecked >= 0) setCurrent(nextUnchecked);
-    }
-    // F4: completing the last wire auto-completes the step; unchecking never un-completes.
-    if (next.size === micro.length && !autoFired.current && !stepCompleted) {
-      autoFired.current = true;
-      onAutoComplete?.();
-    }
-  };
 
   if (showAll) {
     return (
