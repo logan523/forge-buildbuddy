@@ -8,6 +8,7 @@ import type { YoutubeErrorType } from "@/lib/youtube-errors";
 import { applyTrustPipeline } from "@/lib/trust";
 import { listPlans, savePlan, newPlanId, touchPlan, deletePlan } from "@/lib/storage";
 import { GenerationProgress } from "@/components/home/generation-progress";
+import { DemoHero } from "@/components/home/demo-hero";
 import demoPlan from "@/data/sat-line.json";
 
 const DEMO_PROJECTS = [
@@ -289,6 +290,7 @@ export default function Home() {
             </span>
             <span className="flex-1 h-px bg-border" />
           </div>
+          <DemoHero plan={DEMO_PROJECTS[0]!.plan} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {DEMO_PROJECTS.map((proj, idx) => (
               <div
@@ -350,6 +352,32 @@ export default function Home() {
                 </div>
               </div>
             ))}
+            {/* Honest 2nd gallery card: a REAL kit (seed-kits), not invented
+                content — links to its kit page rather than faking a build. */}
+            <a
+              href="/kits/desk-weather-station"
+              className="rounded-xl bg-surface border border-border-subtle shadow-card overflow-hidden no-underline hover:border-accent/30 transition-all flex flex-col"
+            >
+              <div className="p-4 bg-surface-raised border-b border-border-subtle">
+                <div className="flex items-start justify-between mb-1">
+                  <h3 className="text-sm font-semibold text-text font-serif">Desk Weather Station</h3>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-success-soft text-success shrink-0 ml-2">
+                    beginner
+                  </span>
+                </div>
+                <p className="text-xs text-text-secondary">
+                  ESP32 + BME280 + OLED indoor weather display. Breadboard-friendly quick build.
+                </p>
+                <div className="flex items-center gap-3 mt-2 text-xs text-text-muted">
+                  <span>6 parts</span>
+                  <span>·</span>
+                  <span>$15-25</span>
+                </div>
+              </div>
+              <div className="p-3 mt-auto">
+                <p className="text-[11px] text-accent font-semibold">From the kit board →</p>
+              </div>
+            </a>
           </div>
         </div>
 
