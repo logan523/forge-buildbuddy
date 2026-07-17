@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BuildStep, CompiledStepFacts } from "@/lib/types";
 import type { StepAction } from "@/lib/types";
+import type { FirmwarePackage } from "@/lib/firmware";
 import { glossarySegments } from "@/lib/glossary";
 import { resolveDoneWhen } from "@/lib/steps/instruction";
 import { loadActionChecks, saveActionChecks } from "@/lib/storage";
@@ -191,8 +192,15 @@ export function checkLines(step: BuildStep): { instruction: string; expected: st
   return lines;
 }
 
-export function CheckYourWorkCard({ step }: { step: BuildStep }) {
-  const doneWhen = resolveDoneWhen(step);
+export function CheckYourWorkCard({
+  step,
+  firmware,
+}: {
+  step: BuildStep;
+  /** Optional — unlocks the sketch-derived doneWhen for software steps (steps/instruction.ts). Undefined by default so every existing call site keeps compiling. */
+  firmware?: FirmwarePackage | null;
+}) {
+  const doneWhen = resolveDoneWhen(step, firmware);
   const lines = checkLines(step);
   return (
     <div className="p-3 rounded-xl bg-success-soft/60 border border-success/20">

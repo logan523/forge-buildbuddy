@@ -1,4 +1,4 @@
-import type { BuildPlan, Part, WiringConnection } from "./types";
+import type { BuildPlan, BuildStep, Part } from "./types";
 import { getModuleById } from "./catalog";
 import { stepKind } from "./steps/classify";
 
@@ -94,8 +94,6 @@ export function buildPinMap(plan: BuildPlan): Record<string, number | string> {
   for (const c of connections) {
     const fromGpio = extractGpio(c.from);
     const toGpio = extractGpio(c.to);
-    const fromRole = endpointRole(c.from) || endpointRole(c.to);
-    const toRole = endpointRole(c.to) || endpointRole(c.from);
 
     // Prefer role from the non-MCU side label combined with MCU GPIO
     const pair: [string, string] = [c.from, c.to];
@@ -188,7 +186,7 @@ function hasPart(parts: Part[], ...preds: Array<(p: Part) => boolean>): boolean 
   return parts.some((p) => preds.some((fn) => fn(p)));
 }
 
-function sketchBlink(board: ReturnType<typeof detectBoard>, map: Record<string, number | string>): FirmwareSketch {
+function sketchBlink(board: ReturnType<typeof detectBoard>): FirmwareSketch {
   const led = board.family === "esp32c3" || board.family === "esp32" ? "LED_BUILTIN /* or GPIO8 on some C3 boards */" : "LED_BUILTIN";
   return {
     id: "blink",
@@ -212,6 +210,7 @@ void loop() {
   delay(400);
   digitalWrite(LED_BUILTIN, LOW);
   delay(400);
+  Serial.println("blink");
 }
 `,
   };
@@ -523,7 +522,7 @@ export function generateFirmware(plan: BuildPlan): FirmwarePackage | null {
   if (board.family === "unknown") return null;
 
   const map = buildPinMap(plan);
-  const sketches: FirmwareSketch[] = [sketchBlink(board, map)];
+  const sketches: FirmwareSketch[] = [sketchBlink(board)];
 
   const needsI2c =
     hasPart(parts, (p) => p.catalogId === "ssd1306-i2c" || p.catalogId === "sht31d" || p.catalogId === "bme280") ||
@@ -584,4 +583,108 @@ Use the generated \`platformio.ini\` if you prefer PIO over Arduino IDE.
 /** True when this step is primarily about code upload. */
 export function isSoftwareStep(step?: { title?: string; description?: string }): boolean {
   return stepKind(step) === "software";
+}
+
+/* ── Sketch-derived doneWhen ─────────────────────────────────────────────
+ * A software step's "check your work" copy is far more useful when it names
+ * the actual sketch to upload and describes what THAT sketch does — instead
+ * of generic "looks finished" prose. Matches a step to its sketch the same
+ * way compile.ts assigns wiring connections to steps (weighted-substring
+ * token scoring — see scoreEdgeAgainst/edgeTokens there): tokens come from
+ * each sketch's id/phase/name/description, weighted by specificity, matched
+ * as substrings against the step's title+description. No match (or a tie at
+ * zero) falls back to the LAST sketch — in practice always `full_app`, since
+ * generateFirmware() pushes it unconditionally last — because a step that
+ * doesn't name a specific sketch is almost always "upload the final thing."
+ */
+
+const DONE_WHEN_STOP_WORDS = new Set([
+  "the", "and", "for", "with", "your", "this", "that", "from", "into",
+  "before", "after", "when", "then", "use", "using", "you", "will", "are",
+]);
+
+function sketchTokens(s: FirmwareSketch): { token: string; weight: number }[] {
+  const tokens: { token: string; weight: number }[] = [];
+  const push = (raw: string, weight: number) => {
+    const t = raw.toLowerCase().trim();
+    if (t.length >= 3 && !DONE_WHEN_STOP_WORDS.has(t)) tokens.push({ token: t, weight });
+  };
+  for (const part of s.id.split("_")) push(part, 3);
+  push(s.phase, 3);
+  for (const w of s.name.toLowerCase().split(/[^a-z0-9]+/)) push(w, 2);
+  for (const w of s.description.toLowerCase().split(/[^a-z0-9]+/)) push(w, 1);
+  return tokens;
+}
+
+function scoreSketchAgainst(blob: string, s: FirmwareSketch): number {
+  let score = 0;
+  for (const { token, weight } of sketchTokens(s)) {
+    if (blob.includes(token)) score += weight;
+  }
+  return score;
+}
+
+/** I2C addresses the scanner should find, derived from which subsystem sketches actually got generated (a direct proxy for "this part is in the BOM" — see generateFirmware's hasPart gating). */
+function scannerAddressesExpected(firmware: FirmwarePackage): string {
+  const found: string[] = [];
+  if (firmware.sketches.some((s) => s.id === "oled_test")) {
+    const addr = typeof firmware.pinMap.I2C_OLED_ADDR === "number" ? firmware.pinMap.I2C_OLED_ADDR : 0x3c;
+    found.push(`0x${addr.toString(16).toUpperCase()} (display)`);
+  }
+  if (firmware.sketches.some((s) => s.id === "sensor_test")) {
+    const addr = typeof firmware.pinMap.I2C_SHT_ADDR === "number" ? firmware.pinMap.I2C_SHT_ADDR : 0x44;
+    found.push(`0x${addr.toString(16).toUpperCase()} (sensor)`);
+  }
+  return found.length ? found.join(" and ") : "your display/sensor addresses";
+}
+
+/** What the full-app sketch actually shows, sniffed from its own generated code — never claim a clock face on a build with no OLED. */
+function appExpected(sketch: FirmwareSketch): string {
+  const code = sketch.code;
+  const hasOled = /Adafruit_SSD1306/.test(code);
+  const hasClock = /getLocalTime|configTime/.test(code);
+  const hasSensor = /Adafruit_SHT31/.test(code);
+  if (hasOled && hasClock) return "the clock face light up with the time";
+  if (hasOled && hasSensor) return "temperature and humidity update on the display";
+  if (hasOled) return "the display update with your build's status";
+  if (hasSensor) return "new temperature/humidity numbers in Serial Monitor";
+  return "new status lines appear in Serial Monitor every so often";
+}
+
+function expectedForSketch(sketch: FirmwareSketch, firmware: FirmwarePackage): string {
+  switch (sketch.id) {
+    case "blink":
+      return 'the onboard LED blink every 400ms and "blink" printed in Serial Monitor';
+    case "i2c_scanner":
+      return `a list of I2C addresses — expect ${scannerAddressesExpected(firmware)}`;
+    case "oled_test":
+      return '"Forge OLED OK" appear on the display, with your SDA/SCL pin numbers underneath';
+    case "sensor_test":
+      return "a new temperature and humidity reading print about once a second";
+    case "full_app":
+      return appExpected(sketch);
+    default:
+      return sketch.description
+        ? `${sketch.description.replace(/\.$/, "")}, working as described`
+        : "the sketch run without errors in Serial Monitor";
+  }
+}
+
+/**
+ * Sketch-derived doneWhen for a software step — see block comment above.
+ * Returns null only when the firmware package has no sketches at all.
+ */
+export function doneWhenForSoftwareStep(step: BuildStep, firmware: FirmwarePackage): string | null {
+  const sketches = firmware.sketches;
+  if (!sketches.length) return null;
+  const blob = `${step.title || ""} ${step.description || ""}`.toLowerCase();
+
+  let best: { sketch: FirmwareSketch; score: number } | null = null;
+  for (const s of sketches) {
+    const score = scoreSketchAgainst(blob, s);
+    if (score > 0 && (!best || score > best.score)) best = { sketch: s, score };
+  }
+  const sketch = best?.sketch ?? sketches[sketches.length - 1];
+  const expected = expectedForSketch(sketch, firmware);
+  return `Upload ${sketch.filename}, open Serial Monitor at 115200 baud — you should see ${expected}.`;
 }

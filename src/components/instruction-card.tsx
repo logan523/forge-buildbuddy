@@ -11,7 +11,9 @@
  *   deep     — + why this works · tool technique · full notes
  */
 
+import { useMemo } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
+import { generateFirmware, type FirmwarePackage } from "@/lib/firmware";
 import {
   resolveActions,
   resolveGoal,
@@ -43,6 +45,7 @@ export function InstructionCard({
   stepCompleted = false,
   onAutoComplete,
   onActiveWire,
+  firmware,
 }: {
   step: BuildStep;
   detailLevel?: "quick" | "standard" | "deep";
@@ -51,11 +54,24 @@ export function InstructionCard({
   stepCompleted?: boolean;
   onAutoComplete?: () => void;
   onActiveWire?: (m: MicroStep | null) => void;
+  /**
+   * Optional — powers the sketch-derived doneWhen (steps/instruction.ts) for
+   * software steps. Undefined means "not wired yet": falls back to deriving
+   * it locally from `plan` (already received here) so the feature is live
+   * today. Pass explicitly once the orchestrator threads build-screen's own
+   * memoized package down — an explicit value (including `null`) always
+   * wins over the local fallback.
+   */
+  firmware?: FirmwarePackage | null;
 }) {
   const goal = resolveGoal(step);
   const youNeed = resolveYouNeed(step);
   const actions = resolveActions(step);
   const kind = stepKind(step);
+  const resolvedFirmware = useMemo(
+    () => (firmware !== undefined ? firmware : plan ? generateFirmware(plan) : null),
+    [firmware, plan]
+  );
   // Wiring steps with compiled micro-steps get the guided one-wire-at-a-time
   // experience (hand-holding) in place of the coarse checklist + separate table.
   const guided =
@@ -149,7 +165,7 @@ export function InstructionCard({
         </>
       )}
 
-      <CheckYourWorkCard step={step} />
+      <CheckYourWorkCard step={step} firmware={resolvedFirmware} />
 
       {/* Eval-gated (self-hides unless public/photo-check.pass.json + a
           reference photo for this step both exist — see Tension C). */}
