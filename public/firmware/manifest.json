@@ -1,3 +1,10 @@
 {
-  "families": {}
+  "families": {
+    "esp32c3": {
+      "bin": "/firmware/esp32c3/diag.bin",
+      "offset": 0,
+      "builtAt": "2026-07-17T18:10:42.179Z",
+      "sketch": "diag v1"
+    }
+  }
 }
