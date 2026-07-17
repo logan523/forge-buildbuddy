@@ -27,6 +27,10 @@
   --color-warning: #d97706;
   --color-warning-soft: #fef3c7;
 
+  /* Its own token (not inlined in the body rule below) so a [data-theme]
+     block can retint the dot-grid without touching the gradient rule. */
+  --color-grid-line: rgba(8, 145, 178, 0.04);
+
   /* Console family — the ONE designed dark/focus treatment. Every dark surface
      (firmware viewer, hands-free, expanded Stage, PCB preview, tooltips, HUD chips)
      must consume these instead of hardcoded hex. Incumbent values mirror the
@@ -70,8 +74,8 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
   background-color: var(--color-bg);
   background-image:
-    linear-gradient(rgba(8, 145, 178, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(8, 145, 178, 0.04) 1px, transparent 1px);
+    linear-gradient(var(--color-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
   background-size: 40px 40px;
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;

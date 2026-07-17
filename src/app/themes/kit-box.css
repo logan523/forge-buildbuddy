@@ -1,0 +1,31 @@
+/* Kit box: one saturated hero color carries every primary action; everything
+   else goes quiet neutral so the hero — plus the chunkier corner language —
+   reads as the whole personality. --color-accent is the darkest hue still
+   recognizable as "traffic orange" that clears 4.5:1 against white (the
+   existing text-white convention on bg-accent buttons across the app), so
+   staying accessible needs zero component changes. Console reuses the same
+   hero color rather than inventing a second accent. */
+[data-theme="kit-box"] {
+  --color-bg: #faf7f2;
+  --color-text: #16181d;
+
+  --color-border-subtle: #ddd5c8;
+  --color-border: #a89e8e;
+  --color-border-strong: #6f6656;
+
+  --color-accent: #c2410c;
+  --color-accent-soft: #9a3412;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --color-console-bg: #14161a;
+  --color-console-surface: #1e2126;
+  --color-console-surface-raised: #262a31;
+  --color-console-overlay: rgba(20, 22, 26, 0.85);
+  --color-console-accent: var(--color-accent);
+
+  --color-grid-line: rgba(22, 24, 29, 0.04);
+}

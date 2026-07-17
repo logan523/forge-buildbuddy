@@ -1,0 +1,15 @@
+/* Blueprint, evolved: keeps the cream/teal/navy DNA — the light palette barely
+   moves. The real move is the console (dark/focus) family, which stops
+   borrowing a generic near-black and becomes the blueprint's own ink
+   inverted: a deep desaturated navy carrying the same teal accent as the
+   light theme, so focus mode reads as "this blueprint, at night" rather
+   than a different product. */
+[data-theme="blueprint-evolved"] {
+  --color-bg: #f6f1e6;
+
+  --color-console-bg: #0d1b2a;
+  --color-console-surface: #16283b;
+  --color-console-surface-raised: #1c3149;
+  --color-console-overlay: rgba(13, 27, 42, 0.85);
+  --color-console-accent: #22b8d4;
+}
