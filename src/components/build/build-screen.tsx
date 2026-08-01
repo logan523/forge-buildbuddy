@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BuildPlan, BuildStep, Part, MicroStep } from "@/lib/types";
 import type { FirmwarePackage } from "@/lib/firmware";
 import type { ProductVisual } from "@/lib/product-visual";
@@ -19,7 +19,19 @@ import { useOverlay } from "./use-overlay";
 import { GuidedActionContext, type GuidedActionState } from "./guided-steps";
 import { PrimaryActionBar } from "./primary-action-bar";
 import { StepListSheet } from "./step-list-sheet";
+import { SolderWorkbench } from "./solder-workbench";
+import { PartScanPanel } from "./part-scan/part-scan-panel";
 import type { DetailLevel, DrawerId } from "./use-build-state";
+import { expectedI2cAddresses } from "@/lib/serial/expected-devices";
+import {
+  resolveBuildDoneGate,
+  type WiringVerifyStatus,
+} from "@/lib/build-done-gate";
+import { matchSkills, skillsDigest } from "@/lib/skills";
+import {
+  loadBenchInventory,
+  type BenchInventory,
+} from "@/lib/part-scan";
 
 /** Detail-level segmented options (Slice A6): icon + real label each — no
     more bare-emoji/title-attr-only affordance. */
@@ -56,6 +68,9 @@ export interface BuildScreenProps {
   onNext: () => void;
   onPrev: () => void;
   onSetTooltip: (t: string | null) => void;
+  /** P1.3/P2 — live bus verify gate (owned by BuildSession). */
+  wiringVerify: WiringVerifyStatus;
+  onSetWiringVerify: (s: WiringVerifyStatus) => void;
 }
 
 /** Everything a builder doesn't need mid-step folds into one overflow menu. */
@@ -211,14 +226,21 @@ export function BuildScreen({
   onNext,
   onPrev,
   onSetTooltip,
+  wiringVerify,
+  onSetWiringVerify,
 }: BuildScreenProps) {
   const [handsFree, setHandsFree] = useState(false);
   useOverlay(() => setHandsFree(false), handsFree);
 
-  // "Show me": the guided wire the builder tapped drives the 3D (zoom to pin +
-  // light the wire). Owned here so StepHero (the 3D) and InstructionCard (the
-  // guided cards) share it.
+  // P1.3: live bus verify gate after all steps complete (soft-skippable).
+  const expectedI2cCount = useMemo(() => expectedI2cAddresses(plan).length, [plan]);
+
+  // Active guided wire — drives WiringStage (pad map) + optional 3D pin focus.
   const [activeWire, setActiveWire] = useState<MicroStep | null>(null);
+  const [benchInv, setBenchInv] = useState<BenchInventory>(() =>
+    loadBenchInventory(plan.id)
+  );
+  const [partScanOpen, setPartScanOpen] = useState(false);
   // A2: mirrors GuidedSteps' current-wire toggle (via GuidedActionContext,
   // provided below) and whether the firmware drawer has been opened for this
   // step — both feed PrimaryActionBar's one-CTA state machine.
@@ -292,7 +314,32 @@ export function BuildScreen({
   };
 
   const isLast = stepIndex === steps.length - 1;
+  const microSteps = s?.compiled?.microSteps ?? [];
+  const isWiringWithPins = !!s && microSteps.length > 0;
+  const wiringStepIndex = steps.findIndex(
+    (st) => (st.compiled?.microSteps?.length ?? 0) > 0
+  );
   const allComplete = steps.length > 0 && steps.every((st) => completed.has(st.stepNumber));
+  const doneGate = useMemo(
+    () =>
+      resolveBuildDoneGate({
+        allStepsComplete: allComplete,
+        expectedI2cCount,
+        wiringVerify,
+      }),
+    [allComplete, expectedI2cCount, wiringVerify]
+  );
+
+  // Skills for the current step — grounds Ask-step / future bench agent (P1.2).
+  const stepSkills = useMemo(() => {
+    if (!s) return [];
+    const netClasses = (s.compiled?.connections ?? []).map((c) => c.netClass);
+    return matchSkills({
+      stepKind: stepKind(s),
+      netClasses,
+      stepBlob: `${s.title} ${s.description || ""} ${s.goal || ""}`,
+    });
+  }, [s]);
 
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col">
@@ -327,17 +374,91 @@ export function BuildScreen({
         <div className="h-full bg-accent transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
 
+      {/*
+        WIRING WITH PINS: full-bleed SolderWorkbench (IBOM + Fritzing pattern).
+        Everything else (3D stage, prose diet, coverage) is secondary product UI.
+      */}
+      {isWiringWithPins && s ? (
+        <div className="flex-1 flex flex-col min-h-0 bg-console-bg">
+          <div className="shrink-0 px-4 py-2.5 border-b border-console-border flex items-center justify-between gap-2 bg-console-surface">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-console-accent uppercase tracking-[0.14em]">
+                Step {stepIndex + 1} / {steps.length} · Wire lab · {microSteps.length} pads
+              </p>
+              <h2 className="text-sm font-bold text-console-text truncate" title={s.title}>
+                {s.title}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setPartScanOpen(true)}
+                className="text-xs min-h-11 px-3 rounded-lg border border-console-accent/40 bg-console-accent/10 text-console-accent font-semibold cursor-pointer"
+              >
+                Scan for AR
+                {benchInv.items.length > 0 ? ` · ${benchInv.items.length}` : ""}
+              </button>
+              <button
+                type="button"
+                onClick={() => (activeDrawer === "steps" ? onCloseDrawer() : onOpenDrawer("steps"))}
+                className="text-xs min-h-11 px-3 rounded-lg border border-console-border text-console-text-muted cursor-pointer hover:text-console-text"
+              >
+                All steps
+              </button>
+            </div>
+          </div>
+          <SolderWorkbench
+            step={s}
+            plan={plan}
+            planId={plan.id}
+            stepCompleted={completed.has(s.stepNumber)}
+            onAutoComplete={() => {
+              if (!completed.has(s.stepNumber)) onToggleComplete(s.stepNumber);
+            }}
+            onActiveWire={setActiveWire}
+            onGuidedState={setGuidedAction}
+            inventory={benchInv}
+            onOpenPartScan={() => setPartScanOpen(true)}
+          />
+          <div className="shrink-0 px-4 py-2 border-t border-console-border flex items-center justify-between bg-console-surface">
+            <button
+              onClick={onPrev}
+              disabled={stepIndex === 0}
+              className="text-sm text-console-text-muted hover:text-console-text disabled:opacity-30 cursor-pointer min-h-11 px-2"
+            >
+              ← Prev step
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenDrawer("unstick")}
+              className="text-sm text-warning min-h-11 px-3 cursor-pointer"
+            >
+              I&apos;m stuck
+            </button>
+            <button
+              onClick={onNext}
+              disabled={stepIndex === steps.length - 1}
+              className="text-sm text-console-text-muted hover:text-console-text disabled:opacity-30 cursor-pointer min-h-11 px-2"
+            >
+              Next step →
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="flex-1 flex flex-col lg:flex-row min-h-0">
         <div className="w-full lg:w-1/2 min-h-[200px] lg:min-h-0 bg-surface border-b lg:border-b-0 lg:border-r border-border-subtle overflow-hidden flex flex-col">
-          {detailLevel !== "quick" && (s?.beforeState || s?.afterState) && (
+          {detailLevel === "deep" &&
+            s &&
+            !(s.compiled?.connections?.length) &&
+            (s.beforeState || s.afterState) && (
             <div className="shrink-0 grid grid-cols-2 gap-0 border-b border-border-subtle">
-              {s?.beforeState && (
+              {s.beforeState && (
                 <div className="p-3 border-r border-border-subtle">
                   <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-1">Before</p>
                   <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">{s.beforeState}</p>
                 </div>
               )}
-              {s?.afterState && (
+              {s.afterState && (
                 <div className="p-3">
                   <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-1">After</p>
                   <p className="text-xs text-text-secondary leading-relaxed line-clamp-3">{s.afterState}</p>
@@ -348,19 +469,27 @@ export function BuildScreen({
           <div className="flex-1 min-h-0 overflow-hidden">
             {s ? <StepHero step={s} plan={plan} stepIndex={stepIndex} focusWire={activeWire} /> : null}
           </div>
+          {wiringStepIndex >= 0 && wiringStepIndex !== stepIndex && (
+            <div className="shrink-0 p-3 border-t border-border-subtle bg-accent/5">
+              <button
+                type="button"
+                onClick={() => onGoStep(wiringStepIndex)}
+                className="w-full min-h-11 px-4 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold cursor-pointer hover:opacity-95"
+              >
+                Skip to exact solder points →
+              </button>
+              <p className="text-[11px] text-text-muted text-center mt-1.5">
+                Step {wiringStepIndex + 1}: {steps[wiringStepIndex]?.title}
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className="w-full lg:w-1/2 flex flex-col min-h-0">
-          {/* A4: plan-level coverage truth — renders only when the compiler
-              left wires unplaced or flagged issues. Above the sub-header so
-              it's visible on every step of an affected build. */}
+        <div className="w-full flex flex-col min-h-0 lg:w-1/2">
           <CoverageBanner
             facts={plan.compiledFacts}
             onReview={() => onOpenDrawer("coverage")}
           />
-          {/* Persistent step sub-header (Slice A1): step context never
-              scrolls away. Was InstructionCard's own header block — now
-              rendered once, above the scroll area, always visible. */}
           {s && (
             <div className="shrink-0 border-b border-border-subtle px-6 lg:px-10 pt-4 pb-3">
               <div className="max-w-md mx-auto">
@@ -387,8 +516,16 @@ export function BuildScreen({
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 p-6 lg:p-10">
             <div className="max-w-md mx-auto">
-              {/* Mobile only: the Stage column is a peek strip on <lg, so the
-                  bench photo + technique reference live here instead. */}
+              {wiringStepIndex >= 0 && (
+                <button
+                  type="button"
+                  onClick={() => onGoStep(wiringStepIndex)}
+                  className="w-full mb-4 min-h-12 px-4 py-3 rounded-xl bg-accent text-white text-sm font-bold cursor-pointer shadow-card"
+                >
+                  Go to exact solder points (step {wiringStepIndex + 1}) →
+                </button>
+              )}
+
               {s && (
                 <div className="lg:hidden flex flex-col gap-3 mb-4">
                   <StepMediaExtras
@@ -452,17 +589,56 @@ export function BuildScreen({
                   step={s}
                   parts={plan.parts}
                   onOpenUnstick={() => onOpenDrawer("unstick")}
+                  skillDigest={
+                    stepSkills.length
+                      ? stepSkills.map((sk) => `${sk.name}: ${sk.summary}`).join(" · ")
+                      : undefined
+                  }
+                  skillsForHelp={
+                    stepSkills.length ? skillsDigest(stepSkills) : undefined
+                  }
                 />
               )}
 
-              {stepIndex === steps.length - 1 && completed.has(s?.stepNumber || 0) && (
+              {/* P1.3 end-of-build: verify-board gate or celebrate */}
+              {allComplete && doneGate.phase === "verify-board" && (
+                <div className="mt-4 p-5 rounded-2xl border border-accent/25 bg-accent/5 text-center space-y-3">
+                  <h3 className="text-lg font-bold font-serif text-text">{doneGate.headline}</h3>
+                  <p className="text-sm text-text-secondary">{doneGate.body}</p>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => onOpenDrawer("flash")}
+                      className="w-full py-2.5 min-h-11 rounded-xl bg-accent text-white text-sm font-semibold cursor-pointer btn-spring"
+                    >
+                      Open serial &amp; wiring check →
+                    </button>
+                    {doneGate.softSkipAllowed && (
+                      <button
+                        type="button"
+                        onClick={() => onSetWiringVerify("skipped")}
+                        className="w-full py-2.5 min-h-11 rounded-xl border border-border bg-surface text-sm text-text-secondary cursor-pointer"
+                      >
+                        Skip — no board right now
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => onSetWiringVerify("passed")}
+                      className="w-full py-2 min-h-11 text-xs text-text-muted underline cursor-pointer"
+                      title="Mark as verified if you already saw every I2C device found"
+                    >
+                      I already verified on the bus
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {allComplete && doneGate.phase === "celebrate" && (
                 <div className="mt-4 p-5 rounded-2xl border border-success/25 bg-success-soft/50 text-center space-y-3">
                   <div aria-hidden className="text-3xl motion-safe:animate-bounce">🎉</div>
-                  <h3 className="text-lg font-bold font-serif text-text">You built it.</h3>
-                  <p className="text-sm text-text-secondary">
-                    {steps.length} steps, every connection checked. Show it off — or turn it
-                    into a kit someone else can build.
-                  </p>
+                  <h3 className="text-lg font-bold font-serif text-text">{doneGate.headline}</h3>
+                  <p className="text-sm text-text-secondary">{doneGate.body}</p>
                   <div className="space-y-2">
                     <button
                       onClick={onShare}
@@ -561,6 +737,24 @@ export function BuildScreen({
           </div>
         </div>
       </div>
+      )}
+
+      {partScanOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Scan my parts"
+        >
+          <div className="w-full max-w-lg rounded-t-2xl sm:rounded-2xl border border-border bg-surface shadow-raised overflow-hidden">
+            <PartScanPanel
+              plan={plan}
+              onInventoryChange={setBenchInv}
+              onClose={() => setPartScanOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {tooltip && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-sm p-4 rounded-xl bg-gray-900 text-white text-xs leading-relaxed shadow-lg" onClick={() => onSetTooltip(null)}>

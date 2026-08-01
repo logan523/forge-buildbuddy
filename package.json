@@ -11,11 +11,19 @@
     "test:3d": "npx tsx --test src/lib/product-3d/product-3d.test.ts src/lib/product-3d/real-parts.test.ts src/lib/product-3d/assembly-view.test.ts src/lib/product-3d/assembly-story.test.ts src/lib/product-3d/geom-math.test.ts src/lib/product-3d/cad-frame.test.ts src/lib/product-3d/procedural-maps.test.ts",
     "eval:photo-check": "npx tsx scripts/eval-photo-check.mjs",
     "grade:steps": "npx tsx scripts/grade-steps.mjs",
+    "audit:steps": "npx tsx scripts/grade-steps.mjs",
+    "audit:tasks": "npx tsx scripts/audit-tasks.mjs",
+    "mcp:invoke": "npx tsx scripts/forge-mcp.mjs",
+    "mcp:server": "npx tsx scripts/forge-mcp-server.mjs",
+    "skills:export": "npx tsx scripts/export-skills.mjs",
+    "classroom:export": "npx tsx scripts/export-classroom.mjs",
+    "audit:all": "npx tsx scripts/audit-all.mjs",
     "generate:parts": "node scripts/generate-part-glbs.mjs",
     "generate:parts:ready": "node scripts/generate-part-glbs.mjs --ready",
     "models:optimize": "node scripts/optimize-parts.mjs",
     "models:parts": "node scripts/author-esp32c3.mjs && node scripts/author-oled096.mjs && node scripts/author-tp4056.mjs && node scripts/author-ttp223.mjs && node scripts/author-sht30.mjs && node scripts/author-cell16340.mjs && node scripts/author-solarcell.mjs && node scripts/optimize-parts.mjs",
-    "firmware:diag": "node scripts/compile-firmware.mjs"
+    "firmware:diag": "node scripts/compile-firmware.mjs",
+    "ar:export-sander-gi": "node scripts/export-sander-gi-obb.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -26,6 +34,7 @@
     "esptool-js": "^0.6.0",
     "lucide-react": "^1.25.0",
     "next": "16.2.10",
+    "onnxruntime-web": "^1.20.1",
     "postprocessing": "^6.39.2",
     "react": "19.2.4",
     "react-dom": "19.2.4",

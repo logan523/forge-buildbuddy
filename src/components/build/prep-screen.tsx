@@ -346,7 +346,7 @@ function ErcPanel({ electrical }: { electrical: NonNullable<BuildPlan["electrica
             <summary className="text-[10px] font-semibold uppercase tracking-wider text-text-muted cursor-pointer">
               Technical (ERC · {e.rule})
             </summary>
-            <div className="mt-1.5 pl-2 border-l-2 border-danger/20">
+            <div className="mt-1.5 rounded-lg border border-danger/20 bg-danger-soft/40 p-2">
               <p className="text-[11px] font-mono text-danger">{e.techTitle}</p>
               <p className="text-[11px] text-text-secondary mt-0.5">{e.techDetail}</p>
               {e.nets?.length ? (
@@ -371,7 +371,7 @@ function ErcPanel({ electrical }: { electrical: NonNullable<BuildPlan["electrica
             <summary className="text-[10px] font-semibold uppercase tracking-wider text-text-muted cursor-pointer">
               Technical (ERC · {w.rule})
             </summary>
-            <div className="mt-1.5 pl-2 border-l-2 border-warning/25">
+            <div className="mt-1.5 rounded-lg border border-warning/25 bg-warning-soft/40 p-2">
               <p className="text-[11px] font-mono text-warning">{w.techTitle}</p>
               <p className="text-[11px] text-text-secondary mt-0.5">{w.techDetail}</p>
             </div>

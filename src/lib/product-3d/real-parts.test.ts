@@ -23,6 +23,26 @@ describe("real-parts dimension authority", () => {
     assert.equal(REAL_PARTS.oled_096.bboxMm.w, 27);
   });
 
+  it("SuperMini dual-header: GPIO4 and GPIO5 are distinct pads; SDA aliases GPIO4", () => {
+    const pins = REAL_PARTS.esp32_c3.pins;
+    const g4 = pins.find((p) => p.name === "GPIO4")!;
+    const g5 = pins.find((p) => p.name === "GPIO5")!;
+    const sda = pins.find((p) => p.name === "SDA")!;
+    const scl = pins.find((p) => p.name === "SCL")!;
+    assert.ok(g4 && g5, "GPIO4/5 present");
+    assert.ok(
+      Math.hypot(g4.local[0] - g5.local[0], g4.local[1] - g5.local[1]) > 2,
+      "GPIO4 ≠ GPIO5 location"
+    );
+    assert.deepEqual(sda.local, g4.local, "SDA colocalized with GPIO4");
+    assert.deepEqual(scl.local, g5.local, "SCL colocalized with GPIO5");
+    assert.equal(sda.alias, true);
+    assert.equal(g4.alias, undefined);
+    // Dual header: enough primary pads for orientation
+    const primary = pins.filter((p) => !p.alias);
+    assert.ok(primary.length >= 16, `dual header pad count (${primary.length})`);
+  });
+
   it("deriveCageEdgeMm fits cell and stays life-size", () => {
     const cage = deriveCageEdgeMm();
     assert.ok(cage >= 46, `cage ${cage}`);

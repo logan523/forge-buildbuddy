@@ -56,19 +56,30 @@ export function StepHero({
   const closeExpand = useCallback(() => setExpanded(false), []);
   useOverlay(closeExpand, expanded);
 
+  // Pass compiled facts so StageApp can isolate/focus on the pins this step
+  // actually touches. Omitting focusPartIds left the camera on the full hero
+  // product for every wiring step — the main "renderer feels useless" bug.
   const stepProps = {
     title: step.title,
     description: step.description,
     mediaKind: step.mediaKind,
     stepNumber: step.stepNumber,
+    compiled: step.compiled
+      ? {
+          focusPartIds: step.compiled.focusPartIds,
+          connections: step.compiled.connections,
+        }
+      : undefined,
   };
+
+  const hasFocus = (step.compiled?.focusPartIds?.length ?? 0) > 0 || !!focusWire;
 
   return (
     <div className="flex flex-col gap-3 h-full overflow-y-auto p-3">
       <div className="shrink-0">
         <div className="flex items-center justify-between mb-1.5 px-0.5">
           <p className="text-[10px] font-semibold text-accent uppercase tracking-wider">
-            Assembly stage
+            {hasFocus ? "Step focus" : "Assembly stage"}
           </p>
           <button
             type="button"

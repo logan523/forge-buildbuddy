@@ -25,19 +25,19 @@ export function markerDefs(id: string, color = "#64748b"): string {
 /**
  * Normalize SVG for HTML inject:
  * - strip XML prolog
- * - force width 100%, height auto (fixes % height collapse with minHeight-only parents)
+ * - force width 100%; omit height so viewBox drives aspect ratio
+ *   (height="auto" is invalid SVG length and spams console errors)
  */
 export function normalizeSvgForHtml(svg: string): string {
   let s = svg.trim();
   s = s.replace(/^<\?xml[^?]*\?>\s*/i, "");
   s = s.replace(/<!DOCTYPE[^>]*>\s*/i, "");
-  // Ensure root svg has responsive sizing
   if (/<svg\b/i.test(s)) {
     s = s.replace(/<svg\b([^>]*)>/i, (_m, attrs: string) => {
-      let a = attrs
+      const a = attrs
         .replace(/\swidth="[^"]*"/gi, "")
         .replace(/\sheight="[^"]*"/gi, "");
-      return `<svg${a} width="100%" height="auto" preserveAspectRatio="xMidYMid meet">`;
+      return `<svg${a} width="100%" preserveAspectRatio="xMidYMid meet">`;
     });
   }
   return s;

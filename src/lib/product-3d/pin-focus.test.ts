@@ -10,12 +10,24 @@ import { resolvePinLocal, pinWorldPositionMm, frameForPin } from "./pin-focus";
 const VIEW: LayerViewState = { visible: {}, soloLayerId: null, explode: 0, selectedNodeId: null };
 const scene = () => buildProductScene3D(applyTrustPipeline(JSON.parse(JSON.stringify(satLine)) as BuildPlan));
 
-test("resolvePinLocal: exact, then prefix (GPIO4→GPIO), else null", () => {
-  assert.ok(resolvePinLocal("brain", "SDA"), "SDA matches exactly");
+test("resolvePinLocal: SuperMini dual-header — GPIO4 ≠ GPIO5, bare 4 works", () => {
+  assert.ok(resolvePinLocal("brain", "SDA"), "SDA alias still resolves (harness)");
   assert.ok(resolvePinLocal("brain", "GND"), "GND exact");
-  // compiled connections say GPIO4/GPIO5; the ESP pad is just "GPIO"
-  assert.ok(resolvePinLocal("brain", "GPIO4"), "GPIO4 resolves via prefix to GPIO");
-  assert.ok(resolvePinLocal("brain", "GPIO5"), "GPIO5 resolves via prefix to GPIO");
+  const g4 = resolvePinLocal("brain", "GPIO4");
+  const g5 = resolvePinLocal("brain", "GPIO5");
+  const bare4 = resolvePinLocal("brain", "4");
+  assert.ok(g4, "GPIO4 is a real SuperMini pad");
+  assert.ok(g5, "GPIO5 is a real SuperMini pad");
+  assert.ok(bare4, "silkscreen '4' matches GPIO4");
+  // Distinct pads — the whole point of dual-header authority
+  assert.ok(
+    Math.hypot(g4![0] - g5![0], g4![1] - g5![1], g4![2] - g5![2]) > 2,
+    "GPIO4 and GPIO5 are different mm positions"
+  );
+  assert.deepEqual(g4, bare4, "GPIO4 and bare 4 colocalize");
+  // SDA is alias of GPIO4 on this kit
+  assert.deepEqual(resolvePinLocal("brain", "SDA"), g4, "SDA lands on GPIO4 pad");
+  assert.deepEqual(resolvePinLocal("brain", "SCL"), g5, "SCL lands on GPIO5 pad");
   assert.equal(resolvePinLocal("brain", "NONEXISTENT"), null);
   assert.equal(resolvePinLocal("not-a-node", "SDA"), null);
 });

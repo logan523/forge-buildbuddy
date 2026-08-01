@@ -1,0 +1,10 @@
+id: forge-esp32c3-flash
+name: ESP32-C3 flash
+group: flash-serial
+summary: "Browser flash path: computer-ready → diag/blink → serial evidence."
+tools:
+  - flash_firmware
+  - serial_connect
+  - verify_expected_devices
+goldenIds:
+  - flash-human-confirm

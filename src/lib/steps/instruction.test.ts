@@ -33,6 +33,83 @@ describe("instruction resolve", () => {
     );
   });
 
+  it("wiring goal diets long LLM prose down to compiled connections", () => {
+    const step: BuildStep = {
+      stepNumber: 6,
+      title: "Wire the OLED",
+      description:
+        "This is a long multi-sentence description that should never be the goal. It goes on and on about soldering philosophy.",
+      goal: "A very long authored goal that exceeds the kitchen-table soft cap and would wrap into an intimidating wall of text on a phone screen for a beginner.",
+      compiled: {
+        connections: [
+          {
+            id: "1",
+            netName: "I2C_SDA",
+            netClass: "i2c",
+            fromRef: "U1",
+            fromPin: "GPIO4",
+            fromLabel: "ESP32-C3",
+            toRef: "U2",
+            toPin: "SDA",
+            toLabel: "OLED",
+            colorHex: "#2563eb",
+            colorName: "blue",
+            grade: "consistent",
+          },
+          {
+            id: "2",
+            netName: "I2C_SCL",
+            netClass: "i2c",
+            fromRef: "U1",
+            fromPin: "GPIO5",
+            fromLabel: "ESP32-C3",
+            toRef: "U2",
+            toPin: "SCL",
+            toLabel: "OLED",
+            colorHex: "#eab308",
+            colorName: "yellow",
+            grade: "consistent",
+          },
+        ],
+        checks: [],
+      },
+    };
+    const goal = resolveGoal(step);
+    assert.match(goal, /2 connections/i);
+    assert.ok(goal.length <= 110, `goal should be short, got ${goal.length}: ${goal}`);
+    assert.ok(!goal.includes("soldering philosophy"));
+  });
+
+  it("wiring with compiled facts does not invent prose actions", () => {
+    const step: BuildStep = {
+      stepNumber: 6,
+      title: "Wire SDA",
+      description: "Carefully route the data line around the frame. Then tidy the harness.",
+      compiled: {
+        connections: [
+          {
+            id: "1",
+            netName: "I2C_SDA",
+            netClass: "i2c",
+            fromRef: "U1",
+            fromPin: "GPIO4",
+            fromLabel: "ESP32-C3",
+            toRef: "U2",
+            toPin: "SDA",
+            toLabel: "OLED",
+            colorHex: "#2563eb",
+            colorName: "blue",
+            grade: "consistent",
+          },
+        ],
+        checks: [],
+        microSteps: [],
+      },
+    };
+    // Empty microSteps array still has connections — no description bullets.
+    assert.equal(resolveActions(step).length, 0);
+  });
+
   it("resolveDoneWhen prefers doneWhen", () => {
     assert.equal(
       resolveDoneWhen({

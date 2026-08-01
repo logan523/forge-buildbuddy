@@ -54,3 +54,12 @@ decisions.jsonl
 *-reviews.jsonl
 logansilver-*.md
 .gstack/
+
+# firmware build artifacts (PlatformIO / Arduino — large binaries)
+scripts/firmware-src/**/build/
+scripts/firmware-src/**/.pio/
+
+# local IDE / OS
+.idea/
+.vscode/
+*.swp

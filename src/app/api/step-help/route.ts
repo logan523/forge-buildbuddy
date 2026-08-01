@@ -23,6 +23,8 @@ interface StepHelpBody {
   }[];
   checks?: { instruction?: string; expected?: string }[];
   partsDigest?: string;
+  /** Matched skill digests (P1.2/P2) — expertise packs, still subordinate to connections. */
+  skillsDigest?: string;
 }
 
 const FAIL_CLOSED =
@@ -32,6 +34,7 @@ const SYSTEM = `You are Forge's build helper for COMPLETE beginners (they don't 
 Rules:
 - Answer the question in ≤150 words of plain, warm English. No markdown headings.
 - Pins and wire colors: use ONLY the DERIVED CONNECTIONS provided — quote pin labels and colors verbatim from them. Never invent a pin, color, or physical pin position ("leftmost pin").
+- SKILLS (if provided) are expert workflow hints — use them for technique and order of operations, but NEVER let a skill invent pins/colors that contradict DERIVED CONNECTIONS.
 - If the answer isn't derivable from the provided facts, say so honestly and suggest the "I'm stuck" menu or re-checking the connections table.
 - Safety first: never suggest bypassing protection circuits, working powered, or removing a Li-ion cell's wrap.`;
 
@@ -68,12 +71,18 @@ export async function handleStepHelp(
     .slice(0, 10)
     .map((c) => `${String(c.instruction ?? "").slice(0, 120)} → ${String(c.expected ?? "").slice(0, 40)}`);
 
+  const skills =
+    typeof body?.skillsDigest === "string" && body.skillsDigest.trim()
+      ? body.skillsDigest.trim().slice(0, 1200)
+      : "";
+
   const user = [
     `CURRENT STEP: ${String(body?.stepTitle ?? "").slice(0, 120)}`,
     body?.stepGoal ? `GOAL: ${String(body.stepGoal).slice(0, 200)}` : "",
     connections.length ? `DERIVED CONNECTIONS (the only pin/color truth):\n${connections.join("\n")}` : "DERIVED CONNECTIONS: none for this step.",
     checks.length ? `CHECKS:\n${checks.join("\n")}` : "",
     body?.partsDigest ? `PARTS: ${String(body.partsDigest).slice(0, 400)}` : "",
+    skills ? `SKILLS (workflow expertise; connections still win):\n${skills}` : "",
     `QUESTION: ${question}`,
   ]
     .filter(Boolean)

@@ -1,0 +1,3322 @@
+{
+  "id": "sat-line-smart-clock",
+  "title": "Sat Line: Solar-Powered Smart Clock",
+  "description": "A smart clock that automatically synchronizes time over Wi-Fi, displays real-time temperature and humidity, and runs on solar power with battery backup. Built around an ESP32-C3 microcontroller with a 0.96\" OLED display.",
+  "formSpec": {
+    "templateId": "sat_clock",
+    "params": {
+      "heightScale": 1.05,
+      "wingSpan": 1.1,
+      "baseScale": 1
+    },
+    "materials": {
+      "base": "bamboo",
+      "frame": "brass",
+      "face": "oled"
+    },
+    "layers": {},
+    "productCaption": "Solar satellite-style desk clock on a bamboo base.",
+    "source": "demo_golden",
+    "grade": "high"
+  },
+  "sourceUrl": "https://www.youtube.com/watch?v=aQj2zXn5dhI",
+  "difficulty": "intermediate",
+  "estimatedTime": "3-4 hours",
+  "estimatedCost": "$25-35",
+  "buildModes": [
+    "quick_test",
+    "full_build",
+    "production"
+  ],
+  "activeMode": "full_build",
+  "hazardTags": [
+    "ESD_SENSITIVE",
+    "LIPO"
+  ],
+  "hazardAssessment": [
+    {
+      "category": "chemical",
+      "severity": "HIGH",
+      "description": "Lithium battery present. Risk of fire if overcharged, shorted, or punctured.",
+      "mitigation": "Always use a BMS/protection circuit. Never solder directly to cell terminals. Charge in fire-safe location."
+    },
+    {
+      "category": "electrical",
+      "severity": "MEDIUM",
+      "description": "Soldering required. Risk of burns.",
+      "mitigation": "Use proper soldering iron stand. Work in well-ventilated area. Keep iron in stand when not in use."
+    }
+  ],
+  "uncertaintyFlags": [],
+  "conditionalBranches": [],
+  "generatedAt": "2026-07-07T12:00:00Z",
+  "modelUsed": "pre-built-demo",
+  "parts": [
+    {
+      "id": "oled-display",
+      "name": "OLED Display",
+      "specification": "0.96 inch SSD1306 I2C 128x64",
+      "quantity": 1,
+      "notes": "Remove connector pins before soldering",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=0.96%20inch%20OLED%20SSD1306%20I2C%20128x64%204%20pin%20display%20module%203.3V&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 2.5,
+          "priceMaxUsd": 6,
+          "currency": "USD",
+          "mpn": "SSD1306"
+        },
+        {
+          "vendor": "lcsc",
+          "label": "LCSC",
+          "url": "https://www.lcsc.com/search?q=SSD1306%200.96%20OLED%20I2C",
+          "kind": "search",
+          "priceUsd": 2.5,
+          "priceMaxUsd": 6,
+          "currency": "USD",
+          "mpn": "SSD1306"
+        },
+        {
+          "vendor": "digikey",
+          "label": "DigiKey",
+          "url": "https://www.digikey.com/en/products/result?keywords=SSD1306&stock=1",
+          "kind": "search",
+          "mpn": "SSD1306"
+        },
+        {
+          "vendor": "mouser",
+          "label": "Mouser",
+          "url": "https://www.mouser.com/c/?q=SSD1306&instock=y",
+          "kind": "search",
+          "mpn": "SSD1306"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=0.96%20inch%20OLED%20SSD1306%20I2C%20128x64%204%20pin%20display%20module%203.3V&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 1.75,
+          "priceMaxUsd": 5.1,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "ssd1306-i2c",
+      "matchConfidence": "high",
+      "footguns": [
+        "Many modules are NOT 5V tolerant — power VCC from 3.3V",
+        "Default I2C address is often 0x3C (sometimes printed as 0x78 8-bit)",
+        "Do not buy 7-pin SPI OLEDs when the plan expects 4-pin I2C"
+      ],
+      "manufacturer": "Solomon Systech",
+      "mpn": "SSD1306",
+      "lcscPart": "C8734",
+      "mpnVerifiedAt": "2026-07-01",
+      "mpnNote": "Controller IC; module PCB varies — require 4-pin I2C",
+      "unitPriceMin": 2.5,
+      "unitPriceMax": 6,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon",
+      "ref": "U1"
+    },
+    {
+      "id": "esp32c3",
+      "name": "ESP32-C3 Microcontroller",
+      "specification": "ESP32-C3 development board with Wi-Fi",
+      "quantity": 1,
+      "notes": "Main controller with built-in Wi-Fi",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=ESP32-C3%20Super%20Mini%20development%20board%20USB-C%20WiFi%20BLE&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 3,
+          "priceMaxUsd": 7,
+          "currency": "USD",
+          "mpn": "ESP32-C3-WROOM-02"
+        },
+        {
+          "vendor": "lcsc",
+          "label": "LCSC",
+          "url": "https://www.lcsc.com/search?q=ESP32-C3",
+          "kind": "search",
+          "priceUsd": 3,
+          "priceMaxUsd": 7,
+          "currency": "USD",
+          "mpn": "ESP32-C3-WROOM-02"
+        },
+        {
+          "vendor": "digikey",
+          "label": "DigiKey",
+          "url": "https://www.digikey.com/en/products/result?keywords=ESP32-C3&stock=1",
+          "kind": "search",
+          "mpn": "ESP32-C3-WROOM-02"
+        },
+        {
+          "vendor": "mouser",
+          "label": "Mouser",
+          "url": "https://www.mouser.com/c/?q=ESP32-C3&instock=y",
+          "kind": "search",
+          "mpn": "ESP32-C3-WROOM-02"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=ESP32-C3%20Super%20Mini%20development%20board%20USB-C%20WiFi%20BLE&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 2.0999999999999996,
+          "priceMaxUsd": 5.95,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "esp32-c3",
+      "matchConfidence": "high",
+      "footguns": [
+        "3.3V logic only — never drive pins from 5V without a level shifter",
+        "Pinout varies by Super Mini clone — always trust silkscreen labels",
+        "GPIO8/GPIO9 are often strapping pins — avoid for critical sensors at boot"
+      ],
+      "manufacturer": "Espressif",
+      "mpn": "ESP32-C3-WROOM-02",
+      "lcscPart": "C2934560",
+      "mpnVerifiedAt": "2026-07-01",
+      "mpnNote": "Module; Super Mini boards vary — verify silkscreen",
+      "unitPriceMin": 3,
+      "unitPriceMax": 7,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon",
+      "ref": "U2"
+    },
+    {
+      "id": "solar-panel",
+      "name": "Solar Panel",
+      "specification": "5V small solar panel for power harvesting",
+      "quantity": 2,
+      "notes": "Can be mounted two different ways on the bamboo base",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=5V%20160mA%20mini%20solar%20panel%20DIY%2060x90mm%20epoxy&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 2,
+          "priceMaxUsd": 8,
+          "currency": "USD"
+        },
+        {
+          "vendor": "lcsc",
+          "label": "LCSC",
+          "url": "https://www.lcsc.com/search?q=5V%20small%20solar%20panel%20DIY%2060x60",
+          "kind": "search",
+          "priceUsd": 2,
+          "priceMaxUsd": 8,
+          "currency": "USD"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=5V%20160mA%20mini%20solar%20panel%20DIY%2060x90mm%20epoxy&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 1.4,
+          "priceMaxUsd": 6.8,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "solar-panel-5v",
+      "matchConfidence": "high",
+      "footguns": [
+        "Do not wire panel output directly across a Li-ion cell — use a charge controller"
+      ],
+      "unitPriceMin": 2,
+      "unitPriceMax": 8,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon",
+      "ref": "U3"
+    },
+    {
+      "id": "solar-charger",
+      "name": "Solar Charging Controller",
+      "specification": "Solar charging controller board for Li-ion",
+      "quantity": 1,
+      "notes": "Manages solar input to battery charging",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=CN3791%20solar%20lithium%20battery%20charger%20module%203.7V%201S&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 3,
+          "priceMaxUsd": 10,
+          "currency": "USD"
+        },
+        {
+          "vendor": "lcsc",
+          "label": "LCSC",
+          "url": "https://www.lcsc.com/search?q=CN3791",
+          "kind": "search",
+          "priceUsd": 3,
+          "priceMaxUsd": 10,
+          "currency": "USD"
+        },
+        {
+          "vendor": "digikey",
+          "label": "DigiKey",
+          "url": "https://www.digikey.com/en/products/result?keywords=solar%20charge%20controller%203.7V&stock=1",
+          "kind": "search"
+        },
+        {
+          "vendor": "mouser",
+          "label": "Mouser",
+          "url": "https://www.mouser.com/c/?q=solar%20charge%20controller%203.7V&instock=y",
+          "kind": "search"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=CN3791%20solar%20lithium%20battery%20charger%20module%203.7V%201S&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 2.0999999999999996,
+          "priceMaxUsd": 8.5,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "solar-charger",
+      "matchConfidence": "high",
+      "footguns": [
+        "Confirm your board is rated for 1S (3.7V) Li-ion, not 12V SLA"
+      ],
+      "unitPriceMin": 3,
+      "unitPriceMax": 10,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon",
+      "ref": "U4"
+    },
+    {
+      "id": "battery-led",
+      "name": "Battery Level Indicator",
+      "specification": "LED battery level indicator module",
+      "quantity": 1,
+      "notes": "Shows remaining battery charge",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=1S%203.7V%20Li-ion%20battery%20capacity%20indicator%20LED%204%20segment%20module&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 1,
+          "priceMaxUsd": 4,
+          "currency": "USD"
+        },
+        {
+          "vendor": "lcsc",
+          "label": "LCSC",
+          "url": "https://www.lcsc.com/search?q=battery%20capacity%20indicator%201S",
+          "kind": "search",
+          "priceUsd": 1,
+          "priceMaxUsd": 4,
+          "currency": "USD"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=1S%203.7V%20Li-ion%20battery%20capacity%20indicator%20LED%204%20segment%20module&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 0.7,
+          "priceMaxUsd": 3.4,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "battery-level-led",
+      "matchConfidence": "high",
+      "footguns": [
+        "Use a 1S (3.7V) indicator — 3S/4S modules will not read correctly"
+      ],
+      "unitPriceMin": 1,
+      "unitPriceMax": 4,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon",
+      "ref": "U5"
+    },
+    {
+      "id": "touch-switch",
+      "name": "Touch Switch",
+      "specification": "Capacitive touch switch module",
+      "quantity": 1,
+      "notes": "Single tap toggles sleep mode, tap again to wake display",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=TTP223%20capacitive%20touch%20switch%20module%20digital&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 1,
+          "priceMaxUsd": 3,
+          "currency": "USD",
+          "mpn": "TTP223"
+        },
+        {
+          "vendor": "lcsc",
+          "label": "LCSC",
+          "url": "https://www.lcsc.com/search?q=TTP223",
+          "kind": "search",
+          "priceUsd": 1,
+          "priceMaxUsd": 3,
+          "currency": "USD",
+          "mpn": "TTP223"
+        },
+        {
+          "vendor": "digikey",
+          "label": "DigiKey",
+          "url": "https://www.digikey.com/en/products/result?keywords=TTP223&stock=1",
+          "kind": "search",
+          "mpn": "TTP223"
+        },
+        {
+          "vendor": "mouser",
+          "label": "Mouser",
+          "url": "https://www.mouser.com/c/?q=TTP223&instock=y",
+          "kind": "search",
+          "mpn": "TTP223"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=TTP223%20capacitive%20touch%20switch%20module%20digital&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 0.7,
+          "priceMaxUsd": 2.55,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "touch-switch",
+      "matchConfidence": "high",
+      "footguns": [
+        "Needs common GND with the MCU; SIG floating reads as noise"
+      ],
+      "manufacturer": "Tontek",
+      "mpn": "TTP223",
+      "lcscPart": "C26900",
+      "mpnVerifiedAt": "2026-07-01",
+      "unitPriceMin": 1,
+      "unitPriceMax": 3,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon",
+      "ref": "U6"
+    },
+    {
+      "id": "sht31d",
+      "name": "Temperature & Humidity Sensor",
+      "specification": "SHT31D I2C digital sensor",
+      "quantity": 1,
+      "notes": "High accuracy temperature and humidity sensing",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=SHT31%20temperature%20humidity%20sensor%20module%20I2C&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 4,
+          "priceMaxUsd": 12,
+          "currency": "USD",
+          "mpn": "SHT31-DIS-B"
+        },
+        {
+          "vendor": "lcsc",
+          "label": "LCSC",
+          "url": "https://www.lcsc.com/search?q=SHT31",
+          "kind": "search",
+          "priceUsd": 4,
+          "priceMaxUsd": 12,
+          "currency": "USD",
+          "mpn": "SHT31-DIS-B"
+        },
+        {
+          "vendor": "digikey",
+          "label": "DigiKey",
+          "url": "https://www.digikey.com/en/products/result?keywords=SHT31-DIS-B&stock=1",
+          "kind": "search",
+          "mpn": "SHT31-DIS-B"
+        },
+        {
+          "vendor": "mouser",
+          "label": "Mouser",
+          "url": "https://www.mouser.com/c/?q=SHT31-DIS-B&instock=y",
+          "kind": "search",
+          "mpn": "SHT31-DIS-B"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=SHT31%20temperature%20humidity%20sensor%20module%20I2C&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 2.8,
+          "priceMaxUsd": 10.2,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "sht31d",
+      "matchConfidence": "high",
+      "footguns": [
+        "Shares I2C bus with OLED — different address required"
+      ],
+      "manufacturer": "Sensirion",
+      "mpn": "SHT31-DIS-B",
+      "lcscPart": "C128787",
+      "mpnVerifiedAt": "2026-07-01",
+      "mpnNote": "Prefer genuine Sensirion breakout",
+      "unitPriceMin": 4,
+      "unitPriceMax": 12,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon",
+      "ref": "U7"
+    },
+    {
+      "id": "battery",
+      "name": "Li-ion Battery",
+      "specification": "3.7V 16340 Li-ion rechargeable battery",
+      "quantity": 1,
+      "notes": "16340 form factor fits the design. Remove casing and solder to frame.",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=16340%203.7V%20protected%20rechargeable%20Li-ion%20battery%20RCR123A&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 3,
+          "priceMaxUsd": 9,
+          "currency": "USD",
+          "mpn": "ICR16340"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=16340%203.7V%20protected%20rechargeable%20Li-ion%20battery%20RCR123A&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 2.0999999999999996,
+          "priceMaxUsd": 7.6499999999999995,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "battery-16340",
+      "matchConfidence": "high",
+      "footguns": [
+        "Never short + and −",
+        "Never solder casually to bare cells without experience — use a holder",
+        "Must charge through a protected charger path"
+      ],
+      "manufacturer": "Generic",
+      "mpn": "ICR16340",
+      "mpnVerifiedAt": "2026-07-01",
+      "mpnNote": "Prefer protected cells",
+      "unitPriceMin": 3,
+      "unitPriceMax": 9,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon",
+      "ref": "BT1"
+    },
+    {
+      "id": "charger-board",
+      "name": "Battery Charging Board",
+      "specification": "TP4056 Li-ion charging module with Type-C",
+      "quantity": 1,
+      "notes": "Backup charging via Type-C when sunlight is insufficient",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=TP4056%20Type-C%20lithium%20charger%20board%20with%20protection%20DW01%20dual%20MOSFET&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 1,
+          "priceMaxUsd": 3.5,
+          "currency": "USD",
+          "mpn": "TP4056"
+        },
+        {
+          "vendor": "lcsc",
+          "label": "LCSC",
+          "url": "https://www.lcsc.com/search?q=TP4056",
+          "kind": "search",
+          "priceUsd": 1,
+          "priceMaxUsd": 3.5,
+          "currency": "USD",
+          "mpn": "TP4056"
+        },
+        {
+          "vendor": "digikey",
+          "label": "DigiKey",
+          "url": "https://www.digikey.com/en/products/result?keywords=TP4056&stock=1",
+          "kind": "search",
+          "mpn": "TP4056"
+        },
+        {
+          "vendor": "mouser",
+          "label": "Mouser",
+          "url": "https://www.mouser.com/c/?q=TP4056&instock=y",
+          "kind": "search",
+          "mpn": "TP4056"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=TP4056%20Type-C%20lithium%20charger%20board%20with%20protection%20DW01%20dual%20MOSFET&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 0.7,
+          "priceMaxUsd": 2.975,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "tp4056-protected",
+      "matchConfidence": "high",
+      "footguns": [
+        "Buy the board with DW01A + FS8205A protection ICs (6 pads on output side) — bare TP4056 has no over-discharge protection",
+        "Never charge Li-ion unattended on flammable surfaces"
+      ],
+      "manufacturer": "NanJing Top Power",
+      "mpn": "TP4056",
+      "lcscPart": "C16581",
+      "mpnVerifiedAt": "2026-07-01",
+      "mpnNote": "Require board with DW01A+FS8205A protection",
+      "unitPriceMin": 1,
+      "unitPriceMax": 3.5,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon",
+      "ref": "U8"
+    },
+    {
+      "id": "bamboo-base",
+      "name": "Bamboo Coaster",
+      "specification": "Round bamboo coaster as base",
+      "quantity": 1,
+      "notes": "Drill center hole for mounting. Serves as the clock base.",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=round%20bamboo%20coaster%20set%20natural&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 5,
+          "priceMaxUsd": 15,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "bamboo-coaster",
+      "matchConfidence": "high",
+      "unitPriceMin": 5,
+      "unitPriceMax": 15,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon"
+    },
+    {
+      "id": "copper-tube",
+      "name": "Copper Tube",
+      "specification": "3mm diameter copper tube",
+      "quantity": 2,
+      "notes": "Used for the frame structure",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=3mm%20outer%20diameter%20copper%20tube%20soft%20hobby&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 5,
+          "priceMaxUsd": 15,
+          "currency": "USD"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=3mm%20outer%20diameter%20copper%20tube%20soft%20hobby&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 3.5,
+          "priceMaxUsd": 12.75,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "copper-tube-3mm",
+      "matchConfidence": "high",
+      "footguns": [
+        "Conductive structure — isolate from bare battery terminals"
+      ],
+      "unitPriceMin": 5,
+      "unitPriceMax": 15,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon"
+    },
+    {
+      "id": "brass-wire",
+      "name": "Brass Wire",
+      "specification": "1mm brass wire for details and connections",
+      "quantity": 1,
+      "notes": "Bend according to measured dimensions. Cut 4 pieces at 3cm each for connections.",
+      "shoppingLinks": [
+        {
+          "vendor": "amazon",
+          "label": "Amazon",
+          "url": "https://www.amazon.com/s?k=1mm%20solid%20brass%20wire%20spool%20hobby%20craft&s=price-asc-rank",
+          "kind": "search",
+          "priceUsd": 4,
+          "priceMaxUsd": 12,
+          "currency": "USD"
+        },
+        {
+          "vendor": "aliexpress",
+          "label": "AliExpress",
+          "url": "https://www.aliexpress.com/wholesale?SearchText=1mm%20solid%20brass%20wire%20spool%20hobby%20craft&SortType=price_asc",
+          "kind": "search",
+          "priceUsd": 2.8,
+          "priceMaxUsd": 10.2,
+          "currency": "USD"
+        }
+      ],
+      "catalogId": "brass-wire-1mm",
+      "matchConfidence": "high",
+      "footguns": [
+        "Conductive — insulate where it could short PCB pads"
+      ],
+      "unitPriceMin": 4,
+      "unitPriceMax": 12,
+      "priceSource": "catalog",
+      "preferredVendor": "amazon"
+    }
+  ],
+  "tools": [
+    {
+      "name": "Soldering iron and solder",
+      "required": true
+    },
+    {
+      "name": "Wire cutters / flush cutters",
+      "required": true
+    },
+    {
+      "name": "Pliers (needle-nose)",
+      "required": true
+    },
+    {
+      "name": "Drill with small bit (for bamboo base)",
+      "required": true
+    },
+    {
+      "name": "Ruler or calipers",
+      "required": true
+    },
+    {
+      "name": "USB-C cable for programming and backup charging",
+      "required": true
+    },
+    {
+      "name": "Computer with Arduino IDE or PlatformIO",
+      "required": true
+    },
+    {
+      "name": "Hot glue gun",
+      "required": false
+    },
+    {
+      "name": "Multimeter",
+      "required": true
+    }
+  ],
+  "steps": [
+    {
+      "stepNumber": 1,
+      "title": "Prepare the brass wire frame",
+      "description": "Cut a 30cm piece of 1mm brass wire. Using needle-nose pliers, make a sharp 90-degree bend at 8cm from one end. Make a second 90-degree bend at 14cm from the same end (6cm after the first bend). Make a third 90-degree bend at 22cm (8cm after the second bend). You now have a rectangular frame: two 8cm vertical sides connected by two 6cm horizontal segments. The wire ends should meet. Use a ruler or calipers to verify all measurements before proceeding.",
+      "quickSummary": "Cut and bend 1mm brass wire into a rectangular frame with two 8cm sides and two 6cm segments.",
+      "whyThisWorks": "The brass frame is the skeleton of the clock. Accurate bends keep modules aligned so wires do not pull loose and the clock sits level on the bamboo base.",
+      "beforeState": "On your bench: 1mm brass wire, flush cutters, needle-nose pliers, ruler or calipers, fine marker. Soldering iron is off for now.",
+      "afterState": "A rectangular brass frame: two 8cm vertical sides and two 6cm horizontal segments, corners ~90 degrees, wire ends meeting.",
+      "toolTechnique": {
+        "tool": "Needle-nose pliers",
+        "usage": "Grip the wire at each mark with the jaw tips and bend against the jaw edge for a clean 90 degree corner.",
+        "safety": "Wear eye protection when cutting brass - short offcuts can fly.",
+        "mistake": "Bending with fingers alone makes rounded corners that throw off leg lengths."
+      },
+      "verification": {
+        "description": "Measure both vertical sides and both horizontal segments with a ruler.",
+        "expectedOutput": "Verticals ~8cm each, horizontals ~6cm each, corners close to 90 degrees."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Sides unequal or frame skewed",
+          "cause": "Marks measured only from one end without re-checking after the first bend.",
+          "fix": "Flatten gently and re-bend, or cut a fresh piece and re-mark each segment."
+        },
+        {
+          "symptom": "Wire kinks or snaps",
+          "cause": "Bent back and forth at the same spot many times.",
+          "fix": "Cut a fresh piece. Make each bend once, firmly."
+        }
+      ],
+      "safetyNotes": [
+        "Eye protection recommended when cutting metal wire."
+      ],
+      "goal": "Bend brass wire into a rectangular frame that will hold the electronics.",
+      "youNeed": [
+        "1mm brass wire",
+        "Flush cutters",
+        "Needle-nose pliers",
+        "Ruler or calipers",
+        "Marker"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Cut one piece of 1mm brass wire about 30 cm long."
+        },
+        {
+          "n": 2,
+          "text": "Mark points at 8 cm, 14 cm, and 22 cm from one end."
+        },
+        {
+          "n": 3,
+          "text": "At each mark, bend a sharp 90° corner with pliers."
+        },
+        {
+          "n": 4,
+          "text": "Check you have two long sides (~8 cm) and two short sides (~6 cm)."
+        },
+        {
+          "n": 5,
+          "text": "Bring the free ends together so the rectangle closes."
+        }
+      ],
+      "doneWhen": "You have a closed rectangular brass frame that sits flat and measures roughly 8 cm by 6 cm.",
+      "mediaKind": "wire_bend_frame"
+    },
+    {
+      "stepNumber": 2,
+      "title": "Prepare the OLED display",
+      "description": "The 0.96 inch SSD1306 OLED display ships with a 4-pin male header attached. You need to remove this header because you'll solder wires directly to the display board. Heat each pin one at a time with your soldering iron (350degC). While the solder is molten, gently pull the pin out with pliers. After removing all 4 pins, use desoldering braid or a solder sucker to clear the holes. The 4 holes are labeled on the back of the board: VCC, GND, SCL, SDA. You'll solder wires to these pads in Step 6.",
+      "quickSummary": "Remove the 4-pin header from the 0.96 inch SSD1306 OLED so pads VCC, GND, SCL, SDA are clear.",
+      "whyThisWorks": "I2C needs only two signal wires (SDA and SCL) plus power. Removing the header lets you solder flexible wires that fit a tight brass and bamboo build.",
+      "beforeState": "OLED module on a heat-safe surface, iron at ~350C, desolder braid or sucker, tweezers. ESP32 still unpowered.",
+      "afterState": "Four clean pads labeled VCC, GND, SCL, SDA with no leftover header pins shorting adjacent pads.",
+      "toolTechnique": {
+        "tool": "Soldering iron + desolder braid",
+        "usage": "Press braid on the joint, heat until solder wicks into the braid, then lift iron and braid together. Let the pad cool before pulling the pin.",
+        "safety": "Always use an iron stand. Ventilate solder fumes.",
+        "mistake": "Prying the header off while solder is solid rips the copper pad off the PCB."
+      },
+      "verification": {
+        "description": "Visually inspect pads; optionally check adjacent pads are not shorted.",
+        "expectedOutput": "No bridge between VCC and GND. Labels readable. Module undamaged."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Pad lifts or is destroyed",
+          "cause": "Too much heat or mechanical force while cold.",
+          "fix": "If the pad is gone, replace the OLED. Practice desoldering on scrap first."
+        },
+        {
+          "symptom": "Wrong display (SPI 7-pin)",
+          "cause": "SPI OLEDs look similar but need different wiring and code.",
+          "fix": "Use only 4-pin I2C SSD1306 128x64 modules for this plan."
+        }
+      ],
+      "safetyNotes": [
+        "Hot iron and molten solder - burn hazard."
+      ],
+      "goal": "Remove the plastic header from the OLED so you can solder flexible wires later.",
+      "youNeed": [
+        "0.96\" SSD1306 OLED",
+        "Soldering iron (~350°C)",
+        "Pliers or tweezers",
+        "Desoldering braid or solder sucker",
+        "Heat-safe mat"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Put the OLED face-down on a heat-safe mat. Iron on, tip clean."
+        },
+        {
+          "n": 2,
+          "text": "Heat ONE metal pin of the black header until the solder melts (1–2 seconds)."
+        },
+        {
+          "n": 3,
+          "text": "While the solder is liquid, gently pull that pin out with pliers.",
+          "caution": "Don’t yank — heat first, then pull."
+        },
+        {
+          "n": 4,
+          "text": "Repeat for all 4 pins until the plastic header is gone."
+        },
+        {
+          "n": 5,
+          "text": "Clean leftover solder from the holes with braid or a sucker."
+        },
+        {
+          "n": 6,
+          "text": "Flip the board and find the labels: VCC, GND, SCL, SDA on the four pads."
+        }
+      ],
+      "doneWhen": "Four clean empty holes labeled VCC, GND, SCL, SDA — no header pins left, no blobs shorting pads together.",
+      "mediaKind": "oled_desolder"
+    },
+    {
+      "stepNumber": 3,
+      "title": "Cut brass wire connectors",
+      "description": "Using flush cutters, cut the 1mm brass wire into 4 pieces, each exactly 3cm long. These will serve as electrical connectors between components mounted on the frame. After cutting, use fine-grit sandpaper (400 grit or higher) to remove any burrs from the cut ends. Clean each piece with isopropyl alcohol to remove oils from handling. Set these aside  -  you'll use them in steps 4 and 6.",
+      "quickSummary": "Cut four 3cm lengths of 1mm brass wire for short links.",
+      "whyThisWorks": "Short equal lengths keep the build tidy and reduce accidental shorts compared with long floppy offcuts.",
+      "beforeState": "Brass wire, flush cutters, ruler, small container for parts.",
+      "afterState": "Four 3cm brass segments, ends clean, set aside.",
+      "verification": {
+        "description": "Measure each piece.",
+        "expectedOutput": "All four within 2.9-3.1cm."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Pieces vary by more than 2mm",
+          "cause": "Measured only the first and free-handed the rest.",
+          "fix": "Use the first piece as a template against the ruler for each cut."
+        }
+      ],
+      "goal": "Cut short brass wire pieces that will connect modules later.",
+      "youNeed": [
+        "1mm brass wire leftover",
+        "Flush cutters",
+        "Ruler"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Mark four pieces at about 3 cm each."
+        },
+        {
+          "n": 2,
+          "text": "Cut the four pieces with flush cutters.",
+          "caution": "Wear eye protection — wire ends can fly."
+        },
+        {
+          "n": 3,
+          "text": "Straighten each piece lightly with pliers."
+        }
+      ],
+      "doneWhen": "Four straight ~3 cm brass pieces ready on the bench.",
+      "mediaKind": "cut_jumpers"
+    },
+    {
+      "stepNumber": 4,
+      "title": "Prepare the battery",
+      "description": "Take the 16340 Li-ion battery (3.7V, typically 800mAh). Keep the plastic shrink-wrap casing ON  -  it insulates the can against dead shorts and protects any built-in protection circuit. The positive terminal is the raised button top. The negative terminal is the flat bottom. CAUTION: Never let anything metal touch both the positive and negative terminals at the same time  -  this creates a short circuit that can cause fire or burns. If you must solder directly (no solder tags), use fine sandpaper to lightly scuff ONLY the exposed terminal tips, never the wrapped sides.",
+      "quickSummary": "Identify 16340 polarity; keep cell isolated; measure voltage before any wiring.",
+      "whyThisWorks": "Li-ion cells store a lot of energy. A short can dump high current and cause fire. Charge only through TP4056 or the solar controller protection path.",
+      "beforeState": "16340 cell, multimeter, electrical tape or heat-shrink, non-conductive work surface.",
+      "afterState": "Polarity clearly marked. Cell isolated. Multimeter shows ~3.6-4.2V with correct probe placement.",
+      "toolTechnique": {
+        "tool": "Multimeter",
+        "usage": "Set to DC volts. Red probe on +, black on -. Read the display. Do not use continuity mode across a charged cell.",
+        "safety": "If the cell is hot, swollen, or damaged, stop and recycle it properly.",
+        "mistake": "Probing both terminals while a tool bridges the can."
+      },
+      "verification": {
+        "description": "Measure open-circuit voltage of the cell.",
+        "expectedOutput": "Approximately 3.6V to 4.2V DC."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Spark when tools touch both ends",
+          "cause": "Hard short of a charged Li-ion cell.",
+          "fix": "Stop. Move cell to a fire-safe area. Use a holder or insulated leads before continuing."
+        },
+        {
+          "symptom": "Uncomfortable soldering directly on the cell",
+          "cause": "Original aesthetics vs beginner safety.",
+          "fix": "Use a 16340 battery holder with leads instead."
+        }
+      ],
+      "safetyNotes": [
+        "Li-ion fire risk if shorted, crushed, or charged without protection.",
+        "Never charge unattended on flammable surfaces."
+      ],
+      "goal": "Get the battery ready to connect to the charger — no free-hanging bare cells.",
+      "youNeed": [
+        "16340 Li-ion cell",
+        "TP4056 charger board",
+        "Wire strippers",
+        "Heat-safe mat"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Identify battery + and − ends (usually + has a raised button)."
+        },
+        {
+          "n": 2,
+          "text": "Find BAT+ and BAT− (or B+ / B−) pads on the TP4056 board."
+        },
+        {
+          "n": 3,
+          "text": "Plan red wire for +, black for −. Do not connect USB power yet."
+        },
+        {
+          "n": 4,
+          "text": "If the cell has a plastic wrap tab, leave protection circuits intact."
+        }
+      ],
+      "doneWhen": "You know which pad is + and − on both the cell and the TP4056, and nothing is powered.",
+      "mediaKind": "battery_id_poles"
+    },
+    {
+      "stepNumber": 5,
+      "title": "Install the touch switch",
+      "description": "The TTP223 capacitive touch switch module has 3 pins: VCC, GND, and SIG (signal). Solder a red wire to VCC, a black wire to GND, and an orange wire to SIG. Mount the module to the brass frame using a small dot of hot glue or by threading the wires through the frame. Position it so the touch pad faces outward and is easy to reach with a fingertip. A single tap will toggle the clock between sleep mode and active display.",
+      "quickSummary": "Mount the capacitive touch module; note VCC, GND, and SIG for GPIO0.",
+      "whyThisWorks": "Capacitive touch senses a finger without a mechanical button. The ESP32 reads a digital level on GPIO0 to toggle sleep and wake.",
+      "beforeState": "Touch module, mounting tape or frame plan, silkscreen readable.",
+      "afterState": "Module fixed in final orientation; pin labels confirmed; not yet fully soldered to ESP32.",
+      "verification": {
+        "description": "Confirm silkscreen pin names match your notes.",
+        "expectedOutput": "You can point to VCC, GND, and SIG without guessing."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Touch always pressed or never presses",
+          "cause": "SIG floating or GND not shared with ESP32.",
+          "fix": "Common ground with ESP32; verify SIG continuity to GPIO0."
+        }
+      ],
+      "goal": "Mount the touch switch so you can wake or control the clock with a tap.",
+      "youNeed": [
+        "TTP223 touch module",
+        "Double-sided tape or hot glue",
+        "Brass frame"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Find the side labeled VCC, GND, and I/O (or SIG) on the touch board."
+        },
+        {
+          "n": 2,
+          "text": "Place the touch pad where you want to tap (top of frame works well)."
+        },
+        {
+          "n": 3,
+          "text": "Tack it in place with tape — don’t glue permanently until wires fit."
+        }
+      ],
+      "doneWhen": "Touch module is sitting on the frame where your finger will naturally tap.",
+      "mediaKind": "touch_mount"
+    },
+    {
+      "stepNumber": 6,
+      "title": "Wire all electronic components",
+      "description": "Connect every component following the wiring diagram exactly. Use red wires for all VCC/3.3V power connections, black wires for all GND connections, and color-coded wires for signal lines (blue=SDA, yellow=SCL, green=touch signal). Solder each connection and insulate with heat-shrink tubing or electrical tape. After every 3 connections, pause and tug-test each wire gently  -  a cold solder joint now will cause hours of debugging later. Double-check: the ESP32-C3 pin labeled 3V3 powers BOTH the OLED and SHT31D. ESP32-C3 GPIO4 is SDA for BOTH devices (I2C bus sharing). ESP32-C3 GPIO5 is SCL for BOTH devices. The touch switch SIG goes to GPIO0.",
+      "quickSummary": "Wire OLED and SHT31D on I2C GPIO4/5; touch on GPIO0; battery only via charge path.",
+      "whyThisWorks": "I2C is a shared two-wire bus: multiple chips share SDA and SCL with different addresses. Color coding prevents SDA/SCL swaps - the most common blank-screen cause. Shared GND is mandatory.",
+      "beforeState": "All modules prepared, iron hot, multimeter, wiring list open. Prefer battery disconnected until rails are checked.",
+      "afterState": "Every connection in the wiring diagram is made; no bare strands shorting; joints secure.",
+      "verification": {
+        "description": "Continuity-check each net with power off, then measure 3.3V on the ESP32 rail when USB-powered.",
+        "expectedOutput": "GPIO4 continuous to both SDA pads; GPIO5 to both SCL pads; 3.3V rail ~3.2-3.4V on USB power."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "OLED completely blank after upload",
+          "cause": "SDA and SCL swapped, 5V on OLED VCC, or wrong I2C address.",
+          "fix": "Swap SDA/SCL at one end; confirm 3.3V on VCC; run an I2C scanner sketch."
+        },
+        {
+          "symptom": "ESP32 brownouts or resets",
+          "cause": "Weak USB cable or battery path dropping under WiFi current.",
+          "fix": "Use a short data-capable USB-C cable; verify battery voltage under load."
+        },
+        {
+          "symptom": "Heat or smell at battery wires",
+          "cause": "Short or reverse polarity on BAT pads.",
+          "fix": "Disconnect immediately. Recheck +/- against silkscreen."
+        }
+      ],
+      "safetyNotes": [
+        "Verify polarity twice before connecting the Li-ion cell.",
+        "First power-up: watch for heat for 30 seconds."
+      ],
+      "goal": "Connect power, ground, and I2C wires so the screen and sensor can talk to the ESP32.",
+      "youNeed": [
+        "ESP32-C3",
+        "OLED",
+        "SHT31 (if used)",
+        "Hookup wire (red/black/blue/yellow)",
+        "Soldering iron"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Wire ALL grounds together (black): ESP32 GND → OLED GND → sensor GND."
+        },
+        {
+          "n": 2,
+          "text": "Wire 3.3V power (red): ESP32 3V3 → OLED VCC → sensor VCC. Not 5V for the OLED."
+        },
+        {
+          "n": 3,
+          "text": "Wire SDA (often blue): ESP32 GPIO4 → OLED SDA → sensor SDA."
+        },
+        {
+          "n": 4,
+          "text": "Wire SCL (often yellow): ESP32 GPIO5 → OLED SCL → sensor SCL."
+        },
+        {
+          "n": 5,
+          "text": "Double-check every red wire is on 3.3V, not 5V."
+        }
+      ],
+      "doneWhen": "Every module shares ground and 3.3V, and SDA/SCL form one shared bus. No bare shorts.",
+      "mediaKind": "i2c_wiring",
+      "compiled": {
+        "connections": [
+          {
+            "id": "GND:U1:GND",
+            "netName": "GND",
+            "netClass": "gnd",
+            "fromRef": "U2",
+            "fromPin": "GND",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U1",
+            "toPin": "GND",
+            "toLabel": "OLED Display",
+            "colorHex": "#1e293b",
+            "colorName": "black",
+            "grade": "derived",
+            "domainKey": "gnd",
+            "domainLabel": "GND",
+            "domainColorHex": "#334155",
+            "domainVolts": 0
+          },
+          {
+            "id": "GND:U7:GND",
+            "netName": "GND",
+            "netClass": "gnd",
+            "fromRef": "U2",
+            "fromPin": "GND",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U7",
+            "toPin": "GND",
+            "toLabel": "Temperature & Humidity",
+            "colorHex": "#1e293b",
+            "colorName": "black",
+            "grade": "derived",
+            "domainKey": "gnd",
+            "domainLabel": "GND",
+            "domainColorHex": "#334155",
+            "domainVolts": 0
+          },
+          {
+            "id": "GND:U6:GND",
+            "netName": "GND",
+            "netClass": "gnd",
+            "fromRef": "U2",
+            "fromPin": "GND",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U6",
+            "toPin": "GND",
+            "toLabel": "Touch Switch",
+            "colorHex": "#1e293b",
+            "colorName": "black",
+            "grade": "derived",
+            "domainKey": "gnd",
+            "domainLabel": "GND",
+            "domainColorHex": "#334155",
+            "domainVolts": 0
+          },
+          {
+            "id": "GND:U5:-",
+            "netName": "GND",
+            "netClass": "gnd",
+            "fromRef": "U2",
+            "fromPin": "GND",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U5",
+            "toPin": "-",
+            "toLabel": "Battery Level Indicator",
+            "colorHex": "#1e293b",
+            "colorName": "black",
+            "grade": "derived",
+            "domainKey": "gnd",
+            "domainLabel": "GND",
+            "domainColorHex": "#334155",
+            "domainVolts": 0
+          },
+          {
+            "id": "GND:BT1:-",
+            "netName": "GND",
+            "netClass": "gnd",
+            "fromRef": "U2",
+            "fromPin": "GND",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "BT1",
+            "toPin": "-",
+            "toLabel": "Li-ion Battery",
+            "colorHex": "#1e293b",
+            "colorName": "black",
+            "grade": "derived",
+            "domainKey": "gnd",
+            "domainLabel": "GND",
+            "domainColorHex": "#334155",
+            "domainVolts": 0
+          },
+          {
+            "id": "GND:U8:BAT-",
+            "netName": "GND",
+            "netClass": "gnd",
+            "fromRef": "U2",
+            "fromPin": "GND",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U8",
+            "toPin": "BAT-",
+            "toLabel": "Battery Charging Board",
+            "colorHex": "#1e293b",
+            "colorName": "black",
+            "grade": "derived",
+            "domainKey": "gnd",
+            "domainLabel": "GND",
+            "domainColorHex": "#334155",
+            "domainVolts": 0
+          },
+          {
+            "id": "GND:U4:OUT-",
+            "netName": "GND",
+            "netClass": "gnd",
+            "fromRef": "U2",
+            "fromPin": "GND",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U4",
+            "toPin": "OUT-",
+            "toLabel": "Solar Charging Controller",
+            "colorHex": "#1e293b",
+            "colorName": "black",
+            "grade": "derived",
+            "domainKey": "gnd",
+            "domainLabel": "GND",
+            "domainColorHex": "#334155",
+            "domainVolts": 0
+          },
+          {
+            "id": "GND:U4:IN-",
+            "netName": "GND",
+            "netClass": "gnd",
+            "fromRef": "U2",
+            "fromPin": "GND",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U4",
+            "toPin": "IN-",
+            "toLabel": "Solar Charging Controller",
+            "colorHex": "#1e293b",
+            "colorName": "black",
+            "grade": "derived",
+            "domainKey": "gnd",
+            "domainLabel": "GND",
+            "domainColorHex": "#334155",
+            "domainVolts": 0
+          },
+          {
+            "id": "GND:U3:-",
+            "netName": "GND",
+            "netClass": "gnd",
+            "fromRef": "U2",
+            "fromPin": "GND",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U3",
+            "toPin": "-",
+            "toLabel": "Solar Panel",
+            "colorHex": "#1e293b",
+            "colorName": "black",
+            "grade": "derived",
+            "domainKey": "gnd",
+            "domainLabel": "GND",
+            "domainColorHex": "#334155",
+            "domainVolts": 0
+          },
+          {
+            "id": "3V3:U1:VCC",
+            "netName": "3V3",
+            "netClass": "power",
+            "fromRef": "U2",
+            "fromPin": "3V3",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U1",
+            "toPin": "VCC",
+            "toLabel": "OLED Display",
+            "colorHex": "#dc2626",
+            "colorName": "red",
+            "grade": "derived",
+            "domainKey": "3v3",
+            "domainLabel": "3.3V",
+            "domainColorHex": "#0d9488",
+            "domainVolts": 3.3
+          },
+          {
+            "id": "3V3:U7:VCC",
+            "netName": "3V3",
+            "netClass": "power",
+            "fromRef": "U2",
+            "fromPin": "3V3",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U7",
+            "toPin": "VCC",
+            "toLabel": "Temperature & Humidity",
+            "colorHex": "#dc2626",
+            "colorName": "red",
+            "grade": "derived",
+            "domainKey": "3v3",
+            "domainLabel": "3.3V",
+            "domainColorHex": "#0d9488",
+            "domainVolts": 3.3
+          },
+          {
+            "id": "3V3:U6:VCC",
+            "netName": "3V3",
+            "netClass": "power",
+            "fromRef": "U2",
+            "fromPin": "3V3",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U6",
+            "toPin": "VCC",
+            "toLabel": "Touch Switch",
+            "colorHex": "#dc2626",
+            "colorName": "red",
+            "grade": "derived",
+            "domainKey": "3v3",
+            "domainLabel": "3.3V",
+            "domainColorHex": "#0d9488",
+            "domainVolts": 3.3
+          },
+          {
+            "id": "SDA:U1:SDA",
+            "netName": "SDA",
+            "netClass": "i2c",
+            "fromRef": "U2",
+            "fromPin": "GPIO4",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U1",
+            "toPin": "SDA",
+            "toLabel": "OLED Display",
+            "colorHex": "#2563eb",
+            "colorName": "blue",
+            "grade": "derived",
+            "domainKey": "3v3",
+            "domainLabel": "3.3V",
+            "domainColorHex": "#0d9488",
+            "domainVolts": 3.3
+          },
+          {
+            "id": "SDA:U7:SDA",
+            "netName": "SDA",
+            "netClass": "i2c",
+            "fromRef": "U2",
+            "fromPin": "GPIO4",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U7",
+            "toPin": "SDA",
+            "toLabel": "Temperature & Humidity",
+            "colorHex": "#2563eb",
+            "colorName": "blue",
+            "grade": "derived",
+            "domainKey": "3v3",
+            "domainLabel": "3.3V",
+            "domainColorHex": "#0d9488",
+            "domainVolts": 3.3
+          },
+          {
+            "id": "SCL:U1:SCL",
+            "netName": "SCL",
+            "netClass": "i2c",
+            "fromRef": "U2",
+            "fromPin": "GPIO5",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U1",
+            "toPin": "SCL",
+            "toLabel": "OLED Display",
+            "colorHex": "#eab308",
+            "colorName": "yellow",
+            "grade": "derived",
+            "domainKey": "3v3",
+            "domainLabel": "3.3V",
+            "domainColorHex": "#0d9488",
+            "domainVolts": 3.3
+          },
+          {
+            "id": "SCL:U7:SCL",
+            "netName": "SCL",
+            "netClass": "i2c",
+            "fromRef": "U2",
+            "fromPin": "GPIO5",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U7",
+            "toPin": "SCL",
+            "toLabel": "Temperature & Humidity",
+            "colorHex": "#eab308",
+            "colorName": "yellow",
+            "grade": "derived",
+            "domainKey": "3v3",
+            "domainLabel": "3.3V",
+            "domainColorHex": "#0d9488",
+            "domainVolts": 3.3
+          },
+          {
+            "id": "TOUCH:U6:SIG",
+            "netName": "TOUCH",
+            "netClass": "signal",
+            "fromRef": "U2",
+            "fromPin": "GPIO0",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "toRef": "U6",
+            "toPin": "SIG",
+            "toLabel": "Touch Switch",
+            "colorHex": "#16a34a",
+            "colorName": "green",
+            "grade": "consistent",
+            "domainKey": "3v3",
+            "domainLabel": "3.3V",
+            "domainColorHex": "#0d9488",
+            "domainVolts": 3.3
+          },
+          {
+            "id": "SOLAR+:U4:IN+",
+            "netName": "SOLAR+",
+            "netClass": "power",
+            "fromRef": "U3",
+            "fromPin": "+",
+            "fromLabel": "Solar Panel",
+            "toRef": "U4",
+            "toPin": "IN+",
+            "toLabel": "Solar Charging Controller",
+            "colorHex": "#dc2626",
+            "colorName": "red",
+            "grade": "consistent",
+            "domainKey": "5v",
+            "domainLabel": "5V",
+            "domainColorHex": "#ea580c",
+            "domainVolts": 5
+          },
+          {
+            "id": "BAT+:U8:BAT+",
+            "netName": "BAT+",
+            "netClass": "power",
+            "fromRef": "BT1",
+            "fromPin": "+",
+            "fromLabel": "Li-ion Battery",
+            "toRef": "U8",
+            "toPin": "BAT+",
+            "toLabel": "Battery Charging Board",
+            "colorHex": "#dc2626",
+            "colorName": "red",
+            "grade": "derived",
+            "domainKey": "batt",
+            "domainLabel": "Battery",
+            "domainColorHex": "#d97706",
+            "domainVolts": 3.7
+          },
+          {
+            "id": "BAT+:U4:OUT+",
+            "netName": "BAT+",
+            "netClass": "power",
+            "fromRef": "BT1",
+            "fromPin": "+",
+            "fromLabel": "Li-ion Battery",
+            "toRef": "U4",
+            "toPin": "OUT+",
+            "toLabel": "Solar Charging Controller",
+            "colorHex": "#dc2626",
+            "colorName": "red",
+            "grade": "derived",
+            "domainKey": "batt",
+            "domainLabel": "Battery",
+            "domainColorHex": "#d97706",
+            "domainVolts": 3.7
+          },
+          {
+            "id": "BAT+:U5:+",
+            "netName": "BAT+",
+            "netClass": "power",
+            "fromRef": "BT1",
+            "fromPin": "+",
+            "fromLabel": "Li-ion Battery",
+            "toRef": "U5",
+            "toPin": "+",
+            "toLabel": "Battery Level Indicator",
+            "colorHex": "#dc2626",
+            "colorName": "red",
+            "grade": "derived",
+            "domainKey": "batt",
+            "domainLabel": "Battery",
+            "domainColorHex": "#d97706",
+            "domainVolts": 3.7
+          },
+          {
+            "id": "BAT+:U2:VIN",
+            "netName": "BAT+",
+            "netClass": "power",
+            "fromRef": "BT1",
+            "fromPin": "+",
+            "fromLabel": "Li-ion Battery",
+            "toRef": "U2",
+            "toPin": "VIN",
+            "toLabel": "ESP32-C3 Microcontroller",
+            "colorHex": "#dc2626",
+            "colorName": "red",
+            "grade": "derived",
+            "domainKey": "batt",
+            "domainLabel": "Battery",
+            "domainColorHex": "#d97706",
+            "domainVolts": 3.7
+          }
+        ],
+        "checks": [
+          {
+            "kind": "multimeter",
+            "instruction": "Multimeter (DC volts) across OLED Display: VCC ↔ GND",
+            "expected": "3.2–3.4 V"
+          },
+          {
+            "kind": "multimeter",
+            "instruction": "Multimeter (DC volts) across Temperature & Humidity: VCC ↔ GND",
+            "expected": "3.2–3.4 V"
+          },
+          {
+            "kind": "multimeter",
+            "instruction": "Multimeter (DC volts) across Touch Switch: VCC ↔ GND",
+            "expected": "3.2–3.4 V"
+          },
+          {
+            "kind": "multimeter",
+            "instruction": "Multimeter (DC volts) across Solar Charging Controller: IN+ ↔ GND",
+            "expected": "4.9–5.1 V"
+          },
+          {
+            "kind": "multimeter",
+            "instruction": "Multimeter (DC volts) across Battery Charging Board: BAT+ ↔ GND",
+            "expected": "3.6–4.2 V (charged Li-ion)"
+          },
+          {
+            "kind": "multimeter",
+            "instruction": "Multimeter (DC volts) across Battery Level Indicator: + ↔ GND",
+            "expected": "3.6–4.2 V (charged Li-ion)"
+          },
+          {
+            "kind": "multimeter",
+            "instruction": "Multimeter (DC volts) across ESP32-C3 Microcontroller: VIN ↔ GND",
+            "expected": "3.6–4.2 V (charged Li-ion)"
+          }
+        ],
+        "microSteps": [
+          {
+            "id": "GND:U1:GND",
+            "index": 1,
+            "total": 22,
+            "colorName": "black",
+            "colorHex": "#1e293b",
+            "netName": "GND",
+            "fromPartId": "esp32c3",
+            "toPartId": "oled-display",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GND",
+            "toLabel": "OLED Display",
+            "toPin": "GND",
+            "netClass": "gnd",
+            "action": "Solder the black wire from ESP32-C3 Microcontroller pin GND to OLED Display pin GND.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GND and the other to GND — it should beep."
+            },
+            "showTechnique": true,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "GND:U7:GND",
+            "index": 2,
+            "total": 22,
+            "colorName": "black",
+            "colorHex": "#1e293b",
+            "netName": "GND",
+            "fromPartId": "esp32c3",
+            "toPartId": "sht31d",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GND",
+            "toLabel": "Temperature & Humidity",
+            "toPin": "GND",
+            "netClass": "gnd",
+            "action": "Solder the black wire from ESP32-C3 Microcontroller pin GND to Temperature & Humidity pin GND.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GND and the other to GND — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "GND:U6:GND",
+            "index": 3,
+            "total": 22,
+            "colorName": "black",
+            "colorHex": "#1e293b",
+            "netName": "GND",
+            "fromPartId": "esp32c3",
+            "toPartId": "touch-switch",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GND",
+            "toLabel": "Touch Switch",
+            "toPin": "GND",
+            "netClass": "gnd",
+            "action": "Solder the black wire from ESP32-C3 Microcontroller pin GND to Touch Switch pin GND.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GND and the other to GND — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "GND:U5:-",
+            "index": 4,
+            "total": 22,
+            "colorName": "black",
+            "colorHex": "#1e293b",
+            "netName": "GND",
+            "fromPartId": "esp32c3",
+            "toPartId": "battery-led",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GND",
+            "toLabel": "Battery Level Indicator",
+            "toPin": "-",
+            "netClass": "gnd",
+            "action": "Solder the black wire from ESP32-C3 Microcontroller pin GND to Battery Level Indicator pin -.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GND and the other to - — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "GND:BT1:-",
+            "index": 5,
+            "total": 22,
+            "colorName": "black",
+            "colorHex": "#1e293b",
+            "netName": "GND",
+            "fromPartId": "esp32c3",
+            "toPartId": "battery",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GND",
+            "toLabel": "Li-ion Battery",
+            "toPin": "-",
+            "netClass": "gnd",
+            "action": "Solder the black wire from ESP32-C3 Microcontroller pin GND to Li-ion Battery pin -.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GND and the other to - — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "GND:U8:BAT-",
+            "index": 6,
+            "total": 22,
+            "colorName": "black",
+            "colorHex": "#1e293b",
+            "netName": "GND",
+            "fromPartId": "esp32c3",
+            "toPartId": "charger-board",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GND",
+            "toLabel": "Battery Charging Board",
+            "toPin": "BAT-",
+            "netClass": "gnd",
+            "action": "Solder the black wire from ESP32-C3 Microcontroller pin GND to Battery Charging Board pin BAT-.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GND and the other to BAT- — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "GND:U4:OUT-",
+            "index": 7,
+            "total": 22,
+            "colorName": "black",
+            "colorHex": "#1e293b",
+            "netName": "GND",
+            "fromPartId": "esp32c3",
+            "toPartId": "solar-charger",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GND",
+            "toLabel": "Solar Charging Controller",
+            "toPin": "OUT-",
+            "netClass": "gnd",
+            "action": "Solder the black wire from ESP32-C3 Microcontroller pin GND to Solar Charging Controller pin OUT-.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GND and the other to OUT- — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "GND:U4:IN-",
+            "index": 8,
+            "total": 22,
+            "colorName": "black",
+            "colorHex": "#1e293b",
+            "netName": "GND",
+            "fromPartId": "esp32c3",
+            "toPartId": "solar-charger",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GND",
+            "toLabel": "Solar Charging Controller",
+            "toPin": "IN-",
+            "netClass": "gnd",
+            "action": "Solder the black wire from ESP32-C3 Microcontroller pin GND to Solar Charging Controller pin IN-.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GND and the other to IN- — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "GND:U3:-",
+            "index": 9,
+            "total": 22,
+            "colorName": "black",
+            "colorHex": "#1e293b",
+            "netName": "GND",
+            "fromPartId": "esp32c3",
+            "toPartId": "solar-panel",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GND",
+            "toLabel": "Solar Panel",
+            "toPin": "-",
+            "netClass": "gnd",
+            "action": "Solder the black wire from ESP32-C3 Microcontroller pin GND to Solar Panel pin -.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GND and the other to - — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "3V3:U1:VCC",
+            "index": 10,
+            "total": 22,
+            "colorName": "red",
+            "colorHex": "#dc2626",
+            "netName": "3V3",
+            "fromPartId": "esp32c3",
+            "toPartId": "oled-display",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "3V3",
+            "toLabel": "OLED Display",
+            "toPin": "VCC",
+            "netClass": "power",
+            "action": "Solder the red wire from ESP32-C3 Microcontroller pin 3V3 to OLED Display pin VCC.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to 3V3 and the other to VCC — it should beep.",
+              "voltage": "Once powered, VCC ↔ GND should read 3.2–3.4 V."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "3V3:U7:VCC",
+            "index": 11,
+            "total": 22,
+            "colorName": "red",
+            "colorHex": "#dc2626",
+            "netName": "3V3",
+            "fromPartId": "esp32c3",
+            "toPartId": "sht31d",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "3V3",
+            "toLabel": "Temperature & Humidity",
+            "toPin": "VCC",
+            "netClass": "power",
+            "action": "Solder the red wire from ESP32-C3 Microcontroller pin 3V3 to Temperature & Humidity pin VCC.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to 3V3 and the other to VCC — it should beep.",
+              "voltage": "Once powered, VCC ↔ GND should read 3.2–3.4 V."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "3V3:U6:VCC",
+            "index": 12,
+            "total": 22,
+            "colorName": "red",
+            "colorHex": "#dc2626",
+            "netName": "3V3",
+            "fromPartId": "esp32c3",
+            "toPartId": "touch-switch",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "3V3",
+            "toLabel": "Touch Switch",
+            "toPin": "VCC",
+            "netClass": "power",
+            "action": "Solder the red wire from ESP32-C3 Microcontroller pin 3V3 to Touch Switch pin VCC.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to 3V3 and the other to VCC — it should beep.",
+              "voltage": "Once powered, VCC ↔ GND should read 3.2–3.4 V."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "SOLAR+:U4:IN+",
+            "index": 13,
+            "total": 22,
+            "colorName": "red",
+            "colorHex": "#dc2626",
+            "netName": "SOLAR+",
+            "fromPartId": "solar-panel",
+            "toPartId": "solar-charger",
+            "fromLabel": "Solar Panel",
+            "fromPin": "+",
+            "toLabel": "Solar Charging Controller",
+            "toPin": "IN+",
+            "netClass": "power",
+            "action": "Solder the red wire from Solar Panel pin + to Solar Charging Controller pin IN+.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to + and the other to IN+ — it should beep.",
+              "voltage": "Once powered, IN+ ↔ GND should read 4.9–5.1 V."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "BAT+:U8:BAT+",
+            "index": 14,
+            "total": 22,
+            "colorName": "red",
+            "colorHex": "#dc2626",
+            "netName": "BAT+",
+            "fromPartId": "battery",
+            "toPartId": "charger-board",
+            "fromLabel": "Li-ion Battery",
+            "fromPin": "+",
+            "toLabel": "Battery Charging Board",
+            "toPin": "BAT+",
+            "netClass": "power",
+            "action": "Solder the red wire from Li-ion Battery pin + to Battery Charging Board pin BAT+.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to + and the other to BAT+ — it should beep.",
+              "voltage": "Once powered, BAT+ ↔ GND should read 3.6–4.2 V (charged Li-ion)."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "BAT+:U4:OUT+",
+            "index": 15,
+            "total": 22,
+            "colorName": "red",
+            "colorHex": "#dc2626",
+            "netName": "BAT+",
+            "fromPartId": "battery",
+            "toPartId": "solar-charger",
+            "fromLabel": "Li-ion Battery",
+            "fromPin": "+",
+            "toLabel": "Solar Charging Controller",
+            "toPin": "OUT+",
+            "netClass": "power",
+            "action": "Solder the red wire from Li-ion Battery pin + to Solar Charging Controller pin OUT+.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to + and the other to OUT+ — it should beep.",
+              "voltage": "Once powered, OUT+ ↔ GND should read 4.9–5.1 V."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "BAT+:U5:+",
+            "index": 16,
+            "total": 22,
+            "colorName": "red",
+            "colorHex": "#dc2626",
+            "netName": "BAT+",
+            "fromPartId": "battery",
+            "toPartId": "battery-led",
+            "fromLabel": "Li-ion Battery",
+            "fromPin": "+",
+            "toLabel": "Battery Level Indicator",
+            "toPin": "+",
+            "netClass": "power",
+            "action": "Solder the red wire from Li-ion Battery pin + to Battery Level Indicator pin +.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to + and the other to + — it should beep.",
+              "voltage": "Once powered, + ↔ GND should read 3.6–4.2 V (charged Li-ion)."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "BAT+:U2:VIN",
+            "index": 17,
+            "total": 22,
+            "colorName": "red",
+            "colorHex": "#dc2626",
+            "netName": "BAT+",
+            "fromPartId": "battery",
+            "toPartId": "esp32c3",
+            "fromLabel": "Li-ion Battery",
+            "fromPin": "+",
+            "toLabel": "ESP32-C3 Microcontroller",
+            "toPin": "VIN",
+            "netClass": "power",
+            "action": "Solder the red wire from Li-ion Battery pin + to ESP32-C3 Microcontroller pin VIN.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to + and the other to VIN — it should beep.",
+              "voltage": "Once powered, VIN ↔ GND should read 3.6–4.2 V (charged Li-ion)."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "no_power"
+          },
+          {
+            "id": "SDA:U1:SDA",
+            "index": 18,
+            "total": 22,
+            "colorName": "blue",
+            "colorHex": "#2563eb",
+            "netName": "SDA",
+            "fromPartId": "esp32c3",
+            "toPartId": "oled-display",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GPIO4",
+            "toLabel": "OLED Display",
+            "toPin": "SDA",
+            "netClass": "i2c",
+            "action": "Solder the blue wire from ESP32-C3 Microcontroller pin GPIO4 to OLED Display pin SDA.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GPIO4 and the other to SDA — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "blank_display"
+          },
+          {
+            "id": "SDA:U7:SDA",
+            "index": 19,
+            "total": 22,
+            "colorName": "blue",
+            "colorHex": "#2563eb",
+            "netName": "SDA",
+            "fromPartId": "esp32c3",
+            "toPartId": "sht31d",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GPIO4",
+            "toLabel": "Temperature & Humidity",
+            "toPin": "SDA",
+            "netClass": "i2c",
+            "action": "Solder the blue wire from ESP32-C3 Microcontroller pin GPIO4 to Temperature & Humidity pin SDA.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GPIO4 and the other to SDA — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "blank_display"
+          },
+          {
+            "id": "SCL:U1:SCL",
+            "index": 20,
+            "total": 22,
+            "colorName": "yellow",
+            "colorHex": "#eab308",
+            "netName": "SCL",
+            "fromPartId": "esp32c3",
+            "toPartId": "oled-display",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GPIO5",
+            "toLabel": "OLED Display",
+            "toPin": "SCL",
+            "netClass": "i2c",
+            "action": "Solder the yellow wire from ESP32-C3 Microcontroller pin GPIO5 to OLED Display pin SCL.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GPIO5 and the other to SCL — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "blank_display"
+          },
+          {
+            "id": "SCL:U7:SCL",
+            "index": 21,
+            "total": 22,
+            "colorName": "yellow",
+            "colorHex": "#eab308",
+            "netName": "SCL",
+            "fromPartId": "esp32c3",
+            "toPartId": "sht31d",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GPIO5",
+            "toLabel": "Temperature & Humidity",
+            "toPin": "SCL",
+            "netClass": "i2c",
+            "action": "Solder the yellow wire from ESP32-C3 Microcontroller pin GPIO5 to Temperature & Humidity pin SCL.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GPIO5 and the other to SCL — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "blank_display"
+          },
+          {
+            "id": "TOUCH:U6:SIG",
+            "index": 22,
+            "total": 22,
+            "colorName": "green",
+            "colorHex": "#16a34a",
+            "netName": "TOUCH",
+            "fromPartId": "esp32c3",
+            "toPartId": "touch-switch",
+            "fromLabel": "ESP32-C3 Microcontroller",
+            "fromPin": "GPIO0",
+            "toLabel": "Touch Switch",
+            "toPin": "SIG",
+            "netClass": "signal",
+            "action": "Solder the green wire from ESP32-C3 Microcontroller pin GPIO0 to Touch Switch pin SIG.",
+            "verify": {
+              "tug": "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
+              "continuity": "Set your multimeter to continuity (the beep mode). Touch one probe to GPIO0 and the other to SIG — it should beep."
+            },
+            "showTechnique": false,
+            "rescueSymptomId": "touch_dead"
+          }
+        ],
+        "focusPartIds": [
+          "esp32c3",
+          "oled-display",
+          "sht31d",
+          "touch-switch"
+        ]
+      }
+    },
+    {
+      "stepNumber": 7,
+      "title": "Upload the code",
+      "description": "Connect the ESP32-C3 to your computer using a USB-C cable (make sure it's a data cable, not charge-only). Open Arduino IDE. Go to File > Preferences and add this URL to Additional Boards Manager URLs: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json. Then go to Tools > Board > Boards Manager, search for 'esp32', and install. Select Tools > Board > ESP32 Arduino > ESP32C3 Dev Module. Set Upload Speed to 921600. Open the code file. Find the lines that say 'YOUR_WIFI_SSID' and 'YOUR_WIFI_PASSWORD' and replace them with your actual Wi-Fi credentials. Select the correct USB port from Tools > Port. Click Upload (the right-arrow button). Wait for 'Done uploading' message. Open Tools > Serial Monitor, set baud to 115200. You should see the clock connect to Wi-Fi and display the current time.",
+      "quickSummary": "USB-C to ESP32-C3; select board and port; set Wi-Fi; upload firmware.",
+      "whyThisWorks": "The USB-serial chip translates USB into a programming link. Correct board and port selection puts the chip in download mode so flash receives your program.",
+      "beforeState": "Computer ready, IDE installed, data-capable USB-C cable, Wi-Fi password available.",
+      "afterState": "IDE reports upload success. Serial monitor at 115200 shows boot logs without a panic loop.",
+      "verification": {
+        "description": "Open Serial Monitor at 115200 baud after reset.",
+        "expectedOutput": "Boot messages; ideally Wi-Fi connected or I2C devices found."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Port not found",
+          "cause": "Charge-only cable or missing USB serial driver.",
+          "fix": "Try another cable; install CP210x or CH340 drivers for your board."
+        },
+        {
+          "symptom": "Upload fails with wrong board",
+          "cause": "Generic ESP32 selected instead of ESP32-C3.",
+          "fix": "Choose an ESP32-C3 specific board entry."
+        }
+      ],
+      "goal": "Upload a simple test program so you know the board is alive.",
+      "youNeed": [
+        "ESP32-C3",
+        "USB-C cable",
+        "Computer with Arduino IDE or PlatformIO"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Plug the ESP32 into USB. Select the correct board and port."
+        },
+        {
+          "n": 2,
+          "text": "Open Forge firmware → start with Blink."
+        },
+        {
+          "n": 3,
+          "text": "Upload. Watch for a success message in the IDE."
+        },
+        {
+          "n": 4,
+          "text": "If Blink works, try the I2C scanner next to see the OLED address."
+        }
+      ],
+      "doneWhen": "Blink runs (LED or serial OK) and I2C scanner finds 0x3C (OLED) if wired.",
+      "mediaKind": "usb_upload"
+    },
+    {
+      "stepNumber": 8,
+      "title": "Mount solar panels",
+      "description": "You have two 5V 160mA polycrystalline solar panels (60x60mm each). Solder the red (+) wire from each panel together, then to the IN+ terminal on the solar charging controller. Solder the black (-) wires together, then to IN- on the controller. Mount the panels to the top of the brass frame using small zip ties or thin gauge wire threaded through the frame  -  position them side by side, tilted slightly (about 15 degrees) toward where light will come from. If this clock will sit on a windowsill, angle the panels toward the window. The solar charging controller takes the variable solar voltage and regulates it to safely charge the 16340 battery.",
+      "quickSummary": "Wire both 5V panels in parallel into solar controller IN+ and IN-; mount for light.",
+      "whyThisWorks": "The solar controller regulates panel output into a safe charge path. Panels alone vary with light and must not connect directly across the cell.",
+      "beforeState": "Panels, solar controller, soldering tools, access to bright light for a quick test.",
+      "afterState": "Panels secured; IN polarity correct; charge indicator responds in bright light if present.",
+      "verification": {
+        "description": "In bright light, measure voltage at controller IN.",
+        "expectedOutput": "Panel string near the 5V class; controller accepts input without abnormal heating."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Battery never charges from sun",
+          "cause": "Shaded panels, reverse IN polarity, or weak indoor light.",
+          "fix": "Retest under direct sun; recheck IN +/-."
+        }
+      ],
+      "safetyNotes": [
+        "Do not short panel + to - with a tool."
+      ],
+      "goal": "Attach the solar panel so it can feed the charge path.",
+      "youNeed": [
+        "Solar panel(s)",
+        "Solar charge controller",
+        "Wire"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Find + and − on the solar panel (often marked on the back)."
+        },
+        {
+          "n": 2,
+          "text": "Connect panel + to solar charger IN+ and panel − to IN−."
+        },
+        {
+          "n": 3,
+          "text": "Mount panels where they can see light (wings of the frame)."
+        }
+      ],
+      "doneWhen": "Panel is mechanically held and electrically on the charger input pads.",
+      "mediaKind": "solar_panel_mount"
+    },
+    {
+      "stepNumber": 9,
+      "title": "Prepare the bamboo base",
+      "description": "Take the round bamboo coaster (approximately 100mm diameter, 8-10mm thick). Find the exact center: use a ruler to draw two lines from corner to corner across the circular face, or measure the diameter and mark the midpoint. The intersection is the center. Use a center punch or a nail to make a small indent at the center point  -  this prevents the drill bit from wandering. Drill a hole at the center using a drill bit sized for the copper tube (if the tube is 3mm OD, use a 3.5mm or 4mm bit so it slides through easily). Drill slowly  -  bamboo can splinter if you push too hard. After drilling, sand both sides of the hole with fine sandpaper (400+ grit) to remove any splinters. Wipe the coaster clean with a damp cloth.",
+      "quickSummary": "Mark center of bamboo coaster; drill for copper tube; sand clean.",
+      "whyThisWorks": "A centered hole keeps the clock balanced so it does not tip when panels and frame add weight.",
+      "beforeState": "Bamboo coaster, drill and bit, sanding sponge, scrap wood under the work.",
+      "afterState": "Clean center hole; coaster stable; tube test-fits.",
+      "toolTechnique": {
+        "tool": "Hand drill",
+        "usage": "Hold perpendicular, start slow, let the bit cut - do not lean hard or bamboo splits.",
+        "safety": "Eye protection. Secure loose clothing.",
+        "mistake": "Drilling freehand at an angle makes an oval hole."
+      },
+      "verification": {
+        "description": "Test-fit the copper tube.",
+        "expectedOutput": "Tube stands vertical with light friction fit or room for a dab of glue."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Bamboo cracks",
+          "cause": "Bit too large or no backing board.",
+          "fix": "Use scrap under the coaster; step up bit sizes gradually."
+        }
+      ],
+      "goal": "Prepare the bamboo coaster so it can support the whole clock.",
+      "youNeed": [
+        "Bamboo coaster",
+        "Drill + small bit",
+        "Pencil"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Mark the center of the coaster."
+        },
+        {
+          "n": 2,
+          "text": "Drill a small pilot hole if you need a post through the base."
+        },
+        {
+          "n": 3,
+          "text": "Sand rough edges so the frame sits flat."
+        }
+      ],
+      "doneWhen": "Base is clean, flat, and ready for the frame to stand on it.",
+      "mediaKind": "bamboo_base_drill"
+    },
+    {
+      "stepNumber": 10,
+      "title": "Assemble everything on the base",
+      "description": "Insert the two copper tubes (3mm diameter) into the holes you drilled in the bamboo base. They should stand vertically, parallel to each other. If the fit is loose, add a small drop of hot glue or epoxy under the base to secure them. Thread the brass wire frame onto the copper tubes  -  the frame's wire ends wrap around or hook onto the tubes. The TP4056 charging board mounts to the underside of the bamboo base using double-sided tape or a small screw. Route the battery wires down to the TP4056 (BAT+ to battery positive, BAT- to battery negative). The Type-C port on the TP4056 should face outward  -  accessible from the edge of the coaster for backup charging. Tuck excess wire length under the base and secure with small zip ties.",
+      "quickSummary": "Seat copper tubes and frame on bamboo; route wires; keep TP4056 USB accessible.",
+      "whyThisWorks": "Mechanical stability prevents intermittent solder joints. Accessible USB means you can recover a low battery without sun.",
+      "beforeState": "Electronics ready, base drilled, optional hot glue for mechanical joints only.",
+      "afterState": "Clock stands upright; charge port reachable; no bare shorts against metal.",
+      "verification": {
+        "description": "Gentle shake test and visual short inspection.",
+        "expectedOutput": "Nothing loose; battery wires strain-relieved; no debris bridging pads."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Intermittent resets when touched",
+          "cause": "Loose VIN/GND or frame shorting a pin.",
+          "fix": "Insulate with heat-shrink; reflow weak joints."
+        }
+      ],
+      "goal": "Put frame, electronics, and base together into one object.",
+      "youNeed": [
+        "Brass frame",
+        "Bamboo base",
+        "Assembled electronics",
+        "Tape or glue"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Seat the brass frame on the bamboo base."
+        },
+        {
+          "n": 2,
+          "text": "Route wires so nothing is pinched or shorting."
+        },
+        {
+          "n": 3,
+          "text": "Tack modules in their final spots (screen facing you)."
+        },
+        {
+          "n": 4,
+          "text": "Check the product drawing — match the finished look."
+        }
+      ],
+      "doneWhen": "The clock stands on the base, screen readable, wires neat, nothing rattling loose.",
+      "mediaKind": "final_assembly"
+    },
+    {
+      "stepNumber": 11,
+      "title": "Final testing and calibration",
+      "description": "Power on by connecting the battery (or plugging in USB-C if the battery isn't charged yet). Verify each function in order: (1) The OLED display lights up and shows the Wi-Fi connection status  -  it should display 'Connecting...' then show the current time. If it doesn't connect, double-check your SSID and password in the code. (2) The temperature and humidity readings appear on the display  -  wave your hand near the SHT31D sensor and watch the humidity reading change slightly. (3) Tap the touch switch  -  the display should go dark (sleep mode). Tap again  -  it should wake. (4) If in sunlight or bright indoor light, the solar charging indicator LED on the controller should light up, confirming the panels are charging the battery. (5) Unplug USB-C and verify the clock continues running on battery power alone. If any test fails, go back to the relevant step and check connections.",
+      "quickSummary": "Verify time sync, sensor readings, touch sleep/wake, charge path, and cool operation.",
+      "whyThisWorks": "End-to-end testing proves each subsystem and their interactions - the only way to know the build is actually done.",
+      "beforeState": "Assembled clock, known Wi-Fi, multimeter, 10 minutes uninterrupted.",
+      "afterState": "All features verified; device runs cool; charge protection confirmed before overnight use.",
+      "verification": {
+        "description": "Pass/fail checklist for display, sensor, touch, charge, and battery runtime.",
+        "expectedOutput": "Time correct; humidity changes if you breathe on the sensor; touch works; no abnormal heat."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Time stuck or epoch 1970",
+          "cause": "Wi-Fi failed so NTP never ran.",
+          "fix": "Recheck SSID/password and 2.4GHz availability; watch serial logs."
+        },
+        {
+          "symptom": "Sensor fixed or zero",
+          "cause": "SHT31 not on the I2C bus.",
+          "fix": "Run I2C scanner; verify shared SDA/SCL/GND."
+        }
+      ],
+      "safetyNotes": [
+        "Do not leave a questionable Li-ion assembly charging unattended."
+      ],
+      "goal": "Power on safely and confirm time/sensor display.",
+      "youNeed": [
+        "Assembled clock",
+        "USB power or charged battery",
+        "Clear desk"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Visually check for solder bridges or loose strands."
+        },
+        {
+          "n": 2,
+          "text": "Power via USB first (safer than full solar test)."
+        },
+        {
+          "n": 3,
+          "text": "Confirm OLED lights and shows text or time."
+        },
+        {
+          "n": 4,
+          "text": "Tap the touch pad and confirm a response if coded."
+        }
+      ],
+      "doneWhen": "Display works, no smoke/heat, and you can leave it powered for a minute without worry.",
+      "mediaKind": "final_assembly"
+    }
+  ],
+  "wiringConnections": [
+    {
+      "from": "ESP32-C3 3.3V (Pin 2)",
+      "to": "OLED Display VCC",
+      "wireColor": "red"
+    },
+    {
+      "from": "ESP32-C3 GND (Pin 8)",
+      "to": "OLED Display GND",
+      "wireColor": "black"
+    },
+    {
+      "from": "ESP32-C3 GPIO4 (SDA)",
+      "to": "OLED Display SDA",
+      "wireColor": "blue"
+    },
+    {
+      "from": "ESP32-C3 GPIO5 (SCL)",
+      "to": "OLED Display SCL",
+      "wireColor": "yellow"
+    },
+    {
+      "from": "ESP32-C3 3.3V (Pin 2)",
+      "to": "SHT31D VCC",
+      "wireColor": "red"
+    },
+    {
+      "from": "ESP32-C3 GND (Pin 8)",
+      "to": "SHT31D GND",
+      "wireColor": "black"
+    },
+    {
+      "from": "ESP32-C3 GPIO4 (SDA)",
+      "to": "SHT31D SDA",
+      "wireColor": "blue"
+    },
+    {
+      "from": "ESP32-C3 GPIO5 (SCL)",
+      "to": "SHT31D SCL",
+      "wireColor": "yellow"
+    },
+    {
+      "from": "ESP32-C3 GPIO0 (Touch)",
+      "to": "Touch Switch Signal",
+      "wireColor": "green"
+    },
+    {
+      "from": "Solar Panel +",
+      "to": "Solar Charging Controller IN+"
+    },
+    {
+      "from": "Solar Panel -",
+      "to": "Solar Charging Controller IN-"
+    },
+    {
+      "from": "Solar Charging Controller OUT+",
+      "to": "Battery +"
+    },
+    {
+      "from": "Solar Charging Controller OUT-",
+      "to": "Battery -"
+    },
+    {
+      "from": "Battery +",
+      "to": "ESP32-C3 VIN"
+    },
+    {
+      "from": "Battery -",
+      "to": "ESP32-C3 GND"
+    },
+    {
+      "from": "Battery +",
+      "to": "TP4056 BAT+"
+    },
+    {
+      "from": "Battery -",
+      "to": "TP4056 BAT-"
+    }
+  ],
+  "structuredNets": [
+    {
+      "name": "GND",
+      "members": [
+        {
+          "ref": "U2",
+          "pin": "GND"
+        },
+        {
+          "ref": "U1",
+          "pin": "GND"
+        },
+        {
+          "ref": "U7",
+          "pin": "GND"
+        },
+        {
+          "ref": "U6",
+          "pin": "GND"
+        },
+        {
+          "ref": "U5",
+          "pin": "-"
+        },
+        {
+          "ref": "BT1",
+          "pin": "-"
+        },
+        {
+          "ref": "U8",
+          "pin": "BAT-"
+        },
+        {
+          "ref": "U4",
+          "pin": "OUT-"
+        },
+        {
+          "ref": "U4",
+          "pin": "IN-"
+        },
+        {
+          "ref": "U3",
+          "pin": "-"
+        }
+      ],
+      "netClass": "gnd"
+    },
+    {
+      "name": "3V3",
+      "members": [
+        {
+          "ref": "U2",
+          "pin": "3V3"
+        },
+        {
+          "ref": "U1",
+          "pin": "VCC"
+        },
+        {
+          "ref": "U7",
+          "pin": "VCC"
+        },
+        {
+          "ref": "U6",
+          "pin": "VCC"
+        }
+      ],
+      "netClass": "power"
+    },
+    {
+      "name": "SDA",
+      "members": [
+        {
+          "ref": "U2",
+          "pin": "GPIO4"
+        },
+        {
+          "ref": "U1",
+          "pin": "SDA"
+        },
+        {
+          "ref": "U7",
+          "pin": "SDA"
+        }
+      ],
+      "netClass": "i2c",
+      "wireColor": "blue"
+    },
+    {
+      "name": "SCL",
+      "members": [
+        {
+          "ref": "U2",
+          "pin": "GPIO5"
+        },
+        {
+          "ref": "U1",
+          "pin": "SCL"
+        },
+        {
+          "ref": "U7",
+          "pin": "SCL"
+        }
+      ],
+      "netClass": "i2c",
+      "wireColor": "yellow"
+    },
+    {
+      "name": "TOUCH",
+      "members": [
+        {
+          "ref": "U2",
+          "pin": "GPIO0"
+        },
+        {
+          "ref": "U6",
+          "pin": "SIG"
+        }
+      ],
+      "netClass": "signal",
+      "wireColor": "green"
+    },
+    {
+      "name": "SOLAR+",
+      "members": [
+        {
+          "ref": "U3",
+          "pin": "+"
+        },
+        {
+          "ref": "U4",
+          "pin": "IN+"
+        }
+      ],
+      "netClass": "power"
+    },
+    {
+      "name": "BAT+",
+      "members": [
+        {
+          "ref": "BT1",
+          "pin": "+"
+        },
+        {
+          "ref": "U8",
+          "pin": "BAT+"
+        },
+        {
+          "ref": "U4",
+          "pin": "OUT+"
+        },
+        {
+          "ref": "U5",
+          "pin": "+"
+        },
+        {
+          "ref": "U2",
+          "pin": "VIN"
+        }
+      ],
+      "netClass": "power"
+    }
+  ],
+  "warnings": [
+    "Lithium (16340) battery present: never short + and -. Prefer a protected cell or holder when learning.",
+    "Always charge through the TP4056 or solar controller - never connect raw USB 5V across the cell.",
+    "ESP32-C3 and OLED are 3.3V devices. Do not power the OLED from 5V.",
+    "Work in a well-ventilated area when soldering. Iron tip is ~350C.",
+    "ESD-sensitive parts: ground yourself before handling the ESP32 and sensors.",
+    "Lithium battery project: Li-ion cells can fire if shorted, crushed, or charged incorrectly. → Charge only through the designed charge path. Do not leave charging unattended on wood or fabric."
+  ],
+  "electrical": {
+    "components": [
+      {
+        "ref": "U1",
+        "partId": "oled-display",
+        "name": "OLED Display",
+        "catalogId": "ssd1306-i2c",
+        "matchConfidence": "high",
+        "pinoutGrade": "verified",
+        "pins": [
+          {
+            "name": "VCC",
+            "role": "power",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "name": "GND",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          },
+          {
+            "name": "SDA",
+            "role": "i2c_sda",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "name": "SCL",
+            "role": "i2c_scl",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          }
+        ],
+        "isLithiumCell": false,
+        "providesChargeProtection": false,
+        "logicVoltage": 3.3,
+        "maxIOVoltage": 3.3
+      },
+      {
+        "ref": "U2",
+        "partId": "esp32c3",
+        "name": "ESP32-C3 Microcontroller",
+        "catalogId": "esp32-c3",
+        "matchConfidence": "high",
+        "pinoutGrade": "verified",
+        "pins": [
+          {
+            "name": "3V3",
+            "role": "power",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "name": "5V",
+            "role": "power",
+            "domainV": 5,
+            "maxVoltage": 5.5
+          },
+          {
+            "name": "GND",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "name": "VIN",
+            "role": "power",
+            "domainV": 5,
+            "maxVoltage": 6
+          },
+          {
+            "name": "GPIO0",
+            "role": "digital_io",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "name": "GPIO4",
+            "role": "i2c_sda",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "name": "GPIO5",
+            "role": "i2c_scl",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "name": "SDA",
+            "role": "i2c_sda",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "name": "SCL",
+            "role": "i2c_scl",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          }
+        ],
+        "isLithiumCell": false,
+        "providesChargeProtection": false,
+        "logicVoltage": 3.3,
+        "maxIOVoltage": 3.3
+      },
+      {
+        "ref": "U3",
+        "partId": "solar-panel",
+        "name": "Solar Panel",
+        "catalogId": "solar-panel-5v",
+        "matchConfidence": "high",
+        "pinoutGrade": "verified",
+        "pins": [
+          {
+            "name": "+",
+            "role": "power",
+            "domainV": 5,
+            "maxVoltage": 6
+          },
+          {
+            "name": "-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          }
+        ],
+        "isLithiumCell": false,
+        "providesChargeProtection": false,
+        "logicVoltage": null,
+        "maxIOVoltage": null
+      },
+      {
+        "ref": "U4",
+        "partId": "solar-charger",
+        "name": "Solar Charging Controller",
+        "catalogId": "solar-charger",
+        "matchConfidence": "high",
+        "pinoutGrade": "verified",
+        "pins": [
+          {
+            "name": "IN+",
+            "role": "power",
+            "domainV": 5,
+            "maxVoltage": 6
+          },
+          {
+            "name": "IN-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          },
+          {
+            "name": "OUT+",
+            "role": "power",
+            "domainV": 4.2,
+            "maxVoltage": 4.2
+          },
+          {
+            "name": "OUT-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          },
+          {
+            "name": "BAT+",
+            "role": "power",
+            "domainV": 4.2,
+            "maxVoltage": 4.2
+          },
+          {
+            "name": "BAT-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          }
+        ],
+        "isLithiumCell": false,
+        "providesChargeProtection": true,
+        "logicVoltage": null,
+        "maxIOVoltage": null
+      },
+      {
+        "ref": "U5",
+        "partId": "battery-led",
+        "name": "Battery Level Indicator",
+        "catalogId": "battery-level-led",
+        "matchConfidence": "high",
+        "pinoutGrade": "verified",
+        "pins": [
+          {
+            "name": "+",
+            "role": "power",
+            "domainV": 3.7,
+            "maxVoltage": 4.2
+          },
+          {
+            "name": "-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          }
+        ],
+        "isLithiumCell": false,
+        "providesChargeProtection": false,
+        "logicVoltage": null,
+        "maxIOVoltage": null
+      },
+      {
+        "ref": "U6",
+        "partId": "touch-switch",
+        "name": "Touch Switch",
+        "catalogId": "touch-switch",
+        "matchConfidence": "high",
+        "pinoutGrade": "verified",
+        "pins": [
+          {
+            "name": "VCC",
+            "role": "power",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          },
+          {
+            "name": "GND",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          },
+          {
+            "name": "SIG",
+            "role": "digital_out",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          },
+          {
+            "name": "OUT",
+            "role": "digital_out",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          }
+        ],
+        "isLithiumCell": false,
+        "providesChargeProtection": false,
+        "logicVoltage": 3.3,
+        "maxIOVoltage": 5.5
+      },
+      {
+        "ref": "U7",
+        "partId": "sht31d",
+        "name": "Temperature & Humidity Sensor",
+        "catalogId": "sht31d",
+        "matchConfidence": "high",
+        "pinoutGrade": "verified",
+        "pins": [
+          {
+            "name": "VCC",
+            "role": "power",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          },
+          {
+            "name": "GND",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          },
+          {
+            "name": "SDA",
+            "role": "i2c_sda",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          },
+          {
+            "name": "SCL",
+            "role": "i2c_scl",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          }
+        ],
+        "isLithiumCell": false,
+        "providesChargeProtection": false,
+        "logicVoltage": 3.3,
+        "maxIOVoltage": 5.5
+      },
+      {
+        "ref": "BT1",
+        "partId": "battery",
+        "name": "Li-ion Battery",
+        "catalogId": "battery-16340",
+        "matchConfidence": "high",
+        "pinoutGrade": "verified",
+        "pins": [
+          {
+            "name": "+",
+            "role": "power",
+            "domainV": 3.7,
+            "maxVoltage": 4.2
+          },
+          {
+            "name": "-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          }
+        ],
+        "isLithiumCell": true,
+        "providesChargeProtection": false,
+        "logicVoltage": null,
+        "maxIOVoltage": null
+      },
+      {
+        "ref": "U8",
+        "partId": "charger-board",
+        "name": "Battery Charging Board",
+        "catalogId": "tp4056-protected",
+        "matchConfidence": "high",
+        "pinoutGrade": "verified",
+        "pins": [
+          {
+            "name": "IN+",
+            "role": "power",
+            "domainV": 5
+          },
+          {
+            "name": "IN-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          },
+          {
+            "name": "B+",
+            "role": "power",
+            "domainV": 4.2,
+            "maxVoltage": 4.2
+          },
+          {
+            "name": "B-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          },
+          {
+            "name": "OUT+",
+            "role": "power",
+            "domainV": 4.2,
+            "maxVoltage": 4.2
+          },
+          {
+            "name": "OUT-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          },
+          {
+            "name": "BAT+",
+            "role": "power",
+            "domainV": 4.2,
+            "maxVoltage": 4.2
+          },
+          {
+            "name": "BAT-",
+            "role": "gnd",
+            "maxVoltage": 0,
+            "domainV": 0
+          }
+        ],
+        "isLithiumCell": false,
+        "providesChargeProtection": true,
+        "logicVoltage": null,
+        "maxIOVoltage": null
+      }
+    ],
+    "nets": [
+      {
+        "name": "GND",
+        "netClass": "gnd",
+        "members": [
+          {
+            "ref": "U2",
+            "pin": "GND",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "ref": "U1",
+            "pin": "GND",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "ref": "U7",
+            "pin": "GND",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "ref": "U6",
+            "pin": "GND",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "ref": "U5",
+            "pin": "-",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "ref": "BT1",
+            "pin": "-",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "ref": "U8",
+            "pin": "BAT-",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "ref": "U4",
+            "pin": "OUT-",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "ref": "U4",
+            "pin": "IN-",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          },
+          {
+            "ref": "U3",
+            "pin": "-",
+            "role": "gnd",
+            "domainV": 0,
+            "maxVoltage": 0
+          }
+        ],
+        "grade": "verified"
+      },
+      {
+        "name": "3V3",
+        "netClass": "power",
+        "members": [
+          {
+            "ref": "U2",
+            "pin": "3V3",
+            "role": "power",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "ref": "U1",
+            "pin": "VCC",
+            "role": "power",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "ref": "U7",
+            "pin": "VCC",
+            "role": "power",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          },
+          {
+            "ref": "U6",
+            "pin": "VCC",
+            "role": "power",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          }
+        ],
+        "grade": "verified"
+      },
+      {
+        "name": "SDA",
+        "netClass": "i2c",
+        "members": [
+          {
+            "ref": "U2",
+            "pin": "GPIO4",
+            "role": "i2c_sda",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "ref": "U1",
+            "pin": "SDA",
+            "role": "i2c_sda",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "ref": "U7",
+            "pin": "SDA",
+            "role": "i2c_sda",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          }
+        ],
+        "grade": "verified"
+      },
+      {
+        "name": "SCL",
+        "netClass": "i2c",
+        "members": [
+          {
+            "ref": "U2",
+            "pin": "GPIO5",
+            "role": "i2c_scl",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "ref": "U1",
+            "pin": "SCL",
+            "role": "i2c_scl",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "ref": "U7",
+            "pin": "SCL",
+            "role": "i2c_scl",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          }
+        ],
+        "grade": "verified"
+      },
+      {
+        "name": "TOUCH",
+        "netClass": "signal",
+        "members": [
+          {
+            "ref": "U2",
+            "pin": "GPIO0",
+            "role": "digital_io",
+            "domainV": 3.3,
+            "maxVoltage": 3.6
+          },
+          {
+            "ref": "U6",
+            "pin": "SIG",
+            "role": "digital_out",
+            "domainV": 3.3,
+            "maxVoltage": 5.5
+          }
+        ],
+        "grade": "verified"
+      },
+      {
+        "name": "SOLAR+",
+        "netClass": "power",
+        "members": [
+          {
+            "ref": "U3",
+            "pin": "+",
+            "role": "power",
+            "domainV": 5,
+            "maxVoltage": 6
+          },
+          {
+            "ref": "U4",
+            "pin": "IN+",
+            "role": "power",
+            "domainV": 5,
+            "maxVoltage": 6
+          }
+        ],
+        "grade": "verified"
+      },
+      {
+        "name": "BAT+",
+        "netClass": "power",
+        "members": [
+          {
+            "ref": "BT1",
+            "pin": "+",
+            "role": "power",
+            "domainV": 3.7,
+            "maxVoltage": 4.2
+          },
+          {
+            "ref": "U8",
+            "pin": "BAT+",
+            "role": "power",
+            "domainV": 4.2,
+            "maxVoltage": 4.2
+          },
+          {
+            "ref": "U4",
+            "pin": "OUT+",
+            "role": "power",
+            "domainV": 4.2,
+            "maxVoltage": 4.2
+          },
+          {
+            "ref": "U5",
+            "pin": "+",
+            "role": "power",
+            "domainV": 3.7,
+            "maxVoltage": 4.2
+          },
+          {
+            "ref": "U2",
+            "pin": "VIN",
+            "role": "power",
+            "domainV": 5,
+            "maxVoltage": 6
+          }
+        ],
+        "grade": "verified"
+      }
+    ],
+    "unboundEdges": [],
+    "builtAt": "2026-07-27T16:57:21.202Z",
+    "erc": {
+      "errors": [],
+      "warnings": [],
+      "infos": [
+        {
+          "id": "i2c-pullup",
+          "severity": "info",
+          "rule": "I2C_PULLUP",
+          "title": "I2C pull-ups not mentioned",
+          "detail": "I2C requires pull-ups on SDA/SCL (often onboard modules). Not verified by netlist alone.",
+          "mitigation": "If the bus is flaky, add 4.7kΩ to 3.3V on SDA and SCL."
+        },
+        {
+          "id": "mpn-missing-U3",
+          "severity": "info",
+          "rule": "MPN_UNFROZEN",
+          "title": "U3 has no frozen MPN",
+          "detail": "Solar Panel is catalog-linked but lacks manufacturer part number freeze.",
+          "mitigation": "Add mpn/mpnVerifiedAt on catalog module for procurement certainty.",
+          "refs": [
+            "U3"
+          ]
+        },
+        {
+          "id": "mpn-missing-U4",
+          "severity": "info",
+          "rule": "MPN_UNFROZEN",
+          "title": "U4 has no frozen MPN",
+          "detail": "Solar Charging Controller is catalog-linked but lacks manufacturer part number freeze.",
+          "mitigation": "Add mpn/mpnVerifiedAt on catalog module for procurement certainty.",
+          "refs": [
+            "U4"
+          ]
+        },
+        {
+          "id": "mpn-missing-U5",
+          "severity": "info",
+          "rule": "MPN_UNFROZEN",
+          "title": "U5 has no frozen MPN",
+          "detail": "Battery Level Indicator is catalog-linked but lacks manufacturer part number freeze.",
+          "mitigation": "Add mpn/mpnVerifiedAt on catalog module for procurement certainty.",
+          "refs": [
+            "U5"
+          ]
+        }
+      ],
+      "clean": true,
+      "canExportPcb": true,
+      "canPublishKit": true,
+      "summary": "ERC clean — no errors or warnings."
+    }
+  },
+  "compiledFacts": {
+    "status": "ok",
+    "unassigned": [],
+    "issues": []
+  },
+  "safetyReport": {
+    "findings": [
+      {
+        "id": "lipo-present",
+        "severity": "warning",
+        "title": "Lithium battery project",
+        "detail": "Li-ion cells can fire if shorted, crushed, or charged incorrectly.",
+        "mitigation": "Charge only through the designed charge path. Do not leave charging unattended on wood or fabric."
+      },
+      {
+        "id": "i2c-pullups",
+        "severity": "info",
+        "title": "I2C pull-ups not mentioned",
+        "detail": "I2C needs pull-up resistors on SDA and SCL. Many modules include them onboard.",
+        "mitigation": "If the bus is flaky, add 4.7kΩ pull-ups from SDA and SCL to 3.3V (one set per bus)."
+      },
+      {
+        "id": "footgun-ssd1306-i2c",
+        "severity": "info",
+        "title": "Known gotcha: SSD1306 0.96 inch OLED (I2C)",
+        "detail": "Many modules are NOT 5V tolerant — power VCC from 3.3V",
+        "mitigation": "Default I2C address is often 0x3C (sometimes printed as 0x78 8-bit) Do not buy 7-pin SPI OLEDs when the plan expects 4-pin I2C"
+      },
+      {
+        "id": "footgun-esp32-c3",
+        "severity": "info",
+        "title": "Known gotcha: ESP32-C3 Development Board",
+        "detail": "3.3V logic only — never drive pins from 5V without a level shifter",
+        "mitigation": "Pinout varies by Super Mini clone — always trust silkscreen labels GPIO8/GPIO9 are often strapping pins — avoid for critical sensors at boot"
+      },
+      {
+        "id": "footgun-solar-panel-5v",
+        "severity": "info",
+        "title": "Known gotcha: 5V Small Solar Panel",
+        "detail": "Do not wire panel output directly across a Li-ion cell — use a charge controller"
+      },
+      {
+        "id": "footgun-solar-charger",
+        "severity": "info",
+        "title": "Known gotcha: Solar Li-ion Charge Controller",
+        "detail": "Confirm your board is rated for 1S (3.7V) Li-ion, not 12V SLA"
+      },
+      {
+        "id": "footgun-battery-level-led",
+        "severity": "info",
+        "title": "Known gotcha: 1S Li-ion Battery Level Indicator",
+        "detail": "Use a 1S (3.7V) indicator — 3S/4S modules will not read correctly"
+      },
+      {
+        "id": "footgun-touch-switch",
+        "severity": "info",
+        "title": "Known gotcha: Capacitive Touch Switch Module",
+        "detail": "Needs common GND with the MCU; SIG floating reads as noise"
+      },
+      {
+        "id": "footgun-sht31d",
+        "severity": "info",
+        "title": "Known gotcha: SHT31D Temperature Humidity Sensor",
+        "detail": "Shares I2C bus with OLED — different address required"
+      },
+      {
+        "id": "footgun-battery-16340",
+        "severity": "info",
+        "title": "Known gotcha: 16340 3.7V Li-ion Cell",
+        "detail": "Never short + and −",
+        "mitigation": "Never solder casually to bare cells without experience — use a holder Must charge through a protected charger path"
+      },
+      {
+        "id": "footgun-tp4056-protected",
+        "severity": "info",
+        "title": "Known gotcha: TP4056 Li-ion Charger with Protection",
+        "detail": "Buy the board with DW01A + FS8205A protection ICs (6 pads on output side) — bare TP4056 has no over-discharge protection",
+        "mitigation": "Never charge Li-ion unattended on flammable surfaces"
+      },
+      {
+        "id": "footgun-copper-tube-3mm",
+        "severity": "info",
+        "title": "Known gotcha: 3mm Copper Tube",
+        "detail": "Conductive structure — isolate from bare battery terminals"
+      },
+      {
+        "id": "footgun-brass-wire-1mm",
+        "severity": "info",
+        "title": "Known gotcha: 1mm Brass Wire",
+        "detail": "Conductive — insulate where it could short PCB pads"
+      },
+      {
+        "id": "erc-i2c-pullup",
+        "severity": "info",
+        "title": "[ERC:I2C_PULLUP] I2C pull-ups not mentioned",
+        "detail": "I2C requires pull-ups on SDA/SCL (often onboard modules). Not verified by netlist alone.",
+        "mitigation": "If the bus is flaky, add 4.7kΩ to 3.3V on SDA and SCL."
+      },
+      {
+        "id": "erc-mpn-missing-U3",
+        "severity": "info",
+        "title": "[ERC:MPN_UNFROZEN] U3 has no frozen MPN",
+        "detail": "Solar Panel is catalog-linked but lacks manufacturer part number freeze.",
+        "mitigation": "Add mpn/mpnVerifiedAt on catalog module for procurement certainty."
+      },
+      {
+        "id": "erc-mpn-missing-U4",
+        "severity": "info",
+        "title": "[ERC:MPN_UNFROZEN] U4 has no frozen MPN",
+        "detail": "Solar Charging Controller is catalog-linked but lacks manufacturer part number freeze.",
+        "mitigation": "Add mpn/mpnVerifiedAt on catalog module for procurement certainty."
+      },
+      {
+        "id": "erc-mpn-missing-U5",
+        "severity": "info",
+        "title": "[ERC:MPN_UNFROZEN] U5 has no frozen MPN",
+        "detail": "Battery Level Indicator is catalog-linked but lacks manufacturer part number freeze.",
+        "mitigation": "Add mpn/mpnVerifiedAt on catalog module for procurement certainty."
+      }
+    ],
+    "hazardTags": [
+      "ESD_SENSITIVE",
+      "LIPO"
+    ],
+    "requiresAttention": false
+  },
+  "bomEstimate": {
+    "totalMin": 41.5,
+    "totalMax": 127.5,
+    "currency": "USD",
+    "pricedCount": 12,
+    "unpricedCount": 0
+  }
+}

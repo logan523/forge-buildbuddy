@@ -1,0 +1,10 @@
+id: forge-kit-sat-line-solar-powered-smart-clock
+title: "Sat Line: Solar-Powered Smart Clock"
+skills:
+  - part-identify
+  - step-isolate
+  - i2c-ssd1306
+  - wire-one-net
+  - esp32c3-flash
+partCount: 12
+stepCount: 11

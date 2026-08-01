@@ -52,6 +52,17 @@ test("CoverageBanner: facts undefined (compiler hasn't run) renders null", () =>
   assert.equal(container.textContent, "");
 });
 
+test("CoverageBanner: status=failed shows a shell warning (generated-plan honesty)", () => {
+  render(<CoverageBanner facts={facts({ status: "failed" })} onReview={() => {}} />);
+  assert.ok(screen.getByText(/Couldn't fully check these steps/i));
+  assert.ok(screen.getByRole("button", { name: /details/i }));
+});
+
+test("CoverageBanner: status=unavailable discloses missing electrical model", () => {
+  render(<CoverageBanner facts={facts({ status: "unavailable" })} onReview={() => {}} />);
+  assert.ok(screen.getByText(/No verified wiring model/i));
+});
+
 test("CoverageBanner: unassigned connections show the count and a ghost Review button that fires onReview", async () => {
   const u = userEvent.setup();
   let reviewed = 0;

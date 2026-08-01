@@ -9,6 +9,7 @@ import type { CartStrategy } from "@/lib/cart";
 import type { SymptomId } from "@/lib/unstick";
 import { presentErc } from "@/lib/electrical/present";
 import { publishKit } from "@/lib/kits/store";
+import { downloadKitAgentPackInBrowser } from "@/lib/kits/export-agent";
 import { PartRow, FirmwareDrawer, FirmwareUnavailableDrawer, UnstickDrawer } from "@/components/build-ui";
 import { FlashConsole } from "@/components/flash/flash-console";
 import type { DrawerId } from "./use-build-state";
@@ -46,6 +47,8 @@ export interface BuildDrawersProps {
   /** C3: the flash console's wiring check found a missing device — open the
       unstick drawer preselected to the matching symptom. */
   onOpenUnstick?: (symptom: SymptomId) => void;
+  /** P2: live bus verified every expected I2C device. */
+  onWiringVerified?: () => void;
 }
 
 /** All right-side sheets for the build view. Exactly one is open at a time. */
@@ -70,6 +73,7 @@ export function BuildDrawers({
   onSetPublishMsg,
   onOpenPrep,
   onOpenUnstick,
+  onWiringVerified,
 }: BuildDrawersProps) {
   // The serial console isn't wired into the shared drawer reducer's dispatch
   // yet (state.drawer becoming "flash" needs a caller with `actions`, and
@@ -83,7 +87,10 @@ export function BuildDrawers({
     setSerialOpen(true);
     onClose(); // one sheet at a time — dismiss whatever central drawer is open
   };
-  const closeSerial = () => setSerialOpen(false);
+  const closeSerial = () => {
+    setSerialOpen(false);
+    if (drawer === "flash") onClose();
+  };
 
   return (
     <>
@@ -95,6 +102,7 @@ export function BuildDrawers({
           closeSerial();
           onOpenUnstick?.(hint as SymptomId);
         }}
+        onWiringVerified={onWiringVerified}
       />
       {drawer && (
         <>
@@ -121,6 +129,7 @@ export function BuildDrawers({
               authorName={authorName}
               setAuthorName={onSetAuthorName}
               message={publishMsg}
+              plan={plan}
               onClose={onClose}
               onPublish={() => {
                 if (plan.electrical && !plan.electrical.erc.canPublishKit) {
@@ -323,6 +332,7 @@ function PublishDrawer({
   onClose,
   onPublish,
   ercBlocked,
+  plan,
 }: {
   authorName: string;
   setAuthorName: (s: string) => void;
@@ -330,7 +340,16 @@ function PublishDrawer({
   onClose: () => void;
   onPublish: () => void;
   ercBlocked?: boolean;
+  plan: BuildPlan;
 }) {
+  const [packMsg, setPackMsg] = useState<string | null>(null);
+  const published = message.startsWith("Published");
+
+  const downloadPack = () => {
+    downloadKitAgentPackInBrowser(plan, authorName);
+    setPackMsg("Downloaded forge-kit-*-agent-pack.json (SKILL + plan + readme inside).");
+  };
+
   return (
     <>
       <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
@@ -363,18 +382,40 @@ function PublishDrawer({
           >
             Publish kit
           </button>
-          {message && (
+          <button
+            type="button"
+            onClick={downloadPack}
+            className="w-full py-3 rounded-xl border border-border bg-surface text-sm font-medium text-text cursor-pointer hover:bg-surface-overlay"
+          >
+            Download agent pack
+          </button>
+          <p className="text-[11px] text-text-muted leading-snug">
+            One JSON bundle for Claude/Cursor +{" "}
+            <code className="text-[10px]">npm run mcp:server</code>. Unpack{" "}
+            <code className="text-[10px]">files.plan.json</code> /{" "}
+            <code className="text-[10px]">files[&quot;SKILL.md&quot;]</code>.
+          </p>
+          {published && (
+            <div className="p-3 rounded-xl border border-success/25 bg-success-soft/40 space-y-2">
+              <p className="text-sm text-success">
+                {message}{" "}
+                <a href={message.replace("Published ", "")} className="underline">
+                  Open
+                </a>
+              </p>
+              <button
+                type="button"
+                onClick={downloadPack}
+                className="w-full py-2.5 min-h-11 rounded-lg bg-success text-white text-sm font-semibold cursor-pointer"
+              >
+                Also download agent pack →
+              </button>
+            </div>
+          )}
+          {packMsg && <p className="text-xs text-success">{packMsg}</p>}
+          {message && !published && (
             <p className={`text-sm ${message.startsWith("Blocked") ? "text-danger" : "text-success"}`}>
-              {message.startsWith("Published") ? (
-                <>
-                  {message}{" "}
-                  <a href={message.replace("Published ", "")} className="underline">
-                    Open
-                  </a>
-                </>
-              ) : (
-                message
-              )}
+              {message}
             </p>
           )}
         </div>

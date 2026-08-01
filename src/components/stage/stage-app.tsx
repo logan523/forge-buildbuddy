@@ -11,8 +11,9 @@
  * Modes: overview (hero product) · assemble (piece-by-piece timeline with
  * ghost fit-targets) · wire (spread wiring map, labeled pads). In step
  * chrome (variant="step", collapsed) the current build step drives the stage:
- * presence via scrubForStep, camera on the step's focus parts, and the guided
- * micro-step (focusWire) lights exactly one wire with a pin-level camera.
+ * presence via scrubForStep, DEFAULT isolation to the step's focus parts (not
+ * the full product), camera on those parts, and the guided micro-step
+ * (focusWire) lights exactly one wire with a pin-level camera.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { BuildPlan, MicroStep } from "@/lib/types";
@@ -38,6 +39,12 @@ import {
 import { explainNode } from "@/lib/steps/explain-part";
 import { resolveAssemblyRecipe } from "@/lib/stage/derive-recipe";
 import { buildWirePlan } from "@/lib/stage/wire-plan";
+import {
+  filterNodesForIsolation,
+  filterWiresForIsolation,
+  isolateNodeIds,
+  isolatePartIds,
+} from "@/lib/stage/step-isolation";
 import { solveShot, type ShotId, type StageShot } from "@/lib/stage/shots";
 import { ConformanceSeal } from "@/components/build/conformance-seal";
 import { StageCanvas } from "./stage-canvas";
@@ -107,7 +114,10 @@ export function StageApp({
     description?: string;
     mediaKind?: string;
     stepNumber?: number;
-    compiled?: { focusPartIds?: string[] };
+    compiled?: {
+      focusPartIds?: string[];
+      connections?: { fromLabel?: string; toLabel?: string }[];
+    };
   };
   height?: number;
   expandable?: boolean;
@@ -171,8 +181,9 @@ export function StageApp({
   const [scrub, setScrub] = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  // Step chrome: the build step owns presence — wiring steps show the full
-  // product, placement steps show the assembly-so-far (scrubForStep).
+  // Step chrome: the build step owns presence — placement steps show
+  // assembly-so-far (scrubForStep); wiring steps keep full-phase presence
+  // then ISOLATE down to the focus parts (default workbench view).
   const stepScrub = useMemo(() => {
     if (!stepChrome || stepIndex === "prep") return null;
     return scrubForStep(recipe, step, stepIndex as number, plan.steps?.length ?? 1);
@@ -185,14 +196,30 @@ export function StageApp({
     [recipe, effectiveScrub]
   );
 
+  // Isolation set for step chrome — guided wire endpoints win over step focus.
+  const stepIsolateNodeIds = useMemo(() => {
+    if (!stepChrome) return null;
+    const partIds = isolatePartIds(step?.compiled?.focusPartIds, focusWire);
+    if (!partIds?.length) return null;
+    const ids = isolateNodeIds(scene.nodes, partIds);
+    return ids.length ? ids : null;
+  }, [stepChrome, step?.compiled?.focusPartIds, focusWire, scene.nodes]);
+
   const displayNodes = useMemo(() => {
     if (mode === "wire" && !stepChrome) return spreadScene.nodes;
+    let nodes: SceneNode3D[];
     if (mode === "assemble" || stepScrub != null) {
       const present = new Set(frame.presentNodeIds);
-      return applyFrameToNodes(scene.nodes, recipe, frame).filter((n) => present.has(n.id));
+      nodes = applyFrameToNodes(scene.nodes, recipe, frame).filter((n) => present.has(n.id));
+    } else {
+      nodes = scene.nodes;
     }
-    return scene.nodes;
-  }, [mode, stepChrome, stepScrub, scene, spreadScene, recipe, frame]);
+    // Default: hide everything this step isn't about.
+    if (stepIsolateNodeIds) {
+      nodes = filterNodesForIsolation(nodes, stepIsolateNodeIds);
+    }
+    return nodes;
+  }, [mode, stepChrome, stepScrub, scene, spreadScene, recipe, frame, stepIsolateNodeIds]);
 
   const nodeById = useMemo(
     () => new Map(scene.nodes.map((n) => [n.id, n])),
@@ -209,15 +236,28 @@ export function StageApp({
     );
   }, [focusWire, wirePlan]);
 
+  // Step chrome: only the wires that belong to the isolated parts.
+  const displayWirePlan = useMemo(() => {
+    if (!stepChrome || !stepIsolateNodeIds) return wirePlan;
+    return {
+      ...wirePlan,
+      wires: filterWiresForIsolation(wirePlan.wires, stepIsolateNodeIds),
+    };
+  }, [stepChrome, stepIsolateNodeIds, wirePlan]);
+
   useEffect(() => {
     setActiveWireId(focusWireRoute?.id ?? null);
   }, [focusWireRoute]);
 
   // Camera — one deterministic shot per state, priority:
-  // pin (guided wire) > isolate > step focus > mode shots.
+  // pin (guided wire) > isolate > step focus (tight) > mode shots.
   const shot: StageShot = useMemo(() => {
     if (focusWire && focusWireRoute) {
-      const destNode = focusWire.toPartId ? nodeById.get(focusWire.toPartId) : undefined;
+      const destNode = focusWire.toPartId
+        ? scene.nodes.find(
+            (n) => n.partId === focusWire.toPartId || n.id === focusWire.toPartId
+          )
+        : undefined;
       const pin = destNode
         ? frameForPin(destNode, focusWire.toPin, FLAT_VIEW, scene.rootScale, 0.55)
         : null;
@@ -229,16 +269,27 @@ export function StageApp({
           fov: pin.fov,
         };
       }
+      // Pin resolve failed — frame the two parts of the wire, not the whole board.
+      if (stepIsolateNodeIds?.length) {
+        const f = frameForNodeIds(displayNodes, stepIsolateNodeIds, scene.rootScale, 1.1);
+        return {
+          id: `part:wire-${focusWire.id}` as ShotId,
+          position: f.position,
+          target: f.target,
+          fov: f.fov,
+        };
+      }
     }
     if (isolatedId) return solveShot(`part:${isolatedId}`, displayNodes, scene.rootScale);
-    if (stepChrome && step?.compiled?.focusPartIds?.length) {
-      const ids = step.compiled.focusPartIds
-        .map((pid) => scene.nodes.find((n) => n.partId === pid || n.id === pid)?.id)
-        .filter((v): v is string => !!v);
-      if (ids.length) {
-        const f = frameForNodeIds(displayNodes, ids, scene.rootScale, 1.3);
-        return { id: `part:step-${stepIndex}` as ShotId, position: f.position, target: f.target, fov: f.fov };
-      }
+    if (stepChrome && stepIsolateNodeIds?.length) {
+      // Tight isolation framing (1.1 margin) — kitchen-table pin work, not hero.
+      const f = frameForNodeIds(displayNodes, stepIsolateNodeIds, scene.rootScale, 1.1);
+      return {
+        id: `part:step-${stepIndex}` as ShotId,
+        position: f.position,
+        target: f.target,
+        fov: Math.min(f.fov, 36),
+      };
     }
     if (mode === "assemble" && stepScrub == null) {
       const present = new Set(frame.presentNodeIds);
@@ -260,7 +311,7 @@ export function StageApp({
     }
     return solveShot(shotId, scene.nodes, scene.rootScale);
   }, [
-    focusWire, focusWireRoute, nodeById, isolatedId, stepChrome, step, stepIndex,
+    focusWire, focusWireRoute, nodeById, isolatedId, stepChrome, stepIsolateNodeIds, stepIndex,
     mode, stepScrub, frame, shotId, scene, spreadScene, displayNodes,
   ]);
 
@@ -334,7 +385,13 @@ export function StageApp({
         />
         {showWires && (
           <WiringLayer
-            plan={mode === "wire" && !stepChrome ? wirePlanSpread : wirePlan}
+            plan={
+              mode === "wire" && !stepChrome
+                ? wirePlanSpread
+                : stepChrome
+                  ? displayWirePlan
+                  : wirePlan
+            }
             recipe={recipe}
             rootScale={scene.rootScale}
             scrub={effectiveScrub}
@@ -497,6 +554,21 @@ export function StageApp({
               {row.meaning}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Step isolation chip — confirms the stage is only showing this step's parts */}
+      {stepChrome && stepIsolateNodeIds && stepIsolateNodeIds.length > 0 && !focusNode && (
+        <div className="absolute bottom-3 left-3 z-10 max-w-[70%] rounded-lg bg-black/75 backdrop-blur px-2.5 py-1.5 text-[10px] text-slate-200 font-mono leading-snug">
+          <span className="text-cyan-300 font-semibold">Isolated</span>
+          {" · "}
+          {displayNodes.map((n) => n.label).filter(Boolean).slice(0, 3).join(" + ") ||
+            `${stepIsolateNodeIds.length} parts`}
+          {focusWire ? (
+            <span className="block text-slate-400 mt-0.5">
+              {focusWire.colorName} · {focusWire.fromPin} → {focusWire.toPin}
+            </span>
+          ) : null}
         </div>
       )}
 

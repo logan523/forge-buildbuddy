@@ -64,6 +64,10 @@ User describes project → /api/analyze (Claude single pass) → BuildPlan JSON
 - `src/lib/kits/` + `src/app/kits/` — free kit recipes; publish blocked on ERC errors
 - `docs/ELECTRICAL-CORE.md` — electrical model contract
 - `docs/SENIOR-REVIEW.md` — depth/specificity audit
+- `docs/FORGE-AGENTIC-EXPANSION.md` — **product expansion strategy** (tools + skills + task explorer; MathWorks-shaped architecture for hardware benches). Read when expanding the product, agent/MCP work, or fixing renderer/steps holistically.
+- `src/lib/skills/` — skills catalog v0 (match ≤3 per step); `src/lib/tasks/` — offline task explorer; `npm run audit:tasks` / `audit:steps` ship gates
+- `npm run mcp:server` — Forge MCP stdio (tools + resources); `POST /api/mcp` — HTTP
+- `npm run skills:export` / `classroom:export` / `audit:all` — packs + unified ship gate
 
 ## Anti-Patterns (DO NOT REPEAT)
 

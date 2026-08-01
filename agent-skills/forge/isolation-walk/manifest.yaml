@@ -1,0 +1,10 @@
+id: forge-isolation-walk
+name: Isolation walk
+group: debug
+summary: "Binary-search which add-on broke the build."
+tools:
+  - diagnose
+  - get_step_facts
+  - verify_expected_devices
+goldenIds:
+  - isolation-culprit-last-added

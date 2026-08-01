@@ -25,6 +25,11 @@ export interface RealPin {
   /** Part-local mm (origin = part center; Z up from board face when flat) */
   local: Vec3Mm;
   netColor?: string;
+  /**
+   * Colocalized name for harness/recipe (e.g. SDA at the same pad as GPIO4).
+   * Mesh pin stubs skip aliases so the board isn't double-stacked.
+   */
+  alias?: boolean;
 }
 
 export interface RealPartSpec {
@@ -72,17 +77,55 @@ export const REAL_PARTS: Record<CatalogPartId, RealPartSpec> = {
     source:
       "https://mischianti.org/esp32-c3-super-mini-high-resolution-pinout-datasheet-and-specs/ (~22.5×18 board class)",
     bboxMm: { l: 22.5, w: 18, h: 3.2 },
+    /**
+     * Dual-header SuperMini silkscreen (USB at +Y). Left / right columns at
+     * 2.54 mm pitch — GPIO4 and GPIO5 are DISTINCT pads so pin-focus / "show me"
+     * lands on the letter the builder reads, not a single abstract GPIO blob.
+     * SDA/SCL are colocalized aliases (harness nets still resolve; mesh skips them).
+     */
     pins: (() => {
-      const lx = 22.5 / 2 - 1.0; // header row inset from long edge
+      const lx = 22.5 / 2 - 1.0; // header inset from long edge
       const pitch = 2.54;
       const z = 1.6;
-      return [
-        { name: "3V3", local: [-lx, pitch * 2, z] as Vec3Mm, netColor: "#dc2626" },
-        { name: "GND", local: [-lx, -pitch * 2, z] as Vec3Mm, netColor: "#1e293b" },
-        { name: "SDA", local: [lx, pitch * 2, z] as Vec3Mm, netColor: "#2563eb" },
-        { name: "SCL", local: [lx, 0, z] as Vec3Mm, netColor: "#2563eb" },
-        { name: "GPIO", local: [lx, -pitch * 2, z] as Vec3Mm, netColor: "#0891b2" },
+      // 8 pads/side: top (USB) → bottom. y = (3.5 - i) * pitch
+      const yAt = (i: number) => (3.5 - i) * pitch;
+      const L = (i: number): Vec3Mm => [-lx, yAt(i), z];
+      const R = (i: number): Vec3Mm => [lx, yAt(i), z];
+      const left: { name: string; i: number; netColor?: string }[] = [
+        { name: "5V", i: 0, netColor: "#d97706" },
+        { name: "GND", i: 1, netColor: "#1e293b" },
+        { name: "3V3", i: 2, netColor: "#dc2626" },
+        { name: "GPIO4", i: 3, netColor: "#2563eb" }, // often I2C SDA on this kit
+        { name: "GPIO3", i: 4, netColor: "#0891b2" },
+        { name: "GPIO2", i: 5, netColor: "#0891b2" },
+        { name: "GPIO1", i: 6, netColor: "#0891b2" },
+        { name: "GPIO0", i: 7, netColor: "#0891b2" },
       ];
+      const right: { name: string; i: number; netColor?: string }[] = [
+        { name: "GPIO5", i: 0, netColor: "#eab308" }, // often I2C SCL on this kit
+        { name: "GPIO6", i: 1, netColor: "#0891b2" },
+        { name: "GPIO7", i: 2, netColor: "#0891b2" },
+        { name: "GPIO8", i: 3, netColor: "#0891b2" },
+        { name: "GPIO9", i: 4, netColor: "#0891b2" },
+        { name: "GPIO10", i: 5, netColor: "#0891b2" },
+        { name: "GPIO20", i: 6, netColor: "#0891b2" },
+        { name: "GPIO21", i: 7, netColor: "#0891b2" },
+      ];
+      const pins: RealPin[] = [
+        ...left.map((p) => ({ name: p.name, local: L(p.i), netColor: p.netColor })),
+        ...right.map((p) => ({ name: p.name, local: R(p.i), netColor: p.netColor })),
+      ];
+      // Harness / recipe still use SDA & SCL names (electrical story). Same mm as GPIO4/5.
+      const g4 = pins.find((p) => p.name === "GPIO4")!;
+      const g5 = pins.find((p) => p.name === "GPIO5")!;
+      pins.push(
+        { name: "SDA", local: [...g4.local] as Vec3Mm, netColor: g4.netColor, alias: true },
+        { name: "SCL", local: [...g5.local] as Vec3Mm, netColor: g5.netColor, alias: true },
+        // Bare silkscreen numbers (many clones print "4" not "GPIO4")
+        { name: "4", local: [...g4.local] as Vec3Mm, netColor: g4.netColor, alias: true },
+        { name: "5", local: [...g5.local] as Vec3Mm, netColor: g5.netColor, alias: true }
+      );
+      return pins;
     })(),
     mesh: {
       glbUrl: "/models/parts/esp32_c3.glb",

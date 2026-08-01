@@ -12,7 +12,7 @@
  * requires a shared limiter store (see docs/designs/step-instruction-overhaul.md).
  */
 
-type RouteId = "step-help" | "photo-check" | "analyze";
+type RouteId = "step-help" | "photo-check" | "part-scan" | "analyze" | "mcp";
 
 interface GuardConfig {
   maxInputChars: number;
@@ -37,12 +37,26 @@ const CONFIGS: Record<RouteId, GuardConfig> = {
     dailyDefault: 100,
     dailyEnv: "PHOTO_CHECK_DAILY_CAP",
   },
+  "part-scan": {
+    maxInputChars: 4_000_000,
+    perIp: 8,
+    windowMs: 10 * 60_000,
+    dailyDefault: 120,
+    dailyEnv: "PART_SCAN_DAILY_CAP",
+  },
   analyze: {
     maxInputChars: 120_000,
     perIp: 5,
     windowMs: 10 * 60_000,
     dailyDefault: 100,
     dailyEnv: "ANALYZE_DAILY_CAP",
+  },
+  mcp: {
+    maxInputChars: 500_000, // plan JSON in tool args
+    perIp: 30,
+    windowMs: 10 * 60_000,
+    dailyDefault: 500,
+    dailyEnv: "MCP_HTTP_DAILY_CAP",
   },
 };
 

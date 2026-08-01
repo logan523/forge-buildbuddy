@@ -6,9 +6,9 @@
  * math only (no DOM), so it's golden-testable — the visual pulse is built on
  * top in the viewer, but the geometry here is verifiable without a browser.
  *
- * Pin-name reality: compiled connections say "GPIO4"/"GPIO5", but the ESP model
- * has a single "GPIO" pad; commodity modules also vary VCC/3V3. So resolution is
- * exact → prefix → null, and callers fall back to node-level isolate on null.
+ * SuperMini dual-header: GPIO4 and GPIO5 are distinct pads. Resolution is
+ * exact → bare-number/GPIO alias ("4"↔"GPIO4") → longest prefix → null.
+ * Callers fall back to node-level isolate on null.
  */
 
 import { Vector3, Euler } from "three";
@@ -17,20 +17,55 @@ import { computeNodeWorldPosition } from "./types";
 import { SAT_PIN_LOCALS } from "./sat-pins";
 import type { CadFrame } from "./cad-frame";
 
-/** Exact (case-insensitive) → prefix ("GPIO4"→"GPIO") pin local, or null. */
+/** Candidate silkscreen forms for one pin name (GPIO4, 4, IO4, …). */
+function pinNameCandidates(pinName: string): string[] {
+  const want = pinName.toLowerCase().trim();
+  if (!want) return [];
+  const out = new Set<string>([want]);
+  const gpio = want.match(/^gpio\s*(\d+)$/i) || want.match(/^io\s*(\d+)$/i);
+  if (gpio) {
+    out.add(gpio[1]);
+    out.add(`gpio${gpio[1]}`);
+    out.add(`io${gpio[1]}`);
+  }
+  if (/^\d+$/.test(want)) {
+    out.add(`gpio${want}`);
+    out.add(`io${want}`);
+  }
+  return [...out];
+}
+
+/**
+ * Exact (case-insensitive) → GPIO/bare alias → longest prefix match, or null.
+ * Prefers non-alias pads when multiple names share a pad (GPIO4 over "4").
+ */
 export function resolvePinLocal(
   nodeId: string,
   pinName: string
 ): [number, number, number] | null {
   const pins = SAT_PIN_LOCALS[nodeId];
   if (!pins) return null;
-  const want = pinName.toLowerCase().trim();
-  const exact = pins.find((p) => p.name.toLowerCase() === want);
-  if (exact) return [...exact.local];
-  // prefix either way: pad "GPIO" matches "GPIO4"; pad "SDA" matches "SDA1".
-  const pref = pins.find(
-    (p) => want.startsWith(p.name.toLowerCase()) || p.name.toLowerCase().startsWith(want)
+  const candidates = pinNameCandidates(pinName);
+  if (!candidates.length) return null;
+
+  // Prefer exact on a primary (non-alias) pad, then any exact including alias.
+  const exactPrimary = pins.find(
+    (p) => !p.alias && candidates.includes(p.name.toLowerCase())
   );
+  if (exactPrimary) return [...exactPrimary.local];
+  const exactAny = pins.find((p) => candidates.includes(p.name.toLowerCase()));
+  if (exactAny) return [...exactAny.local];
+
+  // Longest prefix either way — "GPIO4" should hit "GPIO4" before short "GPIO"
+  // if a generic board only has a "GPIO" pad.
+  const want = pinName.toLowerCase().trim();
+  const pref = [...pins]
+    .filter(
+      (p) =>
+        want.startsWith(p.name.toLowerCase()) ||
+        p.name.toLowerCase().startsWith(want)
+    )
+    .sort((a, b) => b.name.length - a.name.length)[0];
   return pref ? [...pref.local] : null;
 }
 

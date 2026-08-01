@@ -1,0 +1,12 @@
+id: forge-wire-one-net
+name: Wire one net
+group: core-build
+summary: "One physical wire at a time from compiled connections."
+tools:
+  - get_step_facts
+  - build_wire_plan
+  - isolate_step
+  - audit_step_render
+goldenIds:
+  - wire-one-color-authority
+  - wire-one-no-ordinal-pins

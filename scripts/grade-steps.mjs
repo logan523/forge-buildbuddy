@@ -104,3 +104,15 @@ const cleanCount = steps.length - flagged;
 console.log(`— ${flagged} step(s) flagged for review, ${cleanCount} clean.`);
 if (flagged === 0) console.log("  Nothing to look at — every step passed both graders.");
 else console.log("  Review only the flagged steps above; adjudicated ones become goldens.");
+
+// Ship gate (P0.4): deterministic render ERRORS fail the process so CI / npm
+// run audit:steps never green-lights a black stage or phantom focus. Content
+// grades and render WARNINGs stay advisory (exit 0) — they need human taste.
+const renderErrors = renderFindings.filter((f) => f.severity === "error");
+if (renderErrors.length > 0) {
+  console.error(
+    `\nSHIP GATE FAIL: ${renderErrors.length} render error(s). Fix focus/presence before shipping.`
+  );
+  process.exit(1);
+}
+process.exit(0);

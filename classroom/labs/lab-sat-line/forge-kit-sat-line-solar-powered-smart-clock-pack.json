@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "slug": "sat-line-solar-powered-smart-clock",
+  "title": "Sat Line: Solar-Powered Smart Clock",
+  "tools": [
+    "compile_plan",
+    "get_step_facts",
+    "audit_plan",
+    "match_skills",
+    "expected_i2c",
+    "run_tasks"
+  ],
+  "recommendedSkillIds": [
+    "part-identify",
+    "step-isolate",
+    "i2c-ssd1306",
+    "wire-one-net",
+    "esp32c3-flash"
+  ],
+  "expectedI2c": [
+    {
+      "label": "OLED display",
+      "addresses": [
+        60,
+        61
+      ]
+    },
+    {
+      "label": "temp/humidity sensor",
+      "addresses": [
+        68,
+        69
+      ]
+    }
+  ]
+}

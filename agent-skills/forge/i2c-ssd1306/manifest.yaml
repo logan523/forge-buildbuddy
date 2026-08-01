@@ -1,0 +1,12 @@
+id: forge-i2c-ssd1306
+name: I2C SSD1306
+group: buses
+summary: "SDA/SCL colors, addresses 0x3C/0x3D, blank-display rescue."
+tools:
+  - get_step_facts
+  - verify_expected_devices
+  - diagnose
+  - isolate_step
+goldenIds:
+  - i2c-sda-blue-scl-yellow
+  - i2c-addr-alt-ok

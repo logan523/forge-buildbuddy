@@ -1,6 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createVerifyState, feedLine, deviceVerdicts, unexpectedDevices, MISSING_AFTER_MS } from "./verify";
+import {
+  createVerifyState,
+  feedLine,
+  deviceVerdicts,
+  unexpectedDevices,
+  allExpectedFound,
+  MISSING_AFTER_MS,
+} from "./verify";
 import type { ScannerLine } from "./line-parser";
 import type { ExpectedDevice } from "./expected-devices";
 
@@ -136,6 +143,24 @@ describe("deviceVerdicts", () => {
 
   it("an empty expected list yields no verdicts", () => {
     assert.deepEqual(deviceVerdicts(createVerifyState(0), [], 100), []);
+  });
+});
+
+describe("allExpectedFound", () => {
+  it("false when empty (nothing to verify)", () => {
+    assert.equal(allExpectedFound([]), false);
+  });
+
+  it("true only when every device is found", () => {
+    const oled = device();
+    const sht = device({ addresses: [0x44], catalogId: "sht31d", label: "sht" });
+    let state = createVerifyState(0);
+    state = feedLine(state, found(0x3c), 10);
+    const half = deviceVerdicts(state, [oled, sht], 20);
+    assert.equal(allExpectedFound(half), false);
+    state = feedLine(state, found(0x44), 30);
+    const full = deviceVerdicts(state, [oled, sht], 40);
+    assert.equal(allExpectedFound(full), true);
   });
 });
 

@@ -19,19 +19,8 @@ import { recordStruggle, preemptiveRock, frictionCount, type Rock } from "@/lib/
 import {
   loadWireChecks,
   saveWireChecks,
-  hasSeenTechniquePrimer,
-  markTechniquePrimerSeen,
 } from "@/lib/storage";
-
-// A5: module-scoped (not component state/ref) cache of the technique-primer
-// open/closed decision per wire — see the long comment where it's read,
-// inside GuidedSteps, for why this needs to live above the component
-// lifecycle rather than inside it. Keyed by the wire's stable string id
-// (not the MicroStep object itself): the compiler re-derives fresh
-// MicroStep objects from the netlist on every plan load, so object
-// identity is not a safe cache key across everything that can trigger a
-// recompile — the id string is.
-const primerOpenByWire = new Map<string, boolean>();
+import { PinConnectionDiagram } from "./pin-connection-diagram";
 
 /** The current wire's toggle, shaped for BuildScreen's primary action bar. */
 export interface GuidedActionState {
@@ -139,41 +128,6 @@ export function GuidedSteps({
     if (rescueOpens === 2) recordStruggle({ kind: "wiring", netClasses: stepNetClasses });
   }, [rescueOpens, stepNetClasses]);
 
-  // A5: technique-in-flow primer — auto-expanded the very first time EVER
-  // (a global flag, not per-plan/per-step) that a builder reaches a step's
-  // first wire; every wire after that (this one included, on later visits,
-  // including a later step's own first wire) defaults collapsed to a small
-  // re-openable chip so it's never fully hidden. hasSeenTechniquePrimer is
-  // client-only localStorage, so the decision is computed post-mount — same
-  // hydration-mismatch guard as the Rock preempt effect above.
-  //
-  // primerOpenByWire (module scope, see top of file) caches the resolved
-  // open/closed decision per wire so it's made exactly once per wire, not
-  // once per effect invocation: dev-mode React can re-run a mount's effects
-  // more than once (Strict Mode's mount→cleanup→mount replay), and neither
-  // component state nor refs are a safe guard against that — both are tied
-  // to the component instance, which is exactly what gets replayed. A
-  // module-level cache sits above the component lifecycle entirely, so a
-  // replayed pass reads its own prior resolution instead of re-reading
-  // storage and computing a different answer. Keying by `cur.id` (not
-  // "ever") is deliberate too — GuidedSteps isn't remounted between wiring
-  // steps, so freezing the very first read for the module's whole lifetime
-  // would wrongly auto-reopen on every later step's first wire as well.
-  const [primerOpen, setPrimerOpen] = useState(false);
-  useEffect(() => {
-    if (!cur) return;
-    if (!primerOpenByWire.has(cur.id)) {
-      const open = !!cur.showTechnique && !hasSeenTechniquePrimer();
-      if (open) markTechniquePrimerSeen();
-      primerOpenByWire.set(cur.id, open);
-    }
-    // Syncing local render state from the module-level cache above
-    // (client-only localStorage backs it) — same class of exception as the
-    // Rock preempt effect a few lines up.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPrimerOpen(!!primerOpenByWire.get(cur.id));
-  }, [cur]);
-
   useEffect(() => {
     onActiveWire?.(showAll ? null : cur ?? null);
     return () => onActiveWire?.(null);
@@ -242,18 +196,7 @@ export function GuidedSteps({
 
   return (
     <div className="space-y-3">
-      {/* The Rock: a heads-up on the mistake THIS builder tripped on before */}
-      {preempt && (
-        <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning-soft/40 px-3 py-2">
-          <span aria-hidden className="mt-0.5">⚑</span>
-          <p className="text-xs text-text leading-relaxed">
-            <span className="font-semibold">Heads up — you hit this last time.</span>{" "}
-            {preempt.rock.callout}
-          </p>
-        </div>
-      )}
-
-      {/* Progress header */}
+      {/* Progress + wire picker FIRST — drives the Stage pad map immediately */}
       <div className="flex items-center justify-between">
         <p className="text-xs font-mono text-text-muted">
           Wire {current + 1} of {micro.length}
@@ -264,31 +207,64 @@ export function GuidedSteps({
           onClick={() => setShowAll(true)}
           className="text-xs text-text-muted underline cursor-pointer hover:text-text-secondary"
         >
-          Show all {micro.length}
+          Show all {micro.length} wires
         </button>
       </div>
       <div className="flex gap-1">
-        {/* 44px floor: the button is the full hit area; the thin bar inside
-            is purely visual (aria-hidden — the button already has the label). */}
         {micro.map((m, i) => (
           <button
             key={m.id}
             type="button"
-            aria-label={`Wire ${i + 1}`}
+            aria-label={`Wire ${i + 1}: ${m.fromPin} to ${m.toPin}`}
+            title={`${m.fromPin} → ${m.toPin}`}
             onClick={() => setCurrent(i)}
             className="flex-1 min-w-11 min-h-11 flex items-center justify-center cursor-pointer"
           >
             <span
               aria-hidden
-              className={`h-1.5 w-full rounded-full ${
+              className={`h-2 w-full rounded-full ${
                 checked.has(m.id) ? "bg-success" : i === current ? "bg-accent" : "bg-border"
               }`}
+              style={i === current && !checked.has(m.id) ? { background: m.colorHex } : undefined}
             />
           </button>
         ))}
       </div>
 
-      {/* A buddy who's watching — a warm line at the beats that matter */}
+      {/* Compact pin callout — Stage shows the big SVG; this is the always-visible text truth */}
+      <div className="p-3 rounded-xl border-2 border-accent/30 bg-accent/5">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-accent mb-1">
+          Solder this wire
+        </p>
+        <p className="text-base font-bold text-text leading-snug">
+          <span className="font-mono text-accent">{cur.fromPin}</span>
+          <span className="text-text-muted mx-1.5">→</span>
+          <span className="font-mono text-accent">{cur.toPin}</span>
+        </p>
+        <p className="text-xs text-text-secondary mt-1">
+          {cur.fromLabel} · {cur.toLabel} ·{" "}
+          <span className="font-semibold" style={{ color: cur.colorHex }}>
+            {cur.colorName} wire
+          </span>
+        </p>
+      </div>
+
+      {/* Desktop: diagram already in Stage. Mobile sticky is in BuildScreen.
+          Keep one compact map in the flow for "show all" path consistency. */}
+      <div className="hidden sm:block lg:hidden">
+        <PinConnectionDiagram micro={cur} />
+      </div>
+
+      {preempt && (
+        <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning-soft/40 px-3 py-2">
+          <span aria-hidden className="mt-0.5">⚑</span>
+          <p className="text-xs text-text leading-relaxed">
+            <span className="font-semibold">Heads up — you hit this last time.</span>{" "}
+            {preempt.rock.callout}
+          </p>
+        </div>
+      )}
+
       {buddyLine && (
         <p
           className="flex items-start gap-2 text-xs text-text-secondary bg-accent/5 border border-accent/15 rounded-xl px-3 py-2"
@@ -299,57 +275,31 @@ export function GuidedSteps({
         </p>
       )}
 
-      {/* A5: technique-in-flow — soldering technique now lives inline with
-          the wire card instead of buried in a deep-detail-only drawer.
-          Sourced from this step's own toolTechnique when the plan authored
-          one, else a generic static solder primer (authored here). The chip
-          is on every wire so it's never fully hidden; the panel itself
-          auto-expands once, globally, the first time a builder ever
-          reaches it (see the effect above). */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setPrimerOpen((v) => !v)}
-          aria-expanded={primerOpen}
-          className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-full text-xs font-medium text-accent bg-accent/10 hover:bg-accent/15 cursor-pointer"
-        >
-          Technique ↺
-        </button>
-        {primerOpen && (
-          <div className="mt-2 p-3 rounded-xl border border-accent/25 bg-accent/5 space-y-1.5">
-            {step.toolTechnique ? (
-              <>
-                <p className="text-xs font-semibold text-text">{step.toolTechnique.tool}</p>
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  {step.toolTechnique.usage}
-                </p>
-                {step.toolTechnique.safety && (
-                  <p className="text-xs text-warning">⚠ {step.toolTechnique.safety}</p>
-                )}
-                {step.toolTechnique.mistake && (
-                  <p className="text-xs text-text-secondary">
-                    <span className="font-medium">Avoid:</span> {step.toolTechnique.mistake}
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-xs font-semibold text-text">Soldering technique</p>
-                <ol className="text-xs text-text-secondary leading-relaxed space-y-1 list-decimal list-inside">
-                  <li>Heat both surfaces for 2–3 seconds before adding solder.</li>
-                  <li>Feed solder to the joint, not the iron.</li>
-                  <li>Remove the solder first, then the iron.</li>
-                  <li>Let it cool undisturbed — don&apos;t blow on it.</li>
-                </ol>
-                <p className="text-xs text-text-secondary">
-                  <span className="font-medium">Good joint looks like:</span> a shiny cone, not a
-                  ball.
-                </p>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      <details className="group">
+        <summary className="text-xs font-medium text-accent cursor-pointer py-2 min-h-11">
+          Soldering technique (optional)
+        </summary>
+        <div className="mt-1 p-3 rounded-xl border border-accent/25 bg-accent/5 space-y-1.5">
+          {step.toolTechnique ? (
+            <>
+              <p className="text-xs font-semibold text-text">{step.toolTechnique.tool}</p>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                {step.toolTechnique.usage}
+              </p>
+              {step.toolTechnique.safety && (
+                <p className="text-xs text-warning">⚠ {step.toolTechnique.safety}</p>
+              )}
+            </>
+          ) : (
+            <ol className="text-xs text-text-secondary leading-relaxed space-y-1 list-decimal list-inside">
+              <li>Heat both surfaces for 2–3 seconds before adding solder.</li>
+              <li>Feed solder to the joint, not the iron.</li>
+              <li>Remove the solder first, then the iron.</li>
+              <li>Let it cool undisturbed.</li>
+            </ol>
+          )}
+        </div>
+      </details>
 
       {/* The wire card: find → do → verify */}
       <div className="p-4 rounded-2xl border border-border bg-surface space-y-3">
@@ -364,17 +314,12 @@ export function GuidedSteps({
 
         {/* Find it */}
         <div className="text-sm text-text-secondary bg-surface-overlay rounded-xl p-3">
-          <span className="font-semibold text-text">Find it: </span>
-          the pin printed <span className="font-mono font-semibold text-text">{cur.fromPin}</span> on the{" "}
-          {cur.fromLabel}, and <span className="font-mono font-semibold text-text">{cur.toPin}</span> on the{" "}
-          {cur.toLabel}. <span className="text-text-muted">Trust the printed label, not the position.</span>
-          <span className="mt-1.5 flex items-center gap-1.5 text-xs text-accent">
-            <span
-              aria-hidden
-              className="w-2.5 h-2.5 rounded-full border border-black/10"
-              style={{ background: cur.colorHex }}
-            />
-            This wire is lit up in the 3D — zoomed to where it lands.
+          <span className="font-semibold text-text">Find it on the real boards: </span>
+          the letters <span className="font-mono font-semibold text-text">{cur.fromPin}</span> printed on{" "}
+          {cur.fromLabel}, and <span className="font-mono font-semibold text-text">{cur.toPin}</span> on{" "}
+          {cur.toLabel}.{" "}
+          <span className="text-text-muted">
+            Match the printed text — ignore left/right order (clones reverse it).
           </span>
         </div>
 
@@ -409,7 +354,7 @@ export function GuidedSteps({
             <summary className="text-xs font-medium text-warning cursor-pointer py-1">
               Doesn&apos;t look right?
             </summary>
-            <div className="mt-1.5 pl-2 border-l-2 border-warning/30 space-y-1">
+            <div className="mt-1.5 rounded-lg border border-warning/30 bg-warning-soft/50 p-2 space-y-1">
               <p className="text-xs font-medium text-text">{rescue.title}</p>
               <p className="text-xs text-text-secondary">{rescue.cause}</p>
               {rescue.actions.slice(0, 2).map((a) => (

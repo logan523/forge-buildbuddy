@@ -123,3 +123,11 @@ export function unexpectedDevices(state: VerifyState, expected: ExpectedDevice[]
     .map(([address, firstSeenAt]) => ({ address, firstSeenAt }))
     .sort((a, b) => a.address - b.address);
 }
+
+/**
+ * P1.3/P2: true when every expected device answered (status === "found").
+ * Empty expected list is NOT a pass — nothing to verify.
+ */
+export function allExpectedFound(verdicts: DeviceVerdict[]): boolean {
+  return verdicts.length > 0 && verdicts.every((v) => v.status === "found");
+}

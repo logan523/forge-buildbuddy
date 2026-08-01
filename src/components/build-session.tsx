@@ -12,7 +12,7 @@
  * characterization walk from Slice 0. This file only wires state to screens.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BuildPlan, BuildStep, Part, Vendor } from "@/lib/types";
 import { planCartOpens, VENDOR_LABEL, type CartOpenItem, type CartStrategy } from "@/lib/cart";
@@ -32,14 +32,25 @@ import {
   progressPct,
   needsSafetyAck,
 } from "@/components/build/use-build-state";
+import { expectedI2cAddresses } from "@/lib/serial/expected-devices";
+import {
+  initialWiringVerifyStatus,
+  type WiringVerifyStatus,
+} from "@/lib/build-done-gate";
 
 export interface BuildSessionProps {
   plan: BuildPlan;
   /** When true, show prep first (new open). When false, jump into last step. */
   startAtPrep?: boolean;
+  /** 0-based step index to open on (Wire Lab deep links). */
+  initialStepIndex?: number;
 }
 
-export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSessionProps) {
+export function BuildSession({
+  plan: rawPlan,
+  startAtPrep = true,
+  initialStepIndex,
+}: BuildSessionProps) {
   const router = useRouter();
   const [planPatch, setPlanPatch] = useState<Partial<BuildPlan>>({});
   // B6: storage quota failures surface instead of silently losing progress.
@@ -53,7 +64,15 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
     [rawPlan, planPatch]
   );
 
-  const { state, actions } = useBuildState(plan.id, startAtPrep);
+  const { state, actions } = useBuildState(plan.id, startAtPrep, {
+    stepIndex: initialStepIndex,
+  });
+
+  // P1.3/P2: end-of-build live I2C verify — shared by BuildScreen gate + FlashConsole.
+  const expectedI2cCount = useMemo(() => expectedI2cAddresses(plan).length, [plan]);
+  const [wiringVerify, setWiringVerify] = useState<WiringVerifyStatus>(() =>
+    initialWiringVerifyStatus(expectedI2cCount)
+  );
 
   const steps = useMemo(() => filterStepsForMode(plan, state.buildMode), [plan, state.buildMode]);
   const firmware = useMemo(() => generateFirmware(plan), [plan]);
@@ -71,6 +90,20 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
   useEffect(() => {
     actions.clampStep(steps.length);
   }, [steps.length, actions]);
+
+  // On first entry into build (not prep), land on first step with pad-level
+  // microSteps so the Stage shows exact solder maps immediately.
+  const jumpedToWiring = useRef(false);
+  useEffect(() => {
+    if (state.showPrep || jumpedToWiring.current) return;
+    const wiringIdx = steps.findIndex(
+      (st) => (st.compiled?.microSteps?.length ?? 0) > 0
+    );
+    if (wiringIdx >= 0 && state.stepIndex === 0 && wiringIdx !== 0) {
+      jumpedToWiring.current = true;
+      actions.goStep(wiringIdx, steps.length);
+    }
+  }, [state.showPrep, state.stepIndex, steps, actions]);
 
   useEffect(() => {
     savePlan(plan);
@@ -133,7 +166,16 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
       onSetCartStrategy={actions.setCartStrategy}
       onSetSafetyAck={actions.setSafetyAck}
       onSetTooltip={actions.setTooltip}
-      onStart={actions.startBuild}
+      onStart={() => {
+        // Land on first step with exact solder maps when the plan has them.
+        // Prep/mechanical steps are still in the list (step picker); beginners
+        // should not start on "cut brass wire" with no pad diagram.
+        actions.startBuild();
+        const wiringIdx = steps.findIndex(
+          (st) => (st.compiled?.microSteps?.length ?? 0) > 0
+        );
+        if (wiringIdx >= 0) actions.goStep(wiringIdx, steps.length);
+      }}
     />
   ) : (
     <>
@@ -164,6 +206,8 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
         onNext={() => actions.nextStep(steps.length)}
         onPrev={actions.prevStep}
         onSetTooltip={actions.setTooltip}
+        wiringVerify={wiringVerify}
+        onSetWiringVerify={setWiringVerify}
       />
       <BuildDrawers
         drawer={state.drawer}
@@ -189,6 +233,7 @@ export function BuildSession({ plan: rawPlan, startAtPrep = true }: BuildSession
           actions.setUnstickSymptom(symptom);
           actions.openDrawer("unstick");
         }}
+        onWiringVerified={() => setWiringVerify("passed")}
       />
     </>
   );

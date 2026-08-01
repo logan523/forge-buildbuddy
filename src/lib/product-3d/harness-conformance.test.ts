@@ -86,18 +86,13 @@ test("the harness picks the SAME hub as the instruction compiler (Show-me alignm
   assert.equal(harnessHub, compilerHubNode, "3D tube hub === compiled step hub, so the glow can't miss");
 });
 
-test("integration: the demo's rendered harness is now netlist-derived (was 2/18)", () => {
+test("integration: the demo's rendered harness is fully netlist-derived (P0.2/P0.3)", () => {
   const plan = applyTrustPipeline(JSON.parse(JSON.stringify(satLine)) as BuildPlan);
   const r = auditPlanHarness(plan);
   assert.equal(r.available, true, "the demo builds a harness to audit");
   assert.equal(r.backedTubes + r.decorativeTubes, r.totalTubes, "every tube is classified");
-  // The refactor: power/GND/bus tubes are generated from the multi-member nets,
-  // so the vast majority now trace to the model (was 2 of 18).
-  assert.ok(r.backedTubes >= 15, `most tubes are netlist-backed (${r.backedTubes}/${r.totalTubes})`);
-  // The ONLY honest residual is solar-r — the model folds both panels into
-  // solar-l, so solar-r's two tubes have no backing net (documented TODO).
-  assert.ok(r.decorativeTubes <= 3, `few decorative residuals (${r.decorativeTubes})`);
-  for (const iss of r.issues) {
-    assert.equal(iss.fromNodeId, "solar-r", `only solar-r is decorative, got ${iss.netName} on ${iss.fromNodeId}`);
-  }
+  assert.ok(r.totalTubes >= 12, `enough tubes for the sat bus (${r.totalTubes})`);
+  // Power/GND/I2C tubes come from multi-member nets (hub→spoke), not a teaching table.
+  assert.equal(r.decorativeTubes, 0, "zero decorative tubes");
+  assert.equal(r.traced, true, "seal may claim full 3D fidelity on the demo");
 });

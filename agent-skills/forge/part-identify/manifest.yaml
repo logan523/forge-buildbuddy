@@ -1,0 +1,9 @@
+id: forge-part-identify
+name: Part identify
+group: core-build
+summary: "Match the module in hand to catalog identity + silkscreen labels."
+tools:
+  - part_identity
+  - get_step_facts
+goldenIds:
+  - part-id-catalog-not-prose

@@ -125,15 +125,11 @@ export function pickAnchor(
   const p = (pinHint || "").toUpperCase();
   const r = (role || "").toLowerCase();
 
-  // 1) Exact anchor name
-  if (pinHint) {
-    const hit = exact(pinHint);
-    if (hit) return hit;
-  }
-
-  // 2) Role from electrical model (highest semantic signal)
-  if (/i2c_sda|sda/.test(r)) return exact("SDA") || find(/^sda$/i) || names[0]!;
-  if (/i2c_scl|scl/.test(r)) return exact("SCL") || find(/^scl$/i) || names[0]!;
+  // 1) Electrical role first when present (I2C prefers SDA/SCL labels on tubes)
+  if (/i2c_sda|sda/.test(r))
+    return exact("SDA") || exact("GPIO4") || exact("4") || find(/^sda$/i) || names[0]!;
+  if (/i2c_scl|scl/.test(r))
+    return exact("SCL") || exact("GPIO5") || exact("5") || find(/^scl$/i) || names[0]!;
   if (r === "gnd") return exact("GND") || find(/^gnd$|^-$|^b-$|^out-$|^in-$/i) || names[0]!;
   if (r === "power") {
     if (/OUT\+/.test(p)) return exact("OUT+") || find(/out\+/i) || names[0]!;
@@ -143,9 +139,27 @@ export function pickAnchor(
       return exact("3V3") || exact("VCC") || find(/3v3|vcc/i) || names[0]!;
   }
 
-  // 3) Pin-name heuristics — SDA/SCL BEFORE GPIO (GPIO4 is SDA on ESP32-C3)
-  if (/SDA/.test(p) || /I2C_SDA/.test(p)) return exact("SDA") || find(/sda/i) || names[0]!;
-  if (/SCL/.test(p) || /I2C_SCL/.test(p)) return exact("SCL") || find(/scl/i) || names[0]!;
+  // 2) Exact silkscreen / anchor name (GPIO4, 3V3, …)
+  if (pinHint) {
+    const hit = exact(pinHint);
+    if (hit) return hit;
+    // Bare number on SuperMini: "4" → GPIO4
+    if (/^\d+$/.test(pinHint)) {
+      const g = exact(`GPIO${pinHint}`) || exact(pinHint);
+      if (g) return g;
+    }
+    const gm = pinHint.match(/^GPIO\s*(\d+)$/i);
+    if (gm) {
+      const g = exact(`GPIO${gm[1]}`) || exact(gm[1]);
+      if (g) return g;
+    }
+  }
+
+  // 3) Pin-name heuristics — SDA/SCL BEFORE generic GPIO
+  if (/SDA/.test(p) || /I2C_SDA/.test(p))
+    return exact("SDA") || exact("GPIO4") || exact("4") || find(/sda/i) || names[0]!;
+  if (/SCL/.test(p) || /I2C_SCL/.test(p))
+    return exact("SCL") || exact("GPIO5") || exact("5") || find(/scl/i) || names[0]!;
   if (/^GND$|VSS|AGND|BAT-|OUT-|IN-/.test(p) || p === "-")
     return exact("GND") || exact("-") || exact("B-") || exact("OUT-") || find(/gnd|^-$|b-|out-|in-/i) || names[0]!;
   if (/OUT\+/.test(p)) return exact("OUT+") || find(/out\+/i) || names[0]!;
@@ -154,15 +168,24 @@ export function pickAnchor(
   if (/^3V3$|VCC|VDD|VIN|VBAT/.test(p))
     return exact("3V3") || exact("VCC") || find(/3v3|vcc/i) || names[0]!;
   if (p === "+") return exact("+") || exact("B+") || exact("IN+") || find(/^\+|b\+|in\+/i) || names[0]!;
-  if (/SIG|TOUCH/.test(p) || (/GPIO/.test(p) && (netClass === "digital" || netClass === "signal")))
-    return exact("SIG") || exact("GPIO") || find(/sig|gpio/i) || names[0]!;
-  // GPIO4/5 with i2c net class → data lines, not the GPIO pad
+  if (/SIG|TOUCH/.test(p)) return exact("SIG") || find(/sig|gpio/i) || names[0]!;
+  // GPIO4/5 with i2c net class → prefer SDA/SCL labels (same mm as SuperMini pads)
   if (/GPIO/.test(p) && netClass === "i2c") {
-    if (/4|SDA/.test(p) || /sda/.test(r)) return exact("SDA") || find(/sda/i) || names[0]!;
-    if (/5|SCL/.test(p) || /scl/.test(r)) return exact("SCL") || find(/scl/i) || names[0]!;
+    if (/4|SDA/.test(p) || /sda/.test(r))
+      return exact("SDA") || exact("GPIO4") || exact("4") || find(/sda/i) || names[0]!;
+    if (/5|SCL/.test(p) || /scl/.test(r))
+      return exact("SCL") || exact("GPIO5") || exact("5") || find(/scl/i) || names[0]!;
     return find(/sda|scl/i) || names[0]!;
   }
-  if (/GPIO/.test(p)) return exact("GPIO") || find(/gpio|sig/i) || names[0]!;
+  // Digital/signal GPION → that exact SuperMini pad when present
+  if (/GPIO/.test(p)) {
+    const n = p.match(/GPIO\s*(\d+)/i);
+    if (n) {
+      const g = exact(`GPIO${n[1]}`) || exact(n[1]);
+      if (g) return g;
+    }
+    return exact("GPIO") || find(/^gpio|sig/i) || names[0]!;
+  }
 
   // 4) Net-class fallbacks
   if (netClass === "i2c") return find(/sda|scl/i) || names[0]!;

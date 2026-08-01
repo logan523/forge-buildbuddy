@@ -135,6 +135,8 @@ export function buildReducer(state: BuildState, action: BuildAction): BuildState
 export interface InitialBuildStateOptions {
   planId: string;
   startAtPrep: boolean;
+  /** Jump into a specific step (0-based). Used for Wire Lab deep links. */
+  stepIndex?: number;
   /** Injected for tests; defaults read from storage/localStorage. */
   completed?: Set<number>;
   detailLevel?: DetailLevel;
@@ -145,7 +147,7 @@ export interface InitialBuildStateOptions {
 export function initialBuildState(opts: InitialBuildStateOptions): BuildState {
   return {
     showPrep: opts.startAtPrep,
-    stepIndex: 0,
+    stepIndex: Math.max(0, opts.stepIndex ?? 0),
     completed: opts.completed ?? new Set<number>(),
     detailLevel: opts.detailLevel ?? "standard",
     buildMode: opts.buildMode ?? "full",
@@ -216,7 +218,11 @@ export function defaultBuildMode(planId: string): BuildMode {
   return isFirstTimeBuilder() ? "quick" : "full";
 }
 
-export function useBuildState(planId: string, startAtPrep: boolean) {
+export function useBuildState(
+  planId: string,
+  startAtPrep: boolean,
+  opts?: { stepIndex?: number }
+) {
   const [state, dispatch] = useReducer(
     buildReducer,
     undefined,
@@ -224,6 +230,7 @@ export function useBuildState(planId: string, startAtPrep: boolean) {
       initialBuildState({
         planId,
         startAtPrep,
+        stepIndex: opts?.stepIndex,
         completed: loadCompletedSteps(planId),
         detailLevel: defaultDetailLevel(planId),
         buildMode: defaultBuildMode(planId),

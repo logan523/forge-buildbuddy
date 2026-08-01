@@ -22,6 +22,7 @@ test("413 on over-long question", async () => {
 
 test("200: prompt carries the derived connections verbatim + the question", async () => {
   let captured = "";
+  let system = "";
   const r = await handleStepHelp(
     {
       question: "Which end is SDA?",
@@ -37,9 +38,11 @@ test("200: prompt carries the derived connections verbatim + the question", asyn
         },
       ],
       checks: [{ instruction: "Multimeter VCC↔GND", expected: "3.2–3.4 V" }],
+      skillsDigest: "[i2c-ssd1306] SDA is blue, SCL is yellow.",
     },
     "ip",
-    async (_system, user) => {
+    async (sys, user) => {
+      system = sys;
       captured = user;
       return "Answer.";
     }
@@ -48,6 +51,10 @@ test("200: prompt carries the derived connections verbatim + the question", asyn
   assert.ok(captured.includes("blue wire: ESP32-C3 pin GPIO4 → OLED Display pin SDA"));
   assert.ok(captured.includes("Which end is SDA?"));
   assert.ok(captured.includes("3.2–3.4 V"));
+  assert.ok(captured.includes("SKILLS"));
+  assert.ok(captured.includes("i2c-ssd1306"));
+  assert.match(system, /SKILLS/i);
+  assert.match(system, /connections still win|DERIVED CONNECTIONS/i);
 });
 
 test("502 fail-closed when the model throws or returns nothing", async () => {

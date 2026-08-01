@@ -39,6 +39,39 @@ function reviewableIssues(facts: CompiledPlanFacts): StepContentIssue[] {
 /** Slim inline nudge for the build view. Renders null when the plan is clean. */
 export function CoverageBanner({ facts, onReview }: CoverageBannerProps) {
   if (!facts) return null;
+
+  // Generated / broken plans: compiler status is the first thing a beginner
+  // must see — not a silent missing table (P0.5 shell parity).
+  if (facts.status === "failed") {
+    return (
+      <div
+        role="status"
+        className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-warning-soft border border-warning/25"
+      >
+        <p className="text-xs text-text leading-snug">
+          <span aria-hidden>⚠</span> Couldn&apos;t fully check these steps against a circuit model —
+          treat pin tables carefully and re-generate if something looks wrong.
+        </p>
+        <Button variant="ghost" size="sm" onClick={onReview} className="shrink-0">
+          Details
+        </Button>
+      </div>
+    );
+  }
+  if (facts.status === "unavailable") {
+    return (
+      <div
+        role="status"
+        className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-surface-overlay border border-border-subtle"
+      >
+        <p className="text-xs text-text-secondary leading-snug">
+          <span aria-hidden>ℹ</span> No verified wiring model on this plan — connections may be
+          incomplete. Prefer the demo or a plan with an electrical check.
+        </p>
+      </div>
+    );
+  }
+
   const n = facts.unassigned.length + reviewableIssues(facts).length;
   if (n === 0) return null;
 
@@ -167,7 +200,7 @@ export function CoverageDetail({ facts }: CoverageDetailProps) {
             {issues.map((issue, i) => (
               <li
                 key={i}
-                className="text-xs text-text-secondary leading-relaxed pl-2 border-l-2 border-warning/30"
+                className="text-xs text-text-secondary leading-relaxed rounded-lg border border-warning/25 bg-warning-soft/40 p-2"
               >
                 {translateIssue(issue)}
               </li>

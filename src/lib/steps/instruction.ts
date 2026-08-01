@@ -3,8 +3,40 @@ import type { FirmwarePackage } from "@/lib/firmware";
 import { doneWhenForSoftwareStep } from "@/lib/firmware";
 import { stepKind } from "./classify";
 
+/** Soft cap for a kitchen-table goal — longer copy is LLM wall-of-text. */
+const SHORT_GOAL_MAX = 110;
+
+/**
+ * One-line goal derived from compiled connections. Used when the author/LLM
+ * goal is missing or a long prose dump — wiring steps lead with pins, not essays.
+ */
+export function goalFromConnections(step: BuildStep): string | null {
+  const conns = step.compiled?.connections;
+  if (!conns?.length) return null;
+  const parts = new Set<string>();
+  for (const c of conns) {
+    if (c.fromLabel) parts.add(c.fromLabel);
+    if (c.toLabel) parts.add(c.toLabel);
+  }
+  const labels = [...parts].slice(0, 3).join(" + ");
+  const n = conns.length;
+  return `Wire ${n} connection${n === 1 ? "" : "s"}${labels ? ` · ${labels}` : ""}.`;
+}
+
+/** True when the compiler attached real connection facts (stronger than title regex). */
+function hasCompiledWiring(step: BuildStep): boolean {
+  return (step.compiled?.connections?.length ?? 0) > 0;
+}
+
 /** Derive beginner actions from free-text when structured actions missing. */
 export function resolveActions(step: BuildStep): StepAction[] {
+  // Compiled wiring facts: GuidedSteps / ConnectionsTable own the work.
+  // Returning empty stops LLM description sentences from becoming a second,
+  // disagreeable checklist next to the pin table. Key off connections (not
+  // title regex) — "Wire the OLED" does not match the classify WIRING pattern.
+  if (hasCompiledWiring(step) || (step.compiled?.microSteps?.length ?? 0) > 0) {
+    return [];
+  }
   if (Array.isArray(step.actions) && step.actions.length > 0) {
     return step.actions
       .map((a, i) => ({
@@ -23,6 +55,17 @@ export function resolveActions(step: BuildStep): StepAction[] {
 }
 
 export function resolveGoal(step: BuildStep): string {
+  const compiledGoal = goalFromConnections(step);
+
+  // Compiled wiring: prefer a short authored goal; otherwise use compiled
+  // one-liner. Never fall through to a multi-sentence description when we
+  // have nets — kitchen-table diet.
+  if (compiledGoal) {
+    const authored = (step.goal || step.quickSummary || "").trim();
+    if (authored && authored.length <= SHORT_GOAL_MAX) return authored;
+    return compiledGoal;
+  }
+
   if (step.goal?.trim()) return step.goal.trim();
   if (step.quickSummary?.trim()) return step.quickSummary.trim();
   const first = (step.description || "").split(/[.!?]/)[0]?.trim();

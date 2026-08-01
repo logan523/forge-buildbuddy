@@ -11,6 +11,8 @@ export type PinLocal = {
   local: [number, number, number];
   /** Insulation ring color on mesh stub */
   netColor?: string;
+  /** Colocalized harness name — skip on mesh (see RealPin.alias) */
+  alias?: boolean;
 };
 
 function fromReal(pins: RealPin[]): PinLocal[] {
@@ -18,6 +20,7 @@ function fromReal(pins: RealPin[]): PinLocal[] {
     name: p.name,
     local: [...p.local] as [number, number, number],
     netColor: p.netColor,
+    alias: p.alias,
   }));
 }
 
@@ -53,12 +56,12 @@ export function pinAnchorsForNode(
   }));
 }
 
-/** Mesh stubs: electrical pads only (skip structural body/root). */
+/** Mesh stubs: electrical pads only (skip structural body/root + colocalized aliases). */
 export function meshPinStubsForNode(
   nodeId: string
 ): { name: string; local: [number, number, number]; netColor?: string }[] {
   return (SAT_PIN_LOCALS[nodeId] || []).filter(
-    (p) => p.name !== "body" && p.name !== "root"
+    (p) => p.name !== "body" && p.name !== "root" && !p.alias
   );
 }
 
@@ -91,7 +94,9 @@ export function pinStubsForNode(node: SceneNode3D): PinLocal[] {
   const cid = node.catalogId;
   const spec = cid && cid in REAL_PARTS ? REAL_PARTS[cid as CatalogPartId] : null;
   if (spec) {
-    const named = spec.pins.filter((p) => p.name !== "body" && p.name !== "root");
+    const named = spec.pins.filter(
+      (p) => p.name !== "body" && p.name !== "root" && !p.alias
+    );
     if (named.length) {
       return named.map((p) => ({
         name: p.name,

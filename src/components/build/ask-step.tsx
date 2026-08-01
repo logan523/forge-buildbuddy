@@ -15,10 +15,16 @@ export function AskAboutStep({
   step,
   parts,
   onOpenUnstick,
+  skillDigest,
+  skillsForHelp,
 }: {
   step: BuildStep;
   parts: Part[];
   onOpenUnstick: () => void;
+  /** Optional skills matched for this step (P1.2) — shown as a quiet hint. */
+  skillDigest?: string;
+  /** Full skill guidance for /api/step-help (P2). */
+  skillsForHelp?: string;
 }) {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -65,6 +71,7 @@ export function AskAboutStep({
             .slice(0, 16)
             .map((p) => p.name)
             .join(" · "),
+          skillsDigest: skillsForHelp || skillDigest || undefined,
         }),
       });
       const data = (await res.json()) as { answer?: string; error?: string };
@@ -86,6 +93,14 @@ export function AskAboutStep({
 
   return (
     <div className="mb-2">
+      {skillDigest ? (
+        <p
+          className="text-[11px] text-text-muted leading-snug mb-1.5 line-clamp-2"
+          title={skillDigest}
+        >
+          Skills ready: {skillDigest}
+        </p>
+      ) : null}
       <div className="flex gap-2">
         <input
           value={question}

@@ -24,6 +24,7 @@ import {
   type VerifyState,
   type DeviceVerdict,
   type UnexpectedDevice,
+  allExpectedFound,
 } from "@/lib/serial/verify";
 import type { BuildPlan } from "@/lib/types";
 import { FlashFlow, FlashFirmwareSection } from "./flash-flow";
@@ -61,6 +62,11 @@ export interface FlashConsoleProps {
    * later slice's job (the owner of build-drawers.tsx wires that up).
    */
   onOpenUnstick?: (symptomHint: string) => void;
+  /**
+   * P2: fired once when every expected I2C device is "found" — clears the
+   * end-of-build verify gate (wiringVerify → passed).
+   */
+  onWiringVerified?: () => void;
 }
 
 const BAUD_RATE = 115200;
@@ -98,7 +104,14 @@ function friendlyConnectError(err: unknown): string {
   return "Couldn't connect. Unplug and replug the board, then try again.";
 }
 
-export function FlashConsole({ open, onClose, i2cPins, plan, onOpenUnstick }: FlashConsoleProps) {
+export function FlashConsole({
+  open,
+  onClose,
+  i2cPins,
+  plan,
+  onOpenUnstick,
+  onWiringVerified,
+}: FlashConsoleProps) {
   const supported = serialSupported();
   const [phase, setPhase] = useState<Phase>({ kind: "disconnected" });
   const [lines, setLines] = useState<LogLine[]>([]);
@@ -259,6 +272,16 @@ export function FlashConsole({ open, onClose, i2cPins, plan, onOpenUnstick }: Fl
   const verifyClockNow = verifyNow ?? verifyState?.startedAt ?? 0;
   const verdicts = verifyState ? deviceVerdicts(verifyState, expectedDevices, verifyClockNow) : EMPTY_VERDICTS;
   const unexpected = verifyState ? unexpectedDevices(verifyState, expectedDevices) : EMPTY_UNEXPECTED;
+
+  // Fire once when the live bus proves every expected device — end-of-build gate.
+  const verifiedRef = useRef(false);
+  useEffect(() => {
+    if (!onWiringVerified || verifiedRef.current) return;
+    if (allExpectedFound(verdicts)) {
+      verifiedRef.current = true;
+      onWiringVerified();
+    }
+  }, [verdicts, onWiringVerified]);
 
   if (!open) return null;
 

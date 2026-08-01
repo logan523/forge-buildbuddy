@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { BuildPlan } from "@/lib/types";
 import { getPlan, savePlan, touchPlan } from "@/lib/storage";
 import { applyTrustPipeline } from "@/lib/trust";
 import { BuildSession } from "@/components/build-session";
 import demoPlan from "@/data/sat-line.json";
 
-export default function BuildByIdPage() {
+function BuildByIdInner() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const id = typeof params.id === "string" ? params.id : "";
   const [plan, setPlan] = useState<BuildPlan | null>(null);
@@ -38,6 +39,36 @@ export default function BuildByIdPage() {
     setPlan(trusted);
   }, [id]);
 
+  const isDemo = id === "sat-line-smart-clock" || id === "demo-sat-line";
+
+  // Deep links: ?wire=1 → first compiled wiring step; ?step=N → 1-based step number.
+  const initialStepIndex = useMemo(() => {
+    if (!plan) return undefined;
+    const wire = searchParams.get("wire");
+    const step = searchParams.get("step");
+    if (wire === "1" || wire === "true") {
+      const idx = plan.steps.findIndex(
+        (s) => (s.compiled?.microSteps?.length ?? 0) > 0
+      );
+      return idx >= 0 ? idx : undefined;
+    }
+    if (step) {
+      const n = parseInt(step, 10);
+      if (Number.isFinite(n) && n >= 1) {
+        const idx = plan.steps.findIndex((s) => s.stepNumber === n);
+        return idx >= 0 ? idx : Math.max(0, n - 1);
+      }
+    }
+    // Demo default: open Wire Lab so the pitch isn't prep fluff.
+    if (isDemo) {
+      const idx = plan.steps.findIndex(
+        (s) => (s.compiled?.microSteps?.length ?? 0) > 0
+      );
+      return idx >= 0 ? idx : 0;
+    }
+    return undefined;
+  }, [plan, searchParams, isDemo]);
+
   if (missing) {
     return (
       <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-6">
@@ -65,5 +96,25 @@ export default function BuildByIdPage() {
     );
   }
 
-  return <BuildSession plan={plan} startAtPrep />;
+  return (
+    <BuildSession
+      plan={plan}
+      startAtPrep={!isDemo && initialStepIndex == null}
+      initialStepIndex={initialStepIndex}
+    />
+  );
+}
+
+export default function BuildByIdPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <BuildByIdInner />
+    </Suspense>
+  );
 }
