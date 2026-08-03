@@ -44,12 +44,20 @@ export interface BuildSessionProps {
   startAtPrep?: boolean;
   /** 0-based step index to open on (Wire Lab deep links). */
   initialStepIndex?: number;
+  /**
+   * Demo-pitch only: skip straight to the first Wire Lab step so the demo shows
+   * its meatiest surface immediately. A REAL build a beginner follows top-to-
+   * bottom (safety → frame → prep → wire) must NOT do this — it starts at step 1
+   * and moves in order. Defaults off; only the built-in demo passes true.
+   */
+  jumpToWiring?: boolean;
 }
 
 export function BuildSession({
   plan: rawPlan,
   startAtPrep = true,
   initialStepIndex,
+  jumpToWiring = false,
 }: BuildSessionProps) {
   const router = useRouter();
   const [planPatch, setPlanPatch] = useState<Partial<BuildPlan>>({});
@@ -91,11 +99,12 @@ export function BuildSession({
     actions.clampStep(steps.length);
   }, [steps.length, actions]);
 
-  // On first entry into build (not prep), land on first step with pad-level
-  // microSteps so the Stage shows exact solder maps immediately.
+  // Demo pitch only: land on the first pad-level step so the Stage shows exact
+  // solder maps immediately. Real builds (jumpToWiring=false) start at step 1
+  // and move in order — never skip safety/frame/prep.
   const jumpedToWiring = useRef(false);
   useEffect(() => {
-    if (state.showPrep || jumpedToWiring.current) return;
+    if (!jumpToWiring || state.showPrep || jumpedToWiring.current) return;
     const wiringIdx = steps.findIndex(
       (st) => (st.compiled?.microSteps?.length ?? 0) > 0
     );
@@ -103,7 +112,7 @@ export function BuildSession({
       jumpedToWiring.current = true;
       actions.goStep(wiringIdx, steps.length);
     }
-  }, [state.showPrep, state.stepIndex, steps, actions]);
+  }, [jumpToWiring, state.showPrep, state.stepIndex, steps, actions]);
 
   useEffect(() => {
     savePlan(plan);
@@ -167,14 +176,16 @@ export function BuildSession({
       onSetSafetyAck={actions.setSafetyAck}
       onSetTooltip={actions.setTooltip}
       onStart={() => {
-        // Land on first step with exact solder maps when the plan has them.
-        // Prep/mechanical steps are still in the list (step picker); beginners
-        // should not start on "cut brass wire" with no pad diagram.
+        // Real builds start at step 1 and move in order. Only the demo pitch
+        // jumps straight to the Wire Lab (jumpToWiring) so its best surface
+        // shows immediately.
         actions.startBuild();
-        const wiringIdx = steps.findIndex(
-          (st) => (st.compiled?.microSteps?.length ?? 0) > 0
-        );
-        if (wiringIdx >= 0) actions.goStep(wiringIdx, steps.length);
+        if (jumpToWiring) {
+          const wiringIdx = steps.findIndex(
+            (st) => (st.compiled?.microSteps?.length ?? 0) > 0
+          );
+          if (wiringIdx >= 0) actions.goStep(wiringIdx, steps.length);
+        }
       }}
     />
   ) : (

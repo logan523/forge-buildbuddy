@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { resolveStepMedia } from "@/lib/step-media";
 import { StageApp } from "@/components/stage/stage-app";
+import { StageBoundary } from "@/components/stage/stage-boundary";
 import { StepMediaExtras } from "./step-media-extras";
 import { useOverlay } from "./use-overlay";
 
@@ -94,18 +95,32 @@ export function StepHero({
             <span className="hidden lg:inline">⤢ Expand</span>
           </button>
         </div>
-        {/* ONE canvas: expanding swaps classNames inside ProductAssemblyApp. */}
-        <StageApp
-          plan={plan}
-          stepIndex={stepIndex}
-          step={stepProps}
-          height={stageHeight}
-          expandable={false}
-          variant="step"
-          expanded={expanded}
-          onExpandedChange={setExpanded}
-          focusWire={focusWire}
-        />
+        {/* ONE canvas: expanding swaps classNames inside ProductAssemblyApp.
+            Boundary so a WebGL failure shows a note, not a dead build screen. */}
+        <StageBoundary
+          fallback={
+            <div
+              className="flex items-center justify-center text-center rounded-lg border border-border-subtle bg-surface-overlay px-4"
+              style={{ height: stageHeight }}
+            >
+              <p className="text-xs text-text-secondary">
+                3D view unavailable here — the wiring and steps below still have you covered.
+              </p>
+            </div>
+          }
+        >
+          <StageApp
+            plan={plan}
+            stepIndex={stepIndex}
+            step={stepProps}
+            height={stageHeight}
+            expandable={false}
+            variant="step"
+            expanded={expanded}
+            onExpandedChange={setExpanded}
+            focusWire={focusWire}
+          />
+        </StageBoundary>
         {expanded && (
           <button
             type="button"

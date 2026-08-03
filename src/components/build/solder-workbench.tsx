@@ -21,6 +21,8 @@ import {
 import { PremiumPadMap } from "./premium-pad-map";
 import { LiveSolderCamera } from "./part-scan/live-solder-camera";
 import type { GuidedActionState } from "./guided-steps";
+import { svgCircuitDiagram } from "@/lib/step-media/circuit-diagram";
+import { normalizeSvgForHtml } from "@/lib/step-media/svg-util";
 
 export function SolderWorkbench({
   step,
@@ -109,6 +111,20 @@ export function SolderWorkbench({
   const doneCount = useMemo(
     () => micro.filter((m) => checked.has(m.id)).length,
     [micro, checked]
+  );
+
+  // Whole-circuit diagram: the current wire is spotlit, soldered wires go solid,
+  // pending wires stay faint — so the beginner always sees the big picture and
+  // watches the circuit fill in as they go. Same netlist truth as the pad map.
+  const circuitSvg = useMemo(
+    () =>
+      normalizeSvgForHtml(
+        svgCircuitDiagram(plan, {
+          highlightWireIds: cur ? [cur.id] : [],
+          doneWireIds: Array.from(checked),
+        })
+      ),
+    [plan, cur, checked]
   );
 
   if (!micro.length || !cur) {
@@ -262,6 +278,18 @@ export function SolderWorkbench({
       {/* Hero pad map */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
+          {/* Whole-circuit diagram — the big picture; the glowing wire is the
+              current one, soldered wires go solid, the rest stay faint. */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-console-text-muted mb-2 px-0.5">
+              Your whole circuit — the glowing wire is this one
+            </p>
+            <div
+              className="rounded-xl border border-console-border overflow-hidden"
+              dangerouslySetInnerHTML={{ __html: circuitSvg }}
+            />
+          </div>
+
           <PremiumPadMap micro={cur} />
 
           {/* Verify strip — single row, no accordion spam */}
@@ -303,6 +331,52 @@ export function SolderWorkbench({
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Connection table — glanceable from → to → color; tap any row to jump */}
+          <div className="rounded-xl border border-console-border bg-console-surface overflow-hidden">
+            <div className="px-4 py-2 border-b border-console-border flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-console-text-muted">
+                All connections
+              </p>
+              <p className="text-[10px] text-console-text-muted">
+                {doneCount}/{micro.length} soldered
+              </p>
+            </div>
+            <ul className="divide-y divide-console-border/60">
+              {micro.map((m, i) => {
+                const mdone = checked.has(m.id);
+                const active = i === current;
+                return (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => setCurrent(i)}
+                      aria-current={active ? "true" : undefined}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left cursor-pointer transition ${
+                        active ? "bg-console-accent/10" : "hover:bg-white/5"
+                      }`}
+                    >
+                      <span
+                        className="w-3 h-3 rounded-full shrink-0 border border-white/20"
+                        style={{ background: m.colorHex }}
+                        aria-hidden
+                      />
+                      <span className="text-xs text-console-text min-w-0 flex-1 truncate">
+                        {m.fromLabel} <span className="font-mono text-console-accent">{m.fromPin}</span>
+                        <span className="text-console-text-muted mx-1.5">→</span>
+                        {m.toLabel} <span className="font-mono text-console-accent">{m.toPin}</span>
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold shrink-0 ${mdone ? "text-success" : "text-console-text-muted"}`}
+                      >
+                        {mdone ? "✓ done" : `#${i + 1}`}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
 
           {/* Prev / next wire */}

@@ -3,9 +3,9 @@
 /**
  * Pad map — IBOM language: highlight the pad, do NOT draw a cartoon jumper.
  *
- * Incident (2026-07-30): the mid-canvas "wire" (bezier + black stroke) read as
- * random trash, especially on GND (black on black). Removed entirely.
- * Connection is stated once as type + color swatch between the two faces.
+ * SEV2 (2026-07-30 → reopened): any mid-canvas connector (bezier, pill, dark
+ * chip) reads as a "random black wire." Connection is stated only in the
+ * figcaption swatch + glowing pads on each board. Empty air between boards.
  */
 
 import { useId, useMemo, type ReactNode } from "react";
@@ -31,12 +31,35 @@ function short(s: string, n: number) {
   return t.length <= n ? t : t.slice(0, n - 1) + "…";
 }
 
-/** Brighten dark wire colors for callout chips so GND never looks like a hole. */
-function chipFill(hex: string): string {
+/** True when hex is near-black (GND / black jumper). */
+function isNearBlack(hex: string): boolean {
   const h = (hex || "").replace("#", "").toLowerCase();
-  if (h === "1e293b" || h === "000000" || h === "0f172a" || h === "111827") {
-    return "#475569"; // slate — still reads as "black wire" without vanishing
+  if (h === "1e293b" || h === "000000" || h === "0f172a" || h === "111827" || h === "000") {
+    return true;
   }
+  if (h.length >= 6) {
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    // Very dark RGB — treat as black wire for UI accents
+    return r < 50 && g < 55 && b < 70;
+  }
+  return false;
+}
+
+/**
+ * UI accent for pad glow / callouts.
+ * Never use near-black fills on the canvas — they read as a stray wire/blob.
+ * Real wire color stays in the figcaption swatch only.
+ */
+function chipFill(hex: string): string {
+  if (isNearBlack(hex)) return "#94a3b8"; // slate-400 — "black class", not a black stick
+  return hex || "#22d3ee";
+}
+
+/** Swatch in the caption may show true black (with light border). */
+function swatchFill(hex: string): string {
+  if (isNearBlack(hex)) return "#1e293b";
   return hex || "#22d3ee";
 }
 
@@ -284,11 +307,13 @@ export function PremiumPadMap({
   const uid = useId();
   const color = micro.colorHex || "#22d3ee";
   const accent = chipFill(color);
+  const swatch = swatchFill(color);
   const W = 640;
   const H = 380;
-  const boardW = 268;
+  const boardW = 278;
   const boardH = 300;
-  const gap = 36;
+  // Wide clean gap — no mid-canvas artifact to read as a wire
+  const gap = 48;
   const leftX = (W - boardW * 2 - gap) / 2;
   const rightX = leftX + boardW + gap;
   const boardY = 36;
@@ -305,17 +330,18 @@ export function PremiumPadMap({
             Find these two pads
           </p>
           <p className="text-xs text-slate-400 truncate">
-            No cartoon jumper — solder the glowing silkscreen on each board
+            Zoom in — find these two pads on your real boards (the wire is drawn in the circuit above)
           </p>
         </div>
         <div
           className="flex items-center gap-2 shrink-0 rounded-full border border-white/15 pl-2 pr-3 py-1.5"
-          style={{ background: `${accent}22` }}
+          style={{ background: isNearBlack(color) ? "rgba(148,163,184,0.15)" : `${accent}22` }}
         >
           <span
-            className="w-3.5 h-3.5 rounded-full border border-white/40 shrink-0"
-            style={{ background: accent }}
+            className="w-3.5 h-3.5 rounded-full border-2 border-white/50 shrink-0 shadow-sm"
+            style={{ background: swatch }}
             aria-hidden
+            title={micro.colorName || "wire"}
           />
           <span className="text-sm font-mono font-bold text-white">
             {micro.fromPin}
@@ -366,29 +392,7 @@ export function PremiumPadMap({
             w={boardW}
             h={boardH}
           />
-
-          {/* Center connection chip only — never a path/stroke "wire" */}
-          <rect
-            x={W / 2 - 18}
-            y={boardY + boardH / 2 - 28}
-            width={36}
-            height={56}
-            rx={10}
-            fill="#11161f"
-            stroke="rgba(255,255,255,0.12)"
-          />
-          <circle cx={W / 2} cy={boardY + boardH / 2 - 10} r={6} fill={accent} stroke="rgba(255,255,255,0.35)" strokeWidth={1.5} />
-          <text
-            x={W / 2}
-            y={boardY + boardH / 2 + 12}
-            textAnchor="middle"
-            fontFamily="system-ui,sans-serif"
-            fontSize={10}
-            fontWeight={800}
-            fill="#e2e8f0"
-          >
-            →
-          </text>
+          {/* Intentionally empty mid-canvas — no pill, path, or chip */}
         </svg>
       </div>
     </figure>

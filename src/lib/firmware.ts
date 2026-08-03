@@ -458,50 +458,134 @@ function sketchFullApp(
   const hasSht = hasPart(plan.parts || [], (p) => p.catalogId === "sht31d" || /sht31/i.test(p.name));
   const hasWifi = board.family === "esp32c3" || board.family === "esp32";
 
+  // Online weather + rotating custom messages only make sense with a screen and
+  // (for weather) an internet-capable board. Each section degrades cleanly.
+  const hasWeather = hasWifi && hasOled;
+  const hasMessages = hasOled;
+  const title = plan.title.replace(/"/g, "'");
+
   const libs = ["Wire"];
   if (hasOled) libs.push("Adafruit SSD1306", "Adafruit GFX");
   if (hasSht) libs.push("Adafruit SHT31");
 
-  const code = `// Forge full sketch for: ${plan.title.replace(/"/g, "'")}
+  // Built from parts so every BOM combination stays valid C++.
+  const parts: string[] = [];
+
+  parts.push(`// Forge full app for: ${title}
 // Board: ${board.label}
-// Pins match plan wiring — change wiring in Forge, not random pin numbers here.
+//
+// This is YOUR code — edit the "EDIT HERE" block below freely.
+// Pin numbers match your Forge wiring plan; change wiring in Forge, not here.
 //
 // SETUP
-// 1. Install ESP32 board support (if ESP) + libraries listed below
-// 2. Set WIFI_SSID / WIFI_PASSWORD
-// 3. Select board: ${board.arduinoBoard}
-// 4. Upload, open Serial Monitor 115200
+//  1. Install ESP32 board support + the libraries listed at the bottom
+//  2. Fill in the EDIT HERE block (Wi-Fi, your city, your messages)
+//  3. Select board: ${board.arduinoBoard}, upload, open Serial Monitor at 115200
+`);
 
-${hasWifi ? `#include <WiFi.h>
-#include <time.h>
-` : ""}#include <Wire.h>
-${hasOled ? `#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-` : ""}${hasSht ? `#include "Adafruit_SHT31.h"
-` : ""}
-#define PIN_SDA ${sda}
-#define PIN_SCL ${scl}
-${touch != null ? `#define PIN_TOUCH ${touch}
-` : ""}${hasOled ? `#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_ADDR 0x3C
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-` : ""}${hasSht ? `Adafruit_SHT31 sht = Adafruit_SHT31();
-` : ""}
-${hasWifi ? `// --- put your network here ---
-const char* WIFI_SSID = "YOUR_WIFI_NAME";
-const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
-` : ""}${touch != null ? `bool displayOn = true;
-bool lastTouch = false;
-` : ""}
-void setup() {
+  parts.push(
+    (hasWifi ? `#include <WiFi.h>\n#include <time.h>\n` : "") +
+      (hasWeather ? `#include <HTTPClient.h>\n` : "") +
+      `#include <Wire.h>\n` +
+      (hasOled ? `#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n` : "") +
+      (hasSht ? `#include "Adafruit_SHT31.h"\n` : "")
+  );
+
+  const cfg: string[] = ["// ================= EDIT HERE — make it yours ================="];
+  if (hasWifi)
+    cfg.push(`const char* WIFI_SSID     = "YOUR_WIFI_NAME";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";`);
+  if (hasWeather)
+    cfg.push(`// Your city's coordinates — search "<your city> latitude longitude":
+const float LATITUDE  = 40.7128;    // example: New York City
+const float LONGITUDE = -74.0060;`);
+  if (hasWifi)
+    cfg.push(`// Timezone: hours from GMT (EST -5, CST -6, MST -7, PST -8, UK 0, CET +1):
+const int GMT_OFFSET_HOURS      = -5;
+const int DAYLIGHT_OFFSET_HOURS = 1;   // set to 0 when daylight saving is off`);
+  if (hasMessages)
+    cfg.push(`// Your messages — the screen rotates through these. Add as many as you like:
+const char* MESSAGES[] = {
+  "Hi :)",
+  "Thinking of you",
+  "Have a good day",
+};
+const int MESSAGE_COUNT = sizeof(MESSAGES) / sizeof(MESSAGES[0]);`);
+  cfg.push("// =============================================================\n");
+  parts.push(cfg.join("\n"));
+
+  parts.push(
+    `#define PIN_SDA ${sda}\n#define PIN_SCL ${scl}\n` +
+      (touch != null ? `#define PIN_TOUCH ${touch}\n` : "") +
+      (hasOled
+        ? `#define SCREEN_WIDTH 128\n#define SCREEN_HEIGHT 64\n#define OLED_ADDR 0x3C\nAdafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);\n`
+        : "") +
+      (hasSht ? `Adafruit_SHT31 sht = Adafruit_SHT31();\n` : "") +
+      (touch != null ? `bool displayOn = true;\nbool lastTouch = false;\n` : "") +
+      (hasWeather ? `float g_outTemp = NAN;\nString g_outText = "--";\nunsigned long g_lastWeather = 0;\n` : "")
+  );
+
+  if (hasWeather) {
+    parts.push(`// Map Open-Meteo WMO weather codes to a short label.
+String weatherText(int code) {
+  if (code == 0) return "Clear";
+  if (code <= 3) return "Cloudy";
+  if (code == 45 || code == 48) return "Fog";
+  if (code >= 51 && code <= 67) return "Rain";
+  if (code >= 71 && code <= 77) return "Snow";
+  if (code >= 80 && code <= 82) return "Showers";
+  if (code >= 95) return "Storm";
+  return "--";
+}
+
+// Read the numeric value for a JSON key, skipping the units section (whose
+// value is a string, not a number) so we get the real reading.
+float jsonNumber(String& b, const char* key) {
+  int i = 0;
+  while ((i = b.indexOf(key, i)) >= 0) {
+    int c = b.indexOf(':', i);
+    if (c < 0) return NAN;
+    int j = c + 1;
+    while (j < (int)b.length() && b[j] == ' ') j++;
+    char ch = b[j];
+    if ((ch >= '0' && ch <= '9') || ch == '-') return b.substring(j).toFloat();
+    i = c + 1;
+  }
+  return NAN;
+}
+
+// Fetch current outdoor conditions from Open-Meteo (free, no API key needed).
+void fetchWeather() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  HTTPClient http;
+  String url = "http://api.open-meteo.com/v1/forecast?latitude=" + String(LATITUDE, 4) +
+               "&longitude=" + String(LONGITUDE, 4) +
+               "&current=temperature_2m,weather_code&timezone=auto";
+  http.begin(url);
+  int code = http.GET();
+  if (code == 200) {
+    String body = http.getString();
+    float tp = jsonNumber(body, "temperature_2m");
+    float wc = jsonNumber(body, "weather_code");
+    if (!isnan(tp)) g_outTemp = tp;
+    if (!isnan(wc)) g_outText = weatherText((int)wc);
+  }
+  http.end();
+}
+`);
+  }
+
+  parts.push(
+    `void setup() {
   Serial.begin(115200);
   delay(500);
-  Serial.println("Forge app: ${plan.title.replace(/"/g, "'")}");
+  Serial.println("Forge app: ${title}");
   Wire.begin(PIN_SDA, PIN_SCL);
-${touch != null ? `  pinMode(PIN_TOUCH, INPUT);
-` : ""}${hasOled ? `  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-    Serial.println("OLED missing");
+` +
+      (touch != null ? `  pinMode(PIN_TOUCH, INPUT);\n` : "") +
+      (hasOled
+        ? `  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
+    Serial.println("OLED missing — check 0x3C vs 0x3D and wiring");
   } else {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
@@ -510,61 +594,91 @@ ${touch != null ? `  pinMode(PIN_TOUCH, INPUT);
     display.println("Forge boot...");
     display.display();
   }
-` : ""}${hasSht ? `  if (!sht.begin(0x44)) Serial.println("SHT31 missing");
-` : ""}${hasWifi ? `  WiFi.mode(WIFI_STA);
+`
+        : "") +
+      (hasSht ? `  if (!sht.begin(0x44)) Serial.println("SHT3x missing at 0x44");\n` : "") +
+      (hasWifi
+        ? `  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("WiFi");
-  for (int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) {
-    delay(250); Serial.print(".");
-  }
+  for (int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) { delay(250); Serial.print("."); }
   Serial.println(WiFi.status() == WL_CONNECTED ? " OK" : " FAIL");
   if (WiFi.status() == WL_CONNECTED) {
-    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-  }
-` : ""}}
+    configTime(GMT_OFFSET_HOURS * 3600, DAYLIGHT_OFFSET_HOURS * 3600, "pool.ntp.org", "time.nist.gov");
+${hasWeather ? `    fetchWeather();\n    g_lastWeather = millis();\n` : ""}  }
+`
+        : "") +
+      `}\n`
+  );
 
-void loop() {
-${touch != null ? `  bool touchNow = digitalRead(PIN_TOUCH) == HIGH;
+  const loopBody: string[] = [];
+  if (touch != null)
+    loopBody.push(`  bool touchNow = digitalRead(PIN_TOUCH) == HIGH;
   if (touchNow && !lastTouch) displayOn = !displayOn;
-  lastTouch = touchNow;
-` : ""}${hasSht ? `  float t = sht.readTemperature();
-  float h = sht.readHumidity();
-` : ""}${hasWifi ? `  struct tm timeinfo;
-  bool haveTime = getLocalTime(&timeinfo, 50);
-` : ""}${hasOled ? `  if (!displayOn) {
-    display.clearDisplay();
-    display.display();
-    delay(100);
-    return;
-  }
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextSize(1);
-  display.println("${plan.title.slice(0, 20).replace(/"/g, "")}");
-${hasWifi ? `  if (haveTime) {
+  lastTouch = touchNow;`);
+  if (hasSht)
+    loopBody.push(`  float t = sht.readTemperature();
+  float h = sht.readHumidity();`);
+  if (hasWifi)
+    loopBody.push(`  struct tm timeinfo;
+  bool haveTime = getLocalTime(&timeinfo, 50);`);
+  if (hasWeather)
+    loopBody.push(`  if (millis() - g_lastWeather > 900000UL) { fetchWeather(); g_lastWeather = millis(); }`);
+
+  if (hasOled) {
+    const oled: string[] = [];
+    if (touch != null)
+      oled.push(`  if (!displayOn) { display.clearDisplay(); display.display(); delay(100); return; }`);
+    oled.push(`  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);`);
+    if (hasMessages)
+      oled.push(`  // Every 20s, flash one of your messages full-screen for ~5s.
+  unsigned long nowMs = millis();
+  if (MESSAGE_COUNT > 0 && (nowMs % 20000UL) < 5000UL) {
+    int mi = (nowMs / 20000UL) % MESSAGE_COUNT;
     display.setTextSize(2);
-    char buf[16];
-    strftime(buf, sizeof(buf), "%H:%M:%S", &timeinfo);
-    display.println(buf);
-    display.setTextSize(1);
+    display.setCursor(0, 20);
+    display.println(MESSAGES[mi]);
+    display.display();
+    delay(200);
+    return;
+  }`);
+    if (hasWifi)
+      oled.push(`  if (haveTime) {
+    char buf[8]; strftime(buf, sizeof(buf), "%H:%M", &timeinfo);
+    display.setTextSize(2); display.setCursor(0, 0); display.println(buf);
+    char dbuf[20]; strftime(dbuf, sizeof(dbuf), "%a %b %d", &timeinfo);
+    display.setTextSize(1); display.setCursor(0, 20); display.println(dbuf);
   } else {
+    display.setTextSize(1); display.setCursor(0, 0);
     display.println(WiFi.status() == WL_CONNECTED ? "Syncing time..." : "WiFi down");
+  }`);
+    oled.push(`  display.setTextSize(1);`);
+    if (hasSht)
+      oled.push(`  display.setCursor(0, 36);
+  display.print("In  "); display.print(t, 1); display.print("C  "); display.print(h, 0); display.println("%");`);
+    if (hasWeather)
+      oled.push(`  display.setCursor(0, 48);
+  if (!isnan(g_outTemp)) { display.print("Out "); display.print(g_outTemp, 1); display.print("C  "); display.println(g_outText); }
+  else { display.println("Out --"); }`);
+    oled.push(`  display.display();`);
+    loopBody.push(oled.join("\n"));
+  } else if (hasSht) {
+    loopBody.push(`  Serial.print("T="); Serial.print(t); Serial.print(" RH="); Serial.println(h);`);
+  } else {
+    loopBody.push(`  Serial.println("running");`);
   }
-` : ""}${hasSht ? `  display.print("T "); display.print(t, 1); display.println(" C");
-  display.print("RH "); display.print(h, 0); display.println(" %");
-` : ""}  display.display();
-` : `  // No OLED in BOM — print to serial
-${hasSht ? `  Serial.print("T="); Serial.print(t); Serial.print(" RH="); Serial.println(h);
-` : `  Serial.println("running");
-`}`}
-  delay(200);
-}
-`;
+  loopBody.push(`  delay(200);`);
+
+  parts.push(`void loop() {\n${loopBody.join("\n")}\n}\n`);
+
+  const code = parts.join("\n");
 
   return {
     id: "full_app",
     name: "5 · Full app sketch",
-    description: "Integrated firmware matching your BOM (Wi-Fi/time/OLED/sensor/touch as present).",
+    description:
+      "Weather clock: Wi-Fi time, indoor temp/humidity, online forecast (Open-Meteo), and your own rotating messages. Adapts to your BOM.",
     filename: "05_full_app/05_full_app.ino",
     phase: "app",
     libraries: libs,

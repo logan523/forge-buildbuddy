@@ -74,7 +74,9 @@ export function StepMediaExtras({
   stepNumber: number;
   media: StepMediaResult;
 }) {
-  const [techniqueOpen, setTechniqueOpen] = useState(false);
+  // Shown by default — a collapsed diagram reads as "no picture" (the exact
+  // "not visual enough" complaint). Still collapsible to reclaim space.
+  const [techniqueOpen, setTechniqueOpen] = useState(true);
   const hasTechnique = media.kind !== "generic_checklist";
 
   return (

@@ -7,6 +7,7 @@ import { getPlan, savePlan, touchPlan } from "@/lib/storage";
 import { applyTrustPipeline } from "@/lib/trust";
 import { BuildSession } from "@/components/build-session";
 import demoPlan from "@/data/sat-line.json";
+import weatherClockPlan from "@/data/solar-weather-clock.json";
 
 function BuildByIdInner() {
   const params = useParams();
@@ -22,6 +23,17 @@ function BuildByIdInner() {
     // Built-in demo id
     if (id === "sat-line-smart-clock" || id === "demo-sat-line") {
       const trusted = applyTrustPipeline(demoPlan as unknown as BuildPlan);
+      savePlan(trusted);
+      touchPlan(trusted.id);
+      setPlan(trusted);
+      return;
+    }
+
+    // Logan's personal build — always load the authored source of truth so
+    // edits to the JSON show up without clearing localStorage. It still opens
+    // at the prep screen (safety + parts) because it isn't flagged as a demo.
+    if (id === "solar-weather-clock") {
+      const trusted = applyTrustPipeline(weatherClockPlan as unknown as BuildPlan);
       savePlan(trusted);
       touchPlan(trusted.id);
       setPlan(trusted);
@@ -101,6 +113,7 @@ function BuildByIdInner() {
       plan={plan}
       startAtPrep={!isDemo && initialStepIndex == null}
       initialStepIndex={initialStepIndex}
+      jumpToWiring={isDemo}
     />
   );
 }

@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useEffect } from "react";
 import type { BuildPlan } from "@/lib/types";
 import { buildProductVisual, type ProductVisual } from "@/lib/product-visual";
 import { StageApp } from "@/components/stage/stage-app";
+import { StageBoundary } from "@/components/stage/stage-boundary";
 
 export function useProductVisual(plan: BuildPlan): ProductVisual {
   return useMemo(() => buildProductVisual(plan), [plan]);
@@ -71,19 +72,37 @@ export function ProductHero({
         </div>
       </div>
 
-      {/* Full-bleed CAD stage — wider than page padding */}
+      {/* Full-bleed CAD stage — wider than page padding. Wrapped so a WebGL /
+          postprocessing failure degrades to a note instead of taking down the
+          whole build (the parts, wiring and steps below need no 3D). */}
       <div className={compact ? "px-2 pb-2" : "px-0 pb-0 sm:-mx-1"}>
-        <StageApp
-          plan={livePlan}
-          stepIndex={stepIndex}
-          height={compact ? 560 : 920}
-          expandable
-          variant="step"
-          onPlanPatch={(patch) => {
-            if (patch.beautyMesh) onBeauty(patch.beautyMesh);
-            else onPlanPatch?.(patch);
-          }}
-        />
+        <StageBoundary
+          fallback={
+            <div
+              className="flex items-center justify-center text-center px-6"
+              style={{ minHeight: compact ? 220 : 300 }}
+            >
+              <div>
+                <p className="text-sm font-medium text-text">3D preview isn’t available here</p>
+                <p className="mt-1 text-xs text-text-secondary">
+                  No problem — your parts, wiring, and steps below have everything you need to build it.
+                </p>
+              </div>
+            </div>
+          }
+        >
+          <StageApp
+            plan={livePlan}
+            stepIndex={stepIndex}
+            height={compact ? 560 : 920}
+            expandable
+            variant="step"
+            onPlanPatch={(patch) => {
+              if (patch.beautyMesh) onBeauty(patch.beautyMesh);
+              else onPlanPatch?.(patch);
+            }}
+          />
+        </StageBoundary>
       </div>
     </div>
   );

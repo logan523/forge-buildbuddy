@@ -1,0 +1,597 @@
+{
+  "id": "solar-weather-clock",
+  "title": "Solar Weather Clock",
+  "description": "A Wi-Fi weather clock built around an ESP32-C3 Super Mini and a 0.96\" OLED. It shows the time (auto-synced over Wi-Fi), the room's temperature and humidity from an SHT3x sensor, the outdoor forecast pulled from a free weather service, and your own custom messages. Runs on a rechargeable LiPo, solar-charged, with a battery gauge and a slide switch. Designed as a first-ever soldering project. The I2C bus uses the onboard pull-ups on the OLED and sensor breakouts.",
+  "formSpec": {
+    "templateId": "sat_clock",
+    "params": {
+      "heightScale": 1.05,
+      "wingSpan": 1.1,
+      "baseScale": 1
+    },
+    "materials": {
+      "base": "bamboo",
+      "frame": "brass",
+      "face": "oled"
+    },
+    "layers": {},
+    "productCaption": "Solar-powered Wi-Fi weather clock on a brass frame.",
+    "source": "demo_golden",
+    "grade": "high"
+  },
+  "difficulty": "beginner",
+  "estimatedTime": "A weekend (4-6 hours)",
+  "estimatedCost": "$25-40",
+  "buildModes": [
+    "quick_test",
+    "full_build"
+  ],
+  "activeMode": "full_build",
+  "hazardTags": [
+    "LIPO",
+    "ESD_SENSITIVE"
+  ],
+  "hazardAssessment": [
+    {
+      "category": "chemical",
+      "severity": "HIGH",
+      "description": "Lithium polymer battery present. Risk of fire if shorted, punctured, over-discharged, or charged without protection.",
+      "mitigation": "Charge only through the HW-373 (which has DW01 protection) or the solar charger. Never short the battery leads. Keep the soldering iron away from the pouch. Connect the battery LAST."
+    },
+    {
+      "category": "electrical",
+      "severity": "MEDIUM",
+      "description": "Powering the ESP32-C3 through the wrong pin can instantly destroy it.",
+      "mitigation": "Feed battery power into the pin labeled 5V (it goes through the onboard regulator). NEVER feed it into 3V3 — a full 4.2V battery on 3V3 kills the chip."
+    },
+    {
+      "category": "electrical",
+      "severity": "MEDIUM",
+      "description": "First-time soldering. Risk of burns and solder fumes.",
+      "mitigation": "Use a proper iron stand, work in a ventilated area, and keep the iron in its stand when not in use."
+    }
+  ],
+  "uncertaintyFlags": [],
+  "conditionalBranches": [],
+  "generatedAt": "2026-08-02T12:00:00Z",
+  "modelUsed": "hand-authored-verified",
+  "parts": [
+    {
+      "id": "esp32c3",
+      "name": "ESP32-C3 Super Mini",
+      "specification": "ESP32-C3 development board with Wi-Fi, USB-C, 3.3V logic",
+      "quantity": 1,
+      "notes": "Your board: TENSTAR ROBOT ESP32-C3 Super Mini. The brain of the clock. Power it through the pin labeled 5V (never 3V3). You have a second ESP32-C3 as a spare.",
+      "catalogId": "esp32-c3"
+    },
+    {
+      "id": "oled",
+      "name": "0.96 inch OLED SSD1306 I2C 128x64",
+      "specification": "0.96\" SSD1306 monochrome OLED, I2C, 4-pin (VCC/GND/SCL/SDA), address 0x3C",
+      "quantity": 1,
+      "notes": "Your main screen. If a 4-pin male header is attached, remove it in Step 3. (The little 0.91\" 128x32 OLED you have is a spare.)",
+      "catalogId": "ssd1306-i2c"
+    },
+    {
+      "id": "sht3x",
+      "name": "SHT3x Temperature & Humidity Sensor",
+      "specification": "SHT3x (SHT30/31) I2C temperature + humidity sensor, address 0x44",
+      "quantity": 1,
+      "notes": "Reads the room's temperature and humidity. Shares the I2C bus with the OLED at a different address (0x44 vs 0x3C).",
+      "catalogId": "sht31d"
+    },
+    {
+      "id": "charger",
+      "name": "TP4056 USB-C Charger with Protection (HW-373)",
+      "specification": "TP4056 1S Li-ion charger with DW01 protection, USB-C, pads IN+/IN-/B+/B-/OUT+/OUT-",
+      "quantity": 1,
+      "notes": "Your board: HW-373 v1.2.1. Does three jobs: USB-C charging, battery protection, and the protected OUT that powers the electronics. The load hangs off OUT+/OUT- (never the raw B+/B-).",
+      "catalogId": "tp4056-protected"
+    },
+    {
+      "id": "solar-charger",
+      "name": "Solar Charging Controller (eletechsup SDBK03TA)",
+      "specification": "1S 4.2V solar charge controller, input 4.4-6V, pads S+/S- (solar in) and B+/B- (battery out)",
+      "quantity": 1,
+      "notes": "Your board: eletechsup SDBK03TA (4V2). Harvests the sun better than the HW-373 does. Solar panels go to its S pads; its B pads go to the battery. You have a second one as a spare.",
+      "catalogId": "solar-charger"
+    },
+    {
+      "id": "battery",
+      "name": "1S LiPo Battery 3.7V (602535)",
+      "specification": "1S 3.7V LiPo pouch cell, ~500mAh, 6.0x25x35mm, 2-wire (red +, black -)",
+      "quantity": 1,
+      "notes": "Your battery: qimoo 602535. Verify polarity with a multimeter before connecting. Connect it LAST, after every other joint is inspected.",
+      "catalogId": "battery-lipo-1s"
+    },
+    {
+      "id": "switch",
+      "name": "SPDT Slide Switch (SS12F44)",
+      "specification": "3-pin SPDT slide switch, center pin = common (COM)",
+      "quantity": 1,
+      "notes": "Your switch: chanzon SS12F44. Cuts power to the electronics. Use the CENTER pin plus one outer pin. Turning it OFF also lets the battery charge cleanly.",
+      "catalogId": "spdt-slide-switch"
+    },
+    {
+      "id": "solar-panel",
+      "name": "Mini Solar Panel 5V",
+      "specification": "Small ~5V hobby solar panel",
+      "quantity": 2,
+      "notes": "Measure each panel's voltage in the sun first (Step 4). If each is ~2-3V, wire the two in SERIES to reach ~5-6V. If each is already ~5-6V, do NOT series them (over 8V damages the solar charger) — use one, or wire them in parallel.",
+      "catalogId": "solar-panel-5v"
+    },
+    {
+      "id": "capacity-meter",
+      "name": "1S Battery Level Indicator (capacity display)",
+      "specification": "1S 3.7V lithium battery capacity/level indicator module, 2-wire",
+      "quantity": 1,
+      "notes": "Your 'ternary lithium capacity display'. Shows battery percentage. Wire it AFTER the switch so it doesn't drain the battery when the clock is off.",
+      "catalogId": "battery-level-led"
+    },
+    {
+      "id": "brass-wire",
+      "name": "1mm Brass Wire",
+      "specification": "1mm solid brass wire for the frame",
+      "quantity": 1,
+      "notes": "The skeleton of the clock. Step 2 has the cut list.",
+      "catalogId": "brass-wire-1mm"
+    },
+    {
+      "id": "hookup-wire",
+      "name": "Jumper / Hookup Wire",
+      "specification": "Thin stranded hookup wire, ideally red / black / blue / yellow",
+      "quantity": 1,
+      "notes": "For the electrical connections. Color-code: red = power, black = ground, blue = SDA, yellow = SCL.",
+      "catalogId": "jumper-wires"
+    }
+  ],
+  "tools": [
+    { "name": "Soldering iron and solder", "required": true },
+    { "name": "Wire cutters / flush cutters", "required": true },
+    { "name": "Wire strippers", "required": true },
+    { "name": "Needle-nose pliers", "required": true },
+    { "name": "Multimeter", "required": true },
+    { "name": "Helping hands or a small vise", "required": false },
+    { "name": "USB-C cable (data-capable) for programming and backup charging", "required": true },
+    { "name": "Computer with Arduino IDE", "required": true },
+    { "name": "Heat-shrink tubing or electrical tape", "required": true },
+    { "name": "Safety glasses", "required": true }
+  ],
+  "steps": [
+    {
+      "stepNumber": 1,
+      "title": "Safety first, then lay out your parts",
+      "description": "This build uses a lithium battery, which stores a lot of energy. Read the three safety rules before you touch anything. RULE 1: Never let metal touch both battery leads at once — a short can start a fire. RULE 2: You will power the ESP32-C3 through the pad labeled 5V, NEVER the one labeled 3V3 (a full battery is 4.2V, and anything over 3.6V on 3V3 instantly kills the chip). RULE 3: The battery goes on LAST, after every other wire is done and checked. Now lay all your modules on the bench and match each one to the parts list so you know what everything is.",
+      "quickSummary": "Learn the 3 safety rules (no shorts, 5V-not-3V3, battery last) and identify every module.",
+      "whyThisWorks": "Knowing the hazards up front is what separates a fun first build from a ruined board or a burn. Identifying parts now means you never solder the wrong thing later.",
+      "goal": "Understand the safety rules and know which module is which.",
+      "youNeed": [
+        "All your modules",
+        "This parts list",
+        "Safety glasses",
+        "A clear, non-flammable work surface"
+      ],
+      "actions": [
+        { "n": 1, "text": "Read the three safety rules above out loud once. They matter." },
+        { "n": 2, "text": "Lay every module on the bench and match it to a part in the list." },
+        { "n": 3, "text": "Set your spares aside: the 2nd ESP32-C3, the 2nd solar charger, and the 0.91\" OLED.", "caution": "You only need ONE of each for this clock." },
+        { "n": 4, "text": "Keep the battery in its own corner, away from tools, until Step 8." }
+      ],
+      "doneWhen": "You can point to each module and name it, and the battery is set aside somewhere safe.",
+      "safetyNotes": [
+        "Lithium battery: never short the leads, keep it away from heat, and leave it for last.",
+        "Feed battery power to the 5V pad only — never 3V3."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 2,
+      "title": "Cut and shape the brass frame",
+      "description": "The 1mm brass wire is the skeleton that holds everything — and it's purely structural, NOT part of the circuit, so you can join the corners however is easiest: a dab of epoxy or hot glue, a few wraps of thin wire, or solder (solder is the fiddliest — brass is a heat-hog). Size is flexible. The only hard rule is the front opening clears your ~27mm OLED with a little margin, so anywhere from about 45mm wide x 55mm tall up to a roomier 60 x 80mm works. A compact, tidy target is ~45mm wide x 60mm tall; a roomier 60 x 80mm is more forgiving to assemble. Either way: make a rectangle from two equal tall sides and two equal short pieces, dry-fit your OLED in the opening before you commit the corners, and cut equal pairs by using your first piece as a ruler.",
+      "quickSummary": "Make a brass rectangle sized to your OLED — compact ~45x60mm up to a roomier 60x80mm. Join the corners with glue, a wire-wrap, or solder; it's structural, not electrical.",
+      "whyThisWorks": "A rigid frame keeps the modules aligned so wires don't pull loose and the clock stands level. Dry-fitting first stops you wasting wire.",
+      "goal": "Build a rectangular brass frame sized to hold your electronics.",
+      "youNeed": [
+        "1mm brass wire",
+        "Flush cutters",
+        "Needle-nose pliers (or a hard edge to bend around)",
+        "Ruler",
+        "Your OLED (for dry-fitting)"
+      ],
+      "actions": [
+        { "n": 1, "text": "Decide: bend one 280mm piece, or cut 2x80mm + 2x60mm straight pieces." },
+        { "n": 2, "text": "Cut ONE 80mm side first and hold it against your OLED + board stack to check the size." },
+        { "n": 3, "text": "Cut or bend the rest to match, using your first piece as a ruler for equal pairs.", "caution": "Wear eye protection — brass offcuts can fly." },
+        { "n": 4, "text": "Form the rectangle. Solder the corner(s); overlap ~5mm and bind with a turn of thin wire for strength." }
+      ],
+      "doneWhen": "You have a closed rectangular brass frame that sits flat and clears your OLED in the opening.",
+      "toolTechnique": {
+        "tool": "Needle-nose pliers (or any hard edge)",
+        "usage": "1mm brass is soft — grip at the mark and bend against the jaw, or bend around a table corner or socket. No special tool required.",
+        "safety": "Wear eye protection when cutting brass wire.",
+        "mistake": "Bending back and forth at one spot work-hardens the brass until it snaps — make each bend once."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Sides come out unequal",
+          "cause": "Measured every piece from scratch instead of matching to the first.",
+          "fix": "Cut one, then use it as a template for its pair."
+        }
+      ],
+      "safetyNotes": [
+        "Eye protection when cutting metal wire."
+      ],
+      "mediaKind": "wire_bend_frame"
+    },
+    {
+      "stepNumber": 3,
+      "title": "Get the OLED ready (you probably don't need to desolder)",
+      "description": "Good news first: you most likely do NOT need to remove anything. Look at the edge of your 0.96\" OLED with the 4 connection points and find which case you're in. CASE A — it has 4 metal pins sticking out (a header): easiest is to push a female jumper wire onto each pin (no soldering the screen at all), or solder a wire straight to each pin. CASE B — it has 4 flat pads with little holes: solder one wire into each hole. Either way, just identify the four labels printed on the board: VCC, GND, SCL, SDA (the order varies board to board — trust your labels). ONLY if you want the flattest possible mount should you desolder the header: heat one pin at a time, pull it while the solder is molten, and clear the holes with braid.",
+      "quickSummary": "Find your OLED's 4 points (pins or pads) and note VCC/GND/SCL/SDA. No desoldering needed unless you want a flush mount.",
+      "whyThisWorks": "I2C needs only power, ground, and two signal wires. You can connect to a header with female jumpers or soldered wires, or to bare pads — removing the header is optional and only for a tidier mount.",
+      "goal": "Know your OLED's four connection points (VCC, GND, SCL, SDA) and how you'll attach wires to them.",
+      "youNeed": [
+        "0.96\" OLED",
+        "Soldering iron (~350C)",
+        "Pliers or tweezers",
+        "Desoldering braid or solder sucker"
+      ],
+      "actions": [
+        { "n": 1, "text": "Look at the 4 connection points: pins sticking out = a header; flat holes = pads." },
+        { "n": 2, "text": "Note the four labels printed on the board: VCC, GND, SCL, SDA (order varies)." },
+        { "n": 3, "text": "Got a header? Easiest is to push a female jumper onto each pin, or solder a wire to each pin." },
+        { "n": 4, "text": "Got bare pads? Solder one wire into each hole." },
+        { "n": 5, "text": "OPTIONAL — only for a flush mount: desolder the header (heat a pin, pull while molten, clear the holes).", "caution": "Heat first, then pull — never yank a cold pin, it rips the pad off." }
+      ],
+      "doneWhen": "You can point to VCC, GND, SCL, SDA on your OLED and you know how you'll attach a wire to each.",
+      "toolTechnique": {
+        "tool": "Soldering iron + desolder braid",
+        "usage": "Press braid onto the joint, heat until the solder wicks up into the braid, then lift iron and braid together.",
+        "safety": "Always use an iron stand and ventilate the fumes.",
+        "mistake": "Prying a header off while the solder is solid tears the copper pad off the board."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Bought the wrong OLED (7-pin SPI)",
+          "cause": "SPI OLEDs look similar but wire and code differently.",
+          "fix": "Use only the 4-pin I2C SSD1306 for this build. Your 0.96\" 128x64 is correct."
+        }
+      ],
+      "safetyNotes": [
+        "Hot iron and molten solder — burn hazard."
+      ],
+      "mediaKind": "oled_desolder"
+    },
+    {
+      "stepNumber": 4,
+      "title": "Measure your panels, battery, and switch",
+      "description": "Three quick measurements now save you from frying parts later. FIRST, measure each solar panel's voltage in bright light with your multimeter on DC volts: if each reads about 2-3V, the two panels will go in SERIES (+ of one to − of the other) to reach ~5-6V; if each already reads ~5-6V, do NOT put them in series (that's over 8V and can damage the solar charger) — use just one, or put them in parallel. SECOND, check the battery's polarity: red should be + and black should be −, but verify with the meter. THIRD, find which way your slide switch is ON: set the meter to continuity mode, touch the two probes to the middle terminal and one outer terminal, and slide until it beeps.",
+      "quickSummary": "Measure panel voltage (decides series vs parallel), confirm battery polarity, and find the switch's ON direction.",
+      "whyThisWorks": "The solar charger accepts about 4.4-6V in. Too little and it won't charge; too much and you damage it. Knowing polarity and switch direction now prevents reversed connections later.",
+      "goal": "Know your panel voltage, your battery polarity, and your switch's ON direction.",
+      "youNeed": [
+        "Multimeter",
+        "Both solar panels",
+        "The LiPo battery",
+        "The slide switch",
+        "A bright light or sunlight"
+      ],
+      "actions": [
+        { "n": 1, "text": "Meter on DC volts. Measure ONE panel in bright light. Note the voltage." },
+        { "n": 2, "text": "Decide: ~2-3V each -> put the two in SERIES. ~5-6V each -> use one or parallel.", "caution": "Never exceed ~8V into the solar charger." },
+        { "n": 3, "text": "Measure the battery: confirm red = +, black = -. Write it down." },
+        { "n": 4, "text": "Meter on continuity. Find which slide direction links the middle terminal to an outer one (it beeps)." }
+      ],
+      "doneWhen": "You've decided series-vs-parallel for the panels, confirmed battery polarity, and marked the switch's ON direction.",
+      "toolTechnique": {
+        "tool": "Multimeter",
+        "usage": "DC volts for the panel/battery (red probe +, black -). Continuity mode (the beeper) for the switch.",
+        "safety": "Don't let the probes short the battery leads together.",
+        "mistake": "Measuring panels indoors — the voltage collapses without real light and misleads you."
+      },
+      "safetyNotes": [
+        "Never short the battery leads with the probes or a tool."
+      ],
+      "mediaKind": "battery_id_poles"
+    },
+    {
+      "stepNumber": 5,
+      "title": "Wire it up — one wire at a time",
+      "description": "This is the heart of the build: about twenty soldered connections. Work through them ONE AT A TIME in the guided order below — it goes safest-first (grounds, then power, then the I2C signal wires). Use red wire for power, black for ground, blue for SDA, yellow for SCL. After every few joints, gently tug each wire to make sure it's solid, and check nothing bare is touching anything it shouldn't. Two things to keep straight: the electronics get power from the HW-373's OUT pins (through the switch) into the ESP32's 5V pin — never 3V3 — and the load grounds go to the HW-373's OUT- (not B-). Leave the battery disconnected the whole time; it goes on last, in Step 8.",
+      "quickSummary": "Solder ~20 connections one at a time, safest-first. Power to the ESP32 5V pin; load ground from OUT-; OLED + sensor share the I2C bus.",
+      "whyThisWorks": "Doing wires one at a time in a safe order, with a tug-test after each, is how beginners get a first build working without a rat's nest of mistakes. The color code keeps SDA and SCL from getting swapped — the number-one cause of a blank screen.",
+      "goal": "Make every electrical connection correctly and solidly, with nothing shorting.",
+      "youNeed": [
+        "All modules (except the battery)",
+        "Hookup wire (red/black/blue/yellow)",
+        "Soldering iron + solder",
+        "Wire strippers",
+        "Multimeter"
+      ],
+      "actions": [
+        { "n": 1, "text": "Follow the guided wire list below, one connection at a time, in order." },
+        { "n": 2, "text": "Power = red, ground = black, SDA = blue, SCL = yellow." },
+        { "n": 3, "text": "The ESP32 power wire goes to its 5V pin. NEVER 3V3.", "caution": "4.2V on 3V3 destroys the ESP32 instantly." },
+        { "n": 4, "text": "Load grounds go to the HW-373 OUT- pad, not B-." },
+        { "n": 5, "text": "Tug-test every few joints. Insulate anything that could touch a neighbor." }
+      ],
+      "doneWhen": "Every wire in the guided list is soldered and tug-tested, nothing bare is shorting, and the battery is still disconnected.",
+      "toolTechnique": {
+        "tool": "Soldering iron",
+        "usage": "Heat the pad and the wire together for a second, feed solder into the joint (not onto the tip), then remove the solder and the iron. A good joint is shiny and smooth.",
+        "safety": "Iron in the stand whenever it's not in your hand. Ventilate. Safety glasses on.",
+        "mistake": "A dull, blobby 'cold' joint that looks connected but isn't — reflow it if in doubt."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Screen stays blank later",
+          "cause": "SDA and SCL swapped, OLED on 5V instead of 3.3V, or a cold joint.",
+          "fix": "Swap SDA/SCL at one end, confirm OLED VCC is on the 3V3 net, reflow suspect joints, run the I2C scanner."
+        },
+        {
+          "symptom": "Heat or smell at the battery pads",
+          "cause": "A short or reversed polarity on the charge path.",
+          "fix": "Disconnect power immediately and recheck every + and - against the silkscreen."
+        }
+      ],
+      "safetyNotes": [
+        "Battery stays disconnected until Step 8.",
+        "Power to the 5V pin only; load grounds from OUT-."
+      ],
+      "mediaKind": "i2c_wiring"
+    },
+    {
+      "stepNumber": 6,
+      "title": "Get your computer ready and bring the board to life",
+      "description": "Before the full app, prove each piece works with the small test sketches Forge generated (open the Code package). Install the Arduino IDE, add the ESP32 board support URL, and select 'ESP32C3 Dev Module'. Connect the ESP32-C3 with a DATA-capable USB-C cable (not charge-only). Upload in order: (1) Blink — proves your cable, board, and port work; (2) I2C scanner — you should see 0x3C (the OLED) and 0x44 (the sensor); (3) OLED test — text appears on the screen; (4) sensor test — temperature and humidity print in the Serial Monitor at 115200 baud. Do this with the board on USB only — the battery is still disconnected.",
+      "quickSummary": "Install Arduino IDE + ESP32 support, then upload Blink, I2C scanner (see 0x3C + 0x44), OLED test, and sensor test.",
+      "whyThisWorks": "Uploading tiny test sketches in order isolates problems: if Blink works your toolchain is fine; if the scanner finds both addresses your wiring is good. Debugging the whole app at once is far harder.",
+      "goal": "Confirm the board, the screen, and the sensor all work before loading the real app.",
+      "youNeed": [
+        "ESP32-C3 (wired, on USB only)",
+        "Data-capable USB-C cable",
+        "Computer with Arduino IDE",
+        "The Code package from Forge"
+      ],
+      "actions": [
+        { "n": 1, "text": "Install Arduino IDE, add the ESP32 boards URL, and select 'ESP32C3 Dev Module'." },
+        { "n": 2, "text": "Plug in the ESP32-C3. Pick the right port. Upload 01_blink." },
+        { "n": 3, "text": "Upload the I2C scanner. Confirm you see 0x3C and 0x44 in Serial Monitor (115200)." },
+        { "n": 4, "text": "Upload the OLED test (text on screen), then the sensor test (temp/humidity printing)." }
+      ],
+      "doneWhen": "Blink runs, the I2C scanner finds 0x3C and 0x44, the OLED shows text, and the sensor prints readings.",
+      "commonMistakes": [
+        {
+          "symptom": "No port shows up",
+          "cause": "Charge-only cable or missing USB-serial driver.",
+          "fix": "Use a data cable; if needed install the CH340 or CP210x driver for your board."
+        },
+        {
+          "symptom": "Scanner finds nothing",
+          "cause": "SDA/SCL swapped, no shared ground, or OLED/sensor not on 3.3V.",
+          "fix": "Recheck the I2C wiring from Step 5; confirm shared ground and 3V3 power."
+        }
+      ],
+      "mediaKind": "usb_upload"
+    },
+    {
+      "stepNumber": 7,
+      "title": "Load your weather-clock app",
+      "description": "Open the full weather-clock sketch (05_full_app in the Code package). At the top is a clearly-marked CONFIG block — this is the part that's YOURS to edit. Set your Wi-Fi name and password so it can sync the time and fetch weather. Set your LATITUDE and LONGITUDE (look them up for your city) so the forecast is local — it uses a free service with no signup. And fill in the MESSAGES list with your own lines; the screen rotates through them, so this is where you write whatever you want her to see. Upload it, open Serial Monitor at 115200, and watch it connect and start showing the time, indoor temp/humidity, the outdoor forecast, and your messages.",
+      "quickSummary": "Edit the CONFIG block (Wi-Fi, your city's lat/long, your custom MESSAGES), then upload the full app.",
+      "whyThisWorks": "The app is plain, commented Arduino code with one obvious place to change things. Wi-Fi gives it the time and weather with no extra hardware; your messages make it personal.",
+      "goal": "Get the real clock running with your Wi-Fi, your location, and your messages.",
+      "youNeed": [
+        "The full app sketch (05_full_app)",
+        "Your Wi-Fi name and password",
+        "Your city's latitude and longitude",
+        "Your own messages to display"
+      ],
+      "actions": [
+        { "n": 1, "text": "Open 05_full_app and find the CONFIG block at the top." },
+        { "n": 2, "text": "Set WIFI_SSID and WIFI_PASSWORD." },
+        { "n": 3, "text": "Set LATITUDE and LONGITUDE for your city (search 'my city lat long')." },
+        { "n": 4, "text": "Write your own lines in the MESSAGES list." },
+        { "n": 5, "text": "Upload. Open Serial Monitor (115200) and watch it connect and display." }
+      ],
+      "doneWhen": "The OLED shows the correct time, indoor temp/humidity, the outdoor forecast, and cycles through your messages.",
+      "commonMistakes": [
+        {
+          "symptom": "Time stuck or wrong",
+          "cause": "Wi-Fi didn't connect, so it never synced.",
+          "fix": "Double-check SSID/password and that it's a 2.4GHz network; watch the Serial Monitor log."
+        },
+        {
+          "symptom": "No weather",
+          "cause": "Wrong or blank latitude/longitude, or no internet.",
+          "fix": "Recheck your coordinates and that Wi-Fi is connected."
+        }
+      ],
+      "mediaKind": "usb_upload"
+    },
+    {
+      "stepNumber": 8,
+      "title": "Connect the battery and power on",
+      "description": "Everything else is done and tested, so now — and only now — connect the battery. Double-check polarity one more time (red to the + side of the charge path, black to -). With the slide switch OFF, connect the LiPo to the HW-373 B+/B- pads. Then unplug USB (so you're not powering from two sources at once), slide the switch ON, and watch: the clock should light up and run on battery alone, and the capacity meter should show the charge level. Keep an eye and a hand near it for the first 30 seconds — if anything gets warm or smells, switch off immediately and recheck.",
+      "quickSummary": "With the switch OFF, connect the LiPo to the HW-373 B pads; unplug USB; switch ON; confirm it runs on battery.",
+      "whyThisWorks": "Connecting the battery last means every joint has already been checked with no stored energy in the circuit. Running on battery alone proves the whole power path works.",
+      "goal": "Power the finished clock from its battery for the first time, safely.",
+      "youNeed": [
+        "The wired-up clock",
+        "The LiPo battery",
+        "Multimeter (for a last polarity check)"
+      ],
+      "actions": [
+        { "n": 1, "text": "Slide the switch to OFF." },
+        { "n": 2, "text": "Confirm battery polarity one last time, then solder/connect it to the HW-373 B+/B-.", "caution": "Reversed polarity can destroy the charger and the board." },
+        { "n": 3, "text": "Unplug the USB cable so power comes only from the battery." },
+        { "n": 4, "text": "Slide the switch ON. The clock should light up and the capacity meter should read." },
+        { "n": 5, "text": "Watch for 30 seconds. If anything is warm or smells, switch OFF and recheck." }
+      ],
+      "doneWhen": "The clock runs on battery power with the screen and capacity meter working, and nothing gets warm.",
+      "safetyNotes": [
+        "Connect the battery only after every other joint is inspected.",
+        "Never power from USB and battery at the same time — switch the load off before plugging in USB to reprogram.",
+        "First power-up: watch for heat for 30 seconds."
+      ],
+      "mediaKind": "final_assembly"
+    },
+    {
+      "stepNumber": 9,
+      "title": "Mount it on the frame and test the solar charge",
+      "description": "Fix the modules to the brass frame so the OLED faces forward and nothing rattles or shorts against the metal — a dab of hot glue or a wrap of tape works, and insulate any bare joints near the frame. Route the wires tidily. Finally, test solar charging: with the switch OFF (so the load isn't fighting the charge), put the panels in bright light and confirm the solar charger's charging LED comes on. Your clock is done — it runs on the battery, tops up from the sun, and shows the time, weather, and your messages. USB-C is always there as a backup charge if the sun isn't enough.",
+      "quickSummary": "Mount everything on the frame (insulated, nothing loose), then confirm the solar charger's LED lights in bright sun with the switch off.",
+      "whyThisWorks": "A stable, insulated mount prevents intermittent shorts and loose joints. Testing solar with the load off gives the cleanest charge and confirms the panels are feeding the charger.",
+      "goal": "Finish the physical build and confirm solar charging works.",
+      "youNeed": [
+        "The working clock",
+        "The brass frame",
+        "Hot glue or tape",
+        "The solar panels in bright light"
+      ],
+      "actions": [
+        { "n": 1, "text": "Mount the OLED facing forward; fix the boards and battery so nothing is loose." },
+        { "n": 2, "text": "Insulate any bare joints near the brass frame so they can't short." },
+        { "n": 3, "text": "Switch the load OFF and put the panels in bright light." },
+        { "n": 4, "text": "Confirm the solar charger's charge LED lights up." },
+        { "n": 5, "text": "Switch back ON and enjoy — USB-C is your backup charge any time." }
+      ],
+      "doneWhen": "The clock is mounted solidly with no shorts, and the solar charger's LED confirms it charges in the sun.",
+      "commonMistakes": [
+        {
+          "symptom": "Solar never charges",
+          "cause": "Weak light, reversed panel polarity, or panels below the charger's input voltage.",
+          "fix": "Test in direct sun, recheck panel + / - into the S pads, and confirm your series/parallel choice from Step 4."
+        }
+      ],
+      "safetyNotes": [
+        "Insulate joints near the conductive brass frame.",
+        "Don't leave a first-build lithium project charging unattended until you trust it."
+      ],
+      "mediaKind": "final_assembly"
+    }
+  ],
+  "wiringConnections": [
+    { "from": "Solar Panel +", "to": "Solar Charger S+ (IN+)" },
+    { "from": "Solar Panel -", "to": "Solar Charger S- (IN-)" },
+    { "from": "Solar Charger B+ (BAT+)", "to": "Battery +" },
+    { "from": "Solar Charger B- (BAT-)", "to": "Battery -" },
+    { "from": "HW-373 B+", "to": "Battery +" },
+    { "from": "HW-373 B-", "to": "Battery -" },
+    { "from": "HW-373 OUT+", "to": "Slide Switch COM" },
+    { "from": "Slide Switch A", "to": "ESP32-C3 5V", "wireColor": "red" },
+    { "from": "Slide Switch A", "to": "Battery Level Indicator +", "wireColor": "red" },
+    { "from": "HW-373 OUT-", "to": "ESP32-C3 GND", "wireColor": "black" },
+    { "from": "ESP32-C3 GND", "to": "OLED Display GND", "wireColor": "black" },
+    { "from": "ESP32-C3 GND", "to": "SHT3x GND", "wireColor": "black" },
+    { "from": "ESP32-C3 GND", "to": "Battery Level Indicator -", "wireColor": "black" },
+    { "from": "ESP32-C3 3V3", "to": "OLED Display VCC", "wireColor": "red" },
+    { "from": "ESP32-C3 3V3", "to": "SHT3x VCC", "wireColor": "red" },
+    { "from": "ESP32-C3 GPIO4 (SDA)", "to": "OLED Display SDA", "wireColor": "blue" },
+    { "from": "ESP32-C3 GPIO4 (SDA)", "to": "SHT3x SDA", "wireColor": "blue" },
+    { "from": "ESP32-C3 GPIO5 (SCL)", "to": "OLED Display SCL", "wireColor": "yellow" },
+    { "from": "ESP32-C3 GPIO5 (SCL)", "to": "SHT3x SCL", "wireColor": "yellow" }
+  ],
+  "structuredNets": [
+    {
+      "name": "SOLAR+",
+      "netClass": "power",
+      "members": [
+        { "ref": "solar-charger", "pin": "IN+" },
+        { "ref": "solar-panel", "pin": "+" }
+      ]
+    },
+    {
+      "name": "SOLAR-",
+      "netClass": "gnd",
+      "members": [
+        { "ref": "solar-charger", "pin": "IN-" },
+        { "ref": "solar-panel", "pin": "-" }
+      ]
+    },
+    {
+      "name": "BATT+",
+      "netClass": "power",
+      "members": [
+        { "ref": "charger", "pin": "B+" },
+        { "ref": "solar-charger", "pin": "BAT+" },
+        { "ref": "battery", "pin": "+" }
+      ]
+    },
+    {
+      "name": "BATT-",
+      "netClass": "gnd",
+      "members": [
+        { "ref": "charger", "pin": "B-" },
+        { "ref": "solar-charger", "pin": "BAT-" },
+        { "ref": "battery", "pin": "-" }
+      ]
+    },
+    {
+      "name": "OUT+",
+      "netClass": "power",
+      "members": [
+        { "ref": "charger", "pin": "OUT+" },
+        { "ref": "switch", "pin": "COM" }
+      ]
+    },
+    {
+      "name": "V+",
+      "netClass": "power",
+      "members": [
+        { "ref": "switch", "pin": "A" },
+        { "ref": "esp32c3", "pin": "5V" },
+        { "ref": "capacity-meter", "pin": "+" }
+      ]
+    },
+    {
+      "name": "GND",
+      "netClass": "gnd",
+      "members": [
+        { "ref": "charger", "pin": "OUT-" },
+        { "ref": "esp32c3", "pin": "GND" },
+        { "ref": "oled", "pin": "GND" },
+        { "ref": "sht3x", "pin": "GND" },
+        { "ref": "capacity-meter", "pin": "-" }
+      ]
+    },
+    {
+      "name": "3V3",
+      "netClass": "power",
+      "members": [
+        { "ref": "esp32c3", "pin": "3V3" },
+        { "ref": "oled", "pin": "VCC" },
+        { "ref": "sht3x", "pin": "VCC" }
+      ]
+    },
+    {
+      "name": "SDA",
+      "netClass": "i2c",
+      "wireColor": "blue",
+      "members": [
+        { "ref": "esp32c3", "pin": "GPIO4" },
+        { "ref": "oled", "pin": "SDA" },
+        { "ref": "sht3x", "pin": "SDA" }
+      ]
+    },
+    {
+      "name": "SCL",
+      "netClass": "i2c",
+      "wireColor": "yellow",
+      "members": [
+        { "ref": "esp32c3", "pin": "GPIO5" },
+        { "ref": "oled", "pin": "SCL" },
+        { "ref": "sht3x", "pin": "SCL" }
+      ]
+    }
+  ],
+  "warnings": [
+    "Lithium (LiPo) battery: never short + and -. Connect the battery last, after every other joint is checked.",
+    "Power the ESP32-C3 through the pin labeled 5V, never 3V3 — a 4.2V battery on 3V3 destroys the chip.",
+    "Load power and ground come from the HW-373's protected OUT pads, never the raw B pads.",
+    "Charge only through the HW-373 or the solar charger — never wire a panel or USB directly across the cell.",
+    "The ESP32-C3 and OLED are 3.3V devices. The OLED runs from the ESP32's 3V3 pin.",
+    "Measure each solar panel's voltage first — series only if each is low-voltage; never exceed ~8V into the solar charger.",
+    "Don't power from USB and the battery at the same time; switch the load off before plugging in USB to reprogram."
+  ]
+}

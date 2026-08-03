@@ -10,8 +10,15 @@ import { listPlans, savePlan, newPlanId, touchPlan, deletePlan } from "@/lib/sto
 import { GenerationProgress } from "@/components/home/generation-progress";
 import { DemoHero } from "@/components/home/demo-hero";
 import demoPlan from "@/data/sat-line.json";
+import weatherClockPlan from "@/data/solar-weather-clock.json";
 
 const DEMO_PROJECTS = [
+  {
+    plan: weatherClockPlan as unknown as BuildPlan,
+    tagline: "Wi-Fi clock + weather + your own messages",
+    tags: "ESP32-C3 · OLED · SHT3x · Solar",
+    highlights: ["Guided soldering", "ERC wiring check", "Editable firmware"],
+  },
   {
     plan: demoPlan as unknown as BuildPlan,
     tagline: "Solar-powered WiFi clock with temp display",

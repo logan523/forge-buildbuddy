@@ -110,6 +110,16 @@ function pinRolesForCatalog(catalogId?: string, interfaceList?: string[]): Elect
       { name: "-", role: "gnd" },
     ];
   }
+  if (catalogId === "spdt-slide-switch") {
+    // Passive 3-pin SPDT: CENTER (COM) is the pole; A/B are the throws. Modeled
+    // as a 2-terminal series element in a power line (COM + one throw), so it
+    // carries no voltage domain of its own — the domain is set by the net.
+    return [
+      { name: "COM", role: "passive" },
+      { name: "A", role: "passive" },
+      { name: "B", role: "passive" },
+    ];
+  }
 
   // Generic from interface list
   const pins: ElectricalPin[] = [

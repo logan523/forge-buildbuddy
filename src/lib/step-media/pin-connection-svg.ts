@@ -235,8 +235,8 @@ function drawBoardFace(opts: {
 }
 
 /**
- * Two board faces + pad highlights. No mid-canvas jumper path (IBOM language).
- * Wire identity is type + color chip only — never a bezier "black wire".
+ * Two board faces + pad highlights. No mid-canvas jumper, pill, or chip.
+ * SEV2: empty air between boards; wire identity is caption/footer only.
  */
 export function svgPinConnection(m: MicroStep): string {
   const fromBoard = m.fromLabel || "Board A";
@@ -244,11 +244,10 @@ export function svgPinConnection(m: MicroStep): string {
   const fromPin = m.fromPin || "?";
   const toPin = m.toPin || "?";
   const color = m.colorHex || "#64748b";
-  // GND black would vanish on dark/fill — lift for the chip only
-  const chip =
-    /^#?(1e293b|0f172a|000000|111827)$/i.test(color.replace(/\s/g, ""))
-      ? "#475569"
-      : color;
+  // Near-black must never paint UI accents (reads as stray mid-canvas wire)
+  const nearBlack = /^#?(1e293b|0f172a|000000|111827|000)$/i.test(color.replace(/\s/g, ""));
+  const chip = nearBlack ? "#94a3b8" : color;
+  const swatch = nearBlack ? "#1e293b" : color;
   const colorName = (m.colorName || "wire").toUpperCase();
   const net = truncate(m.netName || m.netClass || "", 18);
 
@@ -256,9 +255,9 @@ export function svgPinConnection(m: MicroStep): string {
 
   const W = 580;
   const H = 400;
-  const boardW = 230;
+  const boardW = 240;
   const boardH = 268;
-  const gap = 40;
+  const gap = 52;
   const leftX = (W - boardW * 2 - gap) / 2;
   const rightX = leftX + boardW + gap;
   const boardY = 52;
@@ -297,13 +296,10 @@ export function svgPinConnection(m: MicroStep): string {
   ${left.svg}
   ${right.svg}
 
-  <!-- connection chip only — no path jumper -->
-  <rect x="${W / 2 - 20}" y="${boardY + boardH / 2 - 30}" width="40" height="60" rx="10" fill="#11161f" stroke="rgba(255,255,255,0.12)"/>
-  <circle cx="${W / 2}" cy="${boardY + boardH / 2 - 12}" r="7" fill="${chip}" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
-  <text x="${W / 2}" y="${boardY + boardH / 2 + 14}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12" font-weight="800" fill="#e2e8f0">→</text>
+  <!-- SEV2: no mid-canvas connector (pill/path/chip) -->
 
   <rect x="24" y="${H - 44}" width="${W - 48}" height="32" rx="10" fill="#11161f" stroke="rgba(255,255,255,0.12)"/>
-  <circle cx="44" cy="${H - 28}" r="6" fill="${chip}"/>
+  <circle cx="44" cy="${H - 28}" r="6" fill="${swatch}" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
   <text x="${W / 2}" y="${H - 24}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="13" font-weight="700" fill="#f1f5f9">${escText(truncate(fromPin, 12))}  →  ${escText(truncate(toPin, 12))}  ·  ${escText(colorName)}</text>
 </svg>`;
 }

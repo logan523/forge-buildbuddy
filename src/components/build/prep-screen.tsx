@@ -9,6 +9,8 @@ import { ShoppingList } from "@/components/build/parts/shopping-list";
 import { PartsIdentifyWalk } from "@/components/build/parts-identify-walk";
 import { PowerCheck } from "@/components/build/power-check";
 import { ProductHero } from "@/components/product-hero";
+import { svgCircuitDiagram } from "@/lib/step-media/circuit-diagram";
+import { normalizeSvgForHtml } from "@/lib/step-media/svg-util";
 import type { ProductVisual } from "@/lib/product-visual";
 import type { FirmwarePackage } from "@/lib/firmware";
 
@@ -92,6 +94,25 @@ export function PrepScreen({
             stepIndex="prep"
             onPlanPatch={onPlanPatch}
           />
+
+          {/* Whole-circuit diagram — one picture of how everything connects,
+              before the first solder joint. Reliable 2D, netlist-derived. */}
+          {plan.electrical && plan.electrical.components.length > 1 && (
+            <div className="mb-6 rounded-xl border border-border-subtle overflow-hidden shadow-card">
+              <div className="px-4 py-2.5 bg-console-surface border-b border-console-border">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-console-text-muted">
+                  How it all connects
+                </p>
+                <p className="text-xs text-console-text-muted mt-0.5">
+                  Every part and every wire — the same colors you&apos;ll solder.
+                </p>
+              </div>
+              <div
+                className="bg-console-bg [&_svg]:block [&_svg]:w-full"
+                dangerouslySetInnerHTML={{ __html: normalizeSvgForHtml(svgCircuitDiagram(plan)) }}
+              />
+            </div>
+          )}
 
           {plan.sourceUrl && (
             <p className="text-xs text-text-muted mb-6">

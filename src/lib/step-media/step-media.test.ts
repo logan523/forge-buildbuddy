@@ -51,12 +51,14 @@ describe("step media", () => {
     assert.ok(!m.svg.includes('height="100%"'));
   });
 
-  it("normalizeSvgForHtml strips prolog and forces height auto", () => {
+  it("normalizeSvgForHtml strips prolog and forces width 100% with no height", () => {
     const raw = `<?xml version="1.0"?><svg viewBox="0 0 10 10" width="100%" height="100%"><rect/></svg>`;
     const n = normalizeSvgForHtml(raw);
     assert.ok(!n.includes("<?xml"));
-    assert.match(n, /height="auto"/);
-    assert.ok(!n.includes('height="100%"'));
+    assert.match(n, /width="100%"/);
+    // height is intentionally omitted so viewBox drives the aspect ratio
+    // (height="auto" is an invalid SVG length and spams console errors).
+    assert.ok(!/height=/.test(n), "no height attribute");
   });
 
   it("every sat-line step resolves a non-empty diagram", () => {

@@ -34,8 +34,33 @@ describe("pin connection svg", () => {
     assert.match(s, /SOLDER/);
     assert.match(s, /ESP32|SuperMini/i);
     assert.match(s, /OLED/i);
-    // Incident fix: never draw a mid-canvas bezier jumper
+    // SEV2: never draw a mid-canvas jumper path or dark connector pill
     assert.ok(!/<path[^>]*stroke-width="1[02]"/.test(s), "no thick jumper path");
+    // Dark vertical pill at canvas center was the "black wire" artifact
+    assert.ok(
+      !/<rect[^>]*width="40"\s+height="60"/.test(s),
+      "no mid-canvas connector pill"
+    );
+  });
+
+  it("GND black never paints a mid-canvas near-black blob", () => {
+    const s = svgPinConnection(
+      micro({
+        colorName: "black",
+        colorHex: "#1e293b",
+        netName: "GND",
+        netClass: "gnd",
+        fromPin: "GND",
+        toPin: "GND",
+      })
+    );
+    assert.ok(!/<path[^>]*stroke-width="1[02]"/.test(s), "no jumper on GND");
+    assert.ok(
+      !/<rect[^>]*width="40"\s+height="60"/.test(s),
+      "no center pill on GND (the black-wire look)"
+    );
+    // Pad accent lifted off pure black; swatch may still be dark
+    assert.match(s, /BLACK|GND/i);
   });
 
   it("draws dual-header neighbors for SuperMini (IBOM orientation)", () => {
