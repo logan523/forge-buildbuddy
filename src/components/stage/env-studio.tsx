@@ -1,45 +1,44 @@
 "use client";
 
 /**
- * Studio staging — the default look for every project: a real-world item on a
- * neutral photo sweep. Soft HDRI IBL (local studio HDR), gentle key/fill,
- * ContactShadows grounding the product. No fog, no starfield, no drama —
- * clarity first (wires must read), realism from materials + light.
+ * Technical-light staging — the Stage reads like a CAD viewport on workshop
+ * paper, not a photo studio: paper-neutral background (the page token),
+ * hemisphere + one directional key for even, shadow-free form reading, and a
+ * soft ContactShadows catcher for grounding. No IBL env map, no reflections,
+ * no drama — matte parts + ink edge lines carry the look (parts-layer).
  */
-import { ContactShadows, Environment } from "@react-three/drei";
+import { ContactShadows } from "@react-three/drei";
+
+/** Page background token (--color-bg) — the canvas must meet the page. */
+const PAPER = "#f5f0e8";
 
 export function EnvStudio({ groundY = 0 }: { groundY?: number }) {
   return (
     <>
-      {/* Neutral photo-sweep backdrop */}
-      <color attach="background" args={["#e8ebef"]} />
+      {/* Paper backdrop — same token as the page, so the stage sits ON it */}
+      <color attach="background" args={[PAPER]} />
 
-      {/* Image-based lighting from the local studio HDRI (no CDN) */}
-      <Environment files="/hdri/studio_small_08_1k.hdr" environmentIntensity={0.75} />
-
-      {/* Soft key + cool fill so forms model even where IBL is flat.
-          No hard shadow casting — ContactShadows carries the grounding; a
-          shadow-mapped key just stamps its camera bounds on the sweep. */}
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[3.5, 5.5, 4]} intensity={1.35} />
-      <directionalLight position={[-4, 2.5, -3]} intensity={0.5} color="#dbe6f4" />
+      {/* Even technical lighting: sky/ground hemisphere + one key. No shadow
+          mapping — ContactShadows carries the grounding cue. */}
+      <hemisphereLight args={["#ffffff", "#d9d2c4", 1.15]} />
+      <directionalLight position={[3.5, 5.5, 4]} intensity={1.5} />
 
       {/* Grounding — the single strongest "it's a real object" cue */}
       <ContactShadows
         position={[0, groundY + 0.001, 0]}
-        opacity={0.42}
+        opacity={0.35}
         scale={14}
         blur={2.4}
         far={3.2}
         resolution={512}
-        color="#5b6470"
+        color="#6b675e"
         frames={1}
       />
 
-      {/* Sweep floor: a huge soft-white disk fading into the background */}
+      {/* Paper floor: fades into the background (same color, no horizon line) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, groundY - 0.002, 0]}>
         <circleGeometry args={[30, 64]} />
-        <meshStandardMaterial color="#eef1f4" roughness={0.96} metalness={0} />
+        <meshStandardMaterial color={PAPER} roughness={1} metalness={0} />
       </mesh>
     </>
   );

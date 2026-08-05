@@ -26,25 +26,24 @@ describe("procedural maps + material contrast (graphics realism)", () => {
     assert.ok(getProceduralMap("brushed_normal"));
   });
 
-  it("brass vs pcb_green presets are metal/plastic split", () => {
+  it("brass vs pcb_green presets are matte with distinct color identity", () => {
     const brass = getMaterialPreset("brass");
     const pcb = getMaterialPreset("pcb_green");
-    // Satin brass, not chrome: still clearly metal (high metalness, reflective,
-    // and much smoother than the plastic PCB) but not a mirror that blooms out
-    // the parts inside the cage.
-    assert.ok(brass.metalness >= 0.9, `brass metalness ${brass.metalness}`);
-    assert.ok(brass.roughness <= 0.35, `brass roughness ${brass.roughness}`);
-    assert.ok((brass.envMapIntensity ?? 0) >= 1.0);
-    assert.ok(pcb.metalness <= 0.1, `pcb metalness ${pcb.metalness}`);
-    assert.ok(pcb.roughness >= 0.55, `pcb roughness ${pcb.roughness}`);
-    assert.ok(brass.metalness > pcb.metalness);
-    assert.ok(brass.roughness < pcb.roughness - 0.2, "brass clearly smoother than plastic PCB");
+    // Technical-light contract: everything is matte (metalness 0, roughness
+    // high) — per-part color identity carries the distinction, not specular
+    // response. Brass reads slightly smoother than the PCB.
+    assert.equal(brass.metalness, 0, `brass metalness ${brass.metalness}`);
+    assert.ok(brass.roughness >= 0.8, `brass roughness ${brass.roughness}`);
+    assert.equal(pcb.metalness, 0, `pcb metalness ${pcb.metalness}`);
+    assert.ok(pcb.roughness >= 0.9, `pcb roughness ${pcb.roughness}`);
+    assert.ok(brass.roughness < pcb.roughness, "brass smoother than plastic PCB");
+    assert.notEqual(brass.color, pcb.color, "color identity stays distinct");
   });
 
-  it("oled_glass has transmission + high clearcoat", () => {
+  it("oled_glass is matte (screen glow comes from emissive, not clearcoat)", () => {
     const g = getMaterialPreset("oled_glass");
-    assert.ok((g.transmission ?? 0) >= 0.15);
-    assert.equal(g.clearcoat, 1);
-    assert.ok((g.clearcoatRoughness ?? 1) <= 0.08);
+    assert.ok(!("transmission" in g), "no transmission in the matte pipeline");
+    assert.ok(!("clearcoat" in g), "no clearcoat in the matte pipeline");
+    assert.ok(g.emissive != null, "the display face stays emissive");
   });
 });

@@ -10,7 +10,6 @@ import { PartsIdentifyWalk } from "@/components/build/parts-identify-walk";
 import { PowerCheck } from "@/components/build/power-check";
 import { ProductHero } from "@/components/product-hero";
 import { svgCircuitDiagram } from "@/lib/step-media/circuit-diagram";
-import { normalizeSvgForHtml } from "@/lib/step-media/svg-util";
 import type { ProductVisual } from "@/lib/product-visual";
 import type { FirmwarePackage } from "@/lib/firmware";
 
@@ -95,21 +94,22 @@ export function PrepScreen({
             onPlanPatch={onPlanPatch}
           />
 
-          {/* Whole-circuit diagram — one picture of how everything connects,
-              before the first solder joint. Reliable 2D, netlist-derived. */}
+          {/* Whole-circuit wiring sheet — one picture of how everything
+              connects, before the first solder joint. Ink on paper,
+              native-pixel (scrolls instead of squishing), netlist-derived. */}
           {plan.electrical && plan.electrical.components.length > 1 && (
             <div className="mb-6 rounded-xl border border-border-subtle overflow-hidden shadow-card">
-              <div className="px-4 py-2.5 bg-console-surface border-b border-console-border">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-console-text-muted">
+              <div className="px-4 py-2.5 bg-surface-raised border-b border-border-subtle">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
                   How it all connects
                 </p>
-                <p className="text-xs text-console-text-muted mt-0.5">
+                <p className="text-xs text-text-secondary mt-0.5">
                   Every part and every wire — the same colors you&apos;ll solder.
                 </p>
               </div>
               <div
-                className="bg-console-bg [&_svg]:block [&_svg]:w-full"
-                dangerouslySetInnerHTML={{ __html: normalizeSvgForHtml(svgCircuitDiagram(plan)) }}
+                className="bg-surface overflow-x-auto [&_svg]:block [&_svg]:mx-auto"
+                dangerouslySetInnerHTML={{ __html: svgCircuitDiagram(plan) }}
               />
             </div>
           )}

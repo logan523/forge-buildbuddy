@@ -140,9 +140,12 @@ describe("product-3d materials + quality", () => {
     const { resolvePhysicalMaterial, inferMaterialPreset } = await import("./materials");
     assert.equal(inferMaterialPreset("bamboo_base", { color: "#c9a66b" }, "base"), "bamboo");
     assert.equal(inferMaterialPreset("brass_frame", { color: "#c9a227" }, "frame"), "brass");
+    // Technical-light contract: presets are matte (no clearcoat/metal response);
+    // form reads from silhouette + edge lines, not photoreal highlights.
     const m = resolvePhysicalMaterial("oled_module", { color: "#0a1628" }, "face", 1);
-    assert.ok((m.clearcoat ?? 0) > 0.5);
-    assert.ok((m.metalness ?? 0) < 0.5);
+    assert.ok(!("clearcoat" in m), "matte preset carries no clearcoat");
+    assert.equal(m.metalness, 0);
+    assert.ok(m.roughness >= 0.5);
   });
 
   it("quality tiers lower dpr on low", async () => {
@@ -165,7 +168,7 @@ describe("product-3d materials + quality", () => {
     assert.ok(kinds.has("rear_panel"), "rear service panel");
   });
 
-  it("stage ships continuous tube harness + studio lighting (structural)", async () => {
+  it("stage ships continuous tube harness + technical lighting (structural)", async () => {
     const fs = await import("node:fs");
     const path = await import("node:path");
     // The Stage tree replaced the old three-component viewer; read EVERY
@@ -189,7 +192,7 @@ describe("product-3d materials + quality", () => {
       "wires default ON"
     );
     assert.ok(src.includes("isolatedId") || src.includes("highlightNodeId"), "selection isolation hook");
-    assert.ok(src.includes("ContactShadows"), "studio contact shadows");
+    assert.ok(src.includes("ContactShadows"), "grounding contact shadows");
     // Avoid PCSS SoftShadows / MeshReflectorMaterial components (GPU blackout)
     assert.ok(
       !/from ["']@react-three\/drei["'][\s\S]*SoftShadows|SoftShadows,/.test(src) &&
@@ -199,22 +202,20 @@ describe("product-3d materials + quality", () => {
     assert.ok(!src.includes("<MeshReflectorMaterial"), "no MeshReflectorMaterial");
     assert.ok(
       src.includes("getProceduralMap") || src.includes("procedural-maps"),
-      "procedural PBR maps"
+      "procedural maps"
     );
-    assert.ok(
-      src.includes("Environment") && (src.includes("warehouse") || src.includes("studio")),
-      "IBL environment"
-    );
-    assert.ok(
-      src.includes("ACESFilmicToneMapping") || /ToneMapping/.test(src),
-      "filmic tone mapping"
-    );
+    // Technical-light contract: paper canvas + hemisphere/key lighting, and NO
+    // post-processing composer (the photoreal pipeline — and its null-context
+    // crash — was deleted, not fixed).
+    assert.ok(src.includes("#f5f0e8"), "paper background token");
+    assert.ok(src.includes("hemisphereLight"), "even technical lighting");
+    assert.ok(!src.includes("EffectComposer"), "no post-processing composer");
+    assert.ok(src.includes("EdgesGeometry"), "CAD feature-edge line work");
     assert.ok(src.includes("isolatedId") || src.includes("onIsolate"), "isolate interaction");
     assert.ok(src.includes('case "face_panel"'), "face panel parametric case");
     assert.ok(src.includes('case "rear_panel"'), "rear panel parametric case");
     assert.ok(src.includes("PinStub"), "pin stubs land wires on boards");
     assert.ok(src.includes("pinStubsForNode"), "pins derive from the pin authority");
-    assert.ok(src.includes("normalMap"), "procedural normals");
     assert.ok(src.includes("wiresForPart"), "incident-wire lookup");
     assert.ok(src.includes("wireLegend"), "wiring legend from the color authority");
     assert.ok(src.includes("Inspect"), "inspect affordance");

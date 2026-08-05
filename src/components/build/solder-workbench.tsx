@@ -22,7 +22,6 @@ import { PremiumPadMap } from "./premium-pad-map";
 import { LiveSolderCamera } from "./part-scan/live-solder-camera";
 import type { GuidedActionState } from "./guided-steps";
 import { svgCircuitDiagram } from "@/lib/step-media/circuit-diagram";
-import { normalizeSvgForHtml } from "@/lib/step-media/svg-util";
 
 export function SolderWorkbench({
   step,
@@ -113,17 +112,23 @@ export function SolderWorkbench({
     [micro, checked]
   );
 
-  // Whole-circuit diagram: the current wire is spotlit, soldered wires go solid,
-  // pending wires stay faint — so the beginner always sees the big picture and
-  // watches the circuit fill in as they go. Same netlist truth as the pad map.
+  // Cropped wiring sheet: just the two modules this wire joins, drawn large
+  // with pin names on both ends — the ONE picture a beginner needs at the
+  // iron. Native-pixel output (never squished into the container; it scrolls
+  // instead), same netlist truth as the pad map. Current wire glows,
+  // soldered wires stay solid, pending stay faint.
   const circuitSvg = useMemo(
     () =>
-      normalizeSvgForHtml(
-        svgCircuitDiagram(plan, {
-          highlightWireIds: cur ? [cur.id] : [],
-          doneWireIds: Array.from(checked),
-        })
-      ),
+      cur
+        ? svgCircuitDiagram(plan, {
+            crop: true,
+            focusPartIds: [cur.fromPartId, cur.toPartId].filter(
+              (x): x is string => !!x
+            ),
+            highlightWireIds: [cur.id],
+            doneWireIds: Array.from(checked),
+          })
+        : "",
     [plan, cur, checked]
   );
 
@@ -278,14 +283,15 @@ export function SolderWorkbench({
       {/* Hero pad map */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-4xl mx-auto p-3 sm:p-6 space-y-4">
-          {/* Whole-circuit diagram — the big picture; the glowing wire is the
-              current one, soldered wires go solid, the rest stay faint. */}
+          {/* Cropped wiring sheet on paper — the two modules this wire joins,
+              drawn large with pin names on both ends. The glowing wire is the
+              one to solder; done wires stay solid, the rest stay faint. */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-console-text-muted mb-2 px-0.5">
-              Your whole circuit — the glowing wire is this one
+              This connection — the glowing wire is the one you're soldering
             </p>
             <div
-              className="rounded-xl border border-console-border overflow-hidden"
+              className="rounded-xl border border-border-subtle bg-surface shadow-card overflow-x-auto [&_svg]:block [&_svg]:mx-auto"
               dangerouslySetInnerHTML={{ __html: circuitSvg }}
             />
           </div>

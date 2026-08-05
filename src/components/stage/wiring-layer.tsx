@@ -6,50 +6,29 @@
  * Every tube is a netlist net: CatmullRomCurve3 through the routed polyline →
  * TubeGeometry, colored by the single wire-color authority, landing on named
  * pins at datasheet-mm coords. A fat invisible hit tube makes thin wires
- * tappable; tapping traces the wire (pulse bead + dim others) and opens a
+ * tappable; tapping traces the wire (width bump + dim others) and opens a
  * callout card with the specifics: color name, net, ref pin → ref pin, and
  * the cut length measured along the actual route.
  *
- * Draw-on: wires appear with their assembly phase (wire-reveal.ts) by growing
- * the tube's drawn portion — geometry is sliced by progress, cheap at these
- * point counts, zero shader patching.
+ * Technical-light: tubes are matte flat-color (lambert, no clearcoat, no
+ * emissive pulse), endpoint dots are flat — the same state language as the
+ * 2D wiring sheet: current = saturated + width bump, done = solid, pending
+ * = ghost. Draw-on: wires appear with their assembly phase (wire-reveal.ts)
+ * by growing the tube's drawn portion — geometry is sliced by progress,
+ * cheap at these point counts, zero shader patching.
  */
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { Html } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { CatmullRomCurve3, Vector3, type Mesh } from "three";
+import { CatmullRomCurve3, Vector3 } from "three";
 import type { AssemblyRecipe } from "@/lib/product-3d";
 import type { PlannedWire, WirePlan } from "@/lib/stage/wire-plan";
 import { wireRevealT } from "@/lib/stage/wire-reveal";
-import { invalidateStage } from "./stage-invalidate";
 
 function curveFor(wire: PlannedWire, rootScale: number): CatmullRomCurve3 {
   const pts = wire.route.path.map(
     (p) => new Vector3(p[0] * rootScale, p[1] * rootScale, p[2] * rootScale)
   );
   return new CatmullRomCurve3(pts, false, "catmullrom", 0.35);
-}
-
-/** Trace bead — a bright pulse riding the tapped wire's curve. */
-function TraceBead({ curve }: { curve: CatmullRomCurve3 }) {
-  const ref = useRef<Mesh>(null);
-  const t = useRef(0);
-  useFrame((_, delta) => {
-    t.current = (t.current + delta * 0.45) % 1;
-    ref.current?.position.copy(curve.getPointAt(t.current));
-    invalidateStage();
-  });
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[0.016, 12, 12]} />
-      <meshStandardMaterial
-        color="#dff6ff"
-        emissive="#7dd3fc"
-        emissiveIntensity={3.2}
-        toneMapped={false}
-      />
-    </mesh>
-  );
 }
 
 function WireTubeRoute({
@@ -88,15 +67,13 @@ function WireTubeRoute({
         }}
       >
         <tubeGeometry args={[shown, 40, gauge, 10, false]} />
-        <meshPhysicalMaterial
+        {/* Matte flat-color tube (technical-light): no clearcoat, no emissive
+            pulse. State reads through color saturation + gauge, like the 2D
+            sheet: current = saturated + width bump, dimmed = ghost. */}
+        <meshLambertMaterial
           color={wire.route.color}
-          roughness={0.42}
-          clearcoat={0.6}
-          clearcoatRoughness={0.3}
           transparent={opacity < 0.99}
           opacity={opacity}
-          emissive={active ? wire.route.color : "#000000"}
-          emissiveIntensity={active ? 0.45 : 0}
         />
       </mesh>
       {/* Fat invisible hit tube — thin wires stay tappable on any device */}
@@ -110,21 +87,19 @@ function WireTubeRoute({
         <tubeGeometry args={[shown, 24, Math.max(gauge * 4, 0.028), 6, false]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
-      {/* Solder joints — small bright menisci where the wire meets each pad */}
+      {/* Endpoint dots — flat, wire-colored, where the wire meets each pad.
+          (Replaces the metallic solder-meniscus spheres.) */}
       {drawT >= 0.999 &&
         ([full.getPointAt(0), full.getPointAt(1)] as const).map((p, i) => (
           <mesh key={i} position={p}>
             <sphereGeometry args={[Math.max(gauge * 1.7, 0.008), 10, 10]} />
-            <meshPhysicalMaterial
-              color="#c9cdd4"
-              metalness={0.95}
-              roughness={0.18}
+            <meshBasicMaterial
+              color={wire.route.color}
               transparent={opacity < 0.99}
               opacity={opacity}
             />
           </mesh>
         ))}
-      {active && <TraceBead curve={full} />}
       {active && (
         <Html
           position={full.getPointAt(0.5)}
@@ -132,15 +107,15 @@ function WireTubeRoute({
           distanceFactor={3.5}
           style={{ pointerEvents: "none" }}
         >
-          <div className="px-2.5 py-1.5 rounded-lg bg-slate-950/92 border border-cyan-400/50 shadow-xl whitespace-nowrap">
-            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-50">
+          <div className="px-2.5 py-1.5 rounded-lg bg-surface-raised/95 border border-border-subtle shadow-card whitespace-nowrap">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-text">
               <span
-                className="inline-block w-2.5 h-2.5 rounded-full border border-white/40"
+                className="inline-block w-2.5 h-2.5 rounded-full border border-border"
                 style={{ background: wire.route.color }}
               />
               {wire.colorName} · {wire.route.netName}
             </div>
-            <div className="text-[10px] text-slate-300 mt-0.5">
+            <div className="text-xs text-text-secondary mt-0.5">
               {wire.endpoints} · ~{wire.lengthMm}mm
             </div>
           </div>
@@ -168,10 +143,17 @@ function PadsLayer({ plan, rootScale }: { plan: WirePlan; rootScale: number }) {
             <meshBasicMaterial color={pad.color} />
           </mesh>
           <Html center distanceFactor={3.2} style={{ pointerEvents: "none" }}>
+            {/* Pin label: token chip + net-color dot, 11px mono floor. The old
+                8px white-on-color text was illegible and failed contrast. */}
             <div
-              className="px-1 py-px rounded text-[8px] leading-tight font-mono font-semibold text-white shadow-sm whitespace-nowrap"
-              style={{ background: `${pad.color}dd`, transform: "translateY(-11px)" }}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border-subtle bg-surface/95 text-2xs leading-tight font-mono font-semibold text-text shadow-card whitespace-nowrap"
+              style={{ transform: "translateY(-14px)" }}
             >
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ background: pad.color }}
+                aria-hidden="true"
+              />
               {pad.pin}
             </div>
           </Html>

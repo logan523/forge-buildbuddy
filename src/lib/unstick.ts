@@ -25,6 +25,15 @@ export interface DiagnosisAction {
   action: string;
   expect: string;
   ifFail?: string;
+  /**
+   * Tags this action as PURELY about wire continuity on these nets (e.g.
+   * ["sda","scl"]) — lets src/lib/serial/bus-proof.ts's filterDiagnosesByProof
+   * skip an action a sibling device on the same shared bus already proved.
+   * Optional; every action with no hint renders exactly as before. Only
+   * tag actions with no software/config component — "swap these wires" is
+   * a wire check, "set the library address" is not.
+   */
+  netHint?: string[];
 }
 
 export type Likelihood = "very_likely" | "likely" | "possible";
@@ -218,11 +227,13 @@ export function diagnose(plan: BuildPlan, symptomId: SymptomId, step?: BuildStep
             action: "Swap the SDA and SCL wires at one end only (ESP or OLED).",
             expect: "Display shows content after reset.",
             ifFail: "Swap back and continue.",
+            netHint: ["sda", "scl"],
           },
           {
             order: 2,
             action: "Confirm OLED VCC is on 3.3V (not 5V) and GND is common with the ESP.",
             expect: "Multimeter: ~3.3V between OLED VCC and GND when powered.",
+            netHint: ["power", "gnd"],
           },
         ],
       }),
@@ -426,6 +437,7 @@ export function diagnose(plan: BuildPlan, symptomId: SymptomId, step?: BuildStep
             action: "Run I2C scanner — SHT31 often 0x44/0x45; BME280 0x76/0x77.",
             expect: "Sensor address appears alongside OLED if both connected.",
             ifFail: "Check SDA/SCL continuity and common GND.",
+            netHint: ["sda", "scl", "gnd"],
           },
           {
             order: 2,

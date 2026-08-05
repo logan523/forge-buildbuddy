@@ -72,9 +72,9 @@ export function ProductHero({
         </div>
       </div>
 
-      {/* Full-bleed CAD stage — wider than page padding. Wrapped so a WebGL /
-          postprocessing failure degrades to a note instead of taking down the
-          whole build (the parts, wiring and steps below need no 3D). */}
+      {/* Full-bleed CAD stage — wider than page padding. Wrapped so a WebGL
+          failure degrades to a note instead of taking down the whole build
+          (the parts, wiring and steps below need no 3D). */}
       <div className={compact ? "px-2 pb-2" : "px-0 pb-0 sm:-mx-1"}>
         <StageBoundary
           fallback={

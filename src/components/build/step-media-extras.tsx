@@ -108,8 +108,10 @@ export function StepMediaExtras({
           </button>
           <p className="px-3 py-2.5 text-sm text-text leading-snug bg-surface">{media.caption}</p>
           {techniqueOpen && (
+            // Native-pixel sheet (like the wiring sheet): labels keep their
+            // authored size; a narrow container scrolls instead of squishing.
             <div
-              className="w-full bg-white border-t border-border-subtle [&_svg]:block [&_svg]:w-full [&_svg]:h-auto"
+              className="w-full bg-surface border-t border-border-subtle overflow-x-auto [&_svg]:block [&_svg]:mx-auto"
               style={{ minHeight: 160 }}
               dangerouslySetInnerHTML={{ __html: media.svg }}
             />

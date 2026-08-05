@@ -30,7 +30,6 @@ import {
   type QualityTier,
 } from "@/lib/product-3d";
 import { bindStageInvalidate, invalidateStage } from "./stage-invalidate";
-import { StagePostFx } from "./postfx";
 
 const TIER_ORDER: QualityTier[] = ["low", "medium", "high"];
 
@@ -143,7 +142,7 @@ export function StageCanvas({
   if (!available) {
     return (
       <div
-        className={`flex items-center justify-center bg-slate-100 text-slate-500 text-sm rounded-xl ${className}`}
+        className={`flex items-center justify-center bg-surface-overlay text-text-muted text-sm rounded-xl ${className}`}
       >
         3D isn&apos;t available on this device — use the 2D product view instead.
       </div>
@@ -168,6 +167,9 @@ export function StageCanvas({
         // matches the current production viewer's behavior — no regression —
         // while the demand investigation continues with fresh eyes.
         frameloop="always"
+        // flat = NoToneMapping: the technical-light stage renders part and
+        // wire colors verbatim (no filmic curve), MATLAB/CAD-style.
+        flat
         dpr={quality.dpr}
         shadows
         gl={{ antialias: quality.antialias, powerPreference: "high-performance" }}
@@ -180,11 +182,10 @@ export function StageCanvas({
           onIncline={() => shiftTier(1)}
         />
         {children}
-        <StagePostFx tier={tier} />
         <Preload all />
       </Canvas>
       {contextLost && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-slate-100 text-sm rounded-xl">
+        <div className="absolute inset-0 flex items-center justify-center bg-surface-overlay/90 text-text-secondary text-sm rounded-xl">
           Restarting 3D…
         </div>
       )}

@@ -35,10 +35,11 @@
   --color-grid-line: rgba(14, 116, 144, 0.05);
 
   /* Console family — the ONE designed dark/focus treatment. Every dark surface
-     (firmware viewer, hands-free, expanded Stage, PCB preview, tooltips, HUD chips)
+     (firmware viewer, hands-free, serial console, PCB preview, tooltips, HUD chips)
      must consume these instead of hardcoded hex. Incumbent values mirror the
      de-facto darks already shipping, so migrating a surface onto them is a no-op
-     until a theme overrides them. */
+     until a theme overrides them. The Stage itself is technical-light (paper
+     canvas + ink chrome) and does not consume this family. */
   --color-console-bg: #0b0e13;
   --color-console-surface: #171c26;
   --color-console-surface-raised: #1a1f2e;

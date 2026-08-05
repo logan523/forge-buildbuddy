@@ -34,8 +34,14 @@ function makeFakePort(opts: { vendorId?: number; bootLines?: string[]; selfClose
   const { vendorId = 0x303a, bootLines = [], selfClose = false } = opts;
   const encoder = new TextEncoder();
   let closeCalls = 0;
+  // Captured so a test can push a line AFTER the initial render/interaction
+  // (e.g. simulate a device answering mid-session) — start() only runs once,
+  // synchronously, when the stream is first read, so this outer variable is
+  // the only way to reach the controller later.
+  let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
   const readable = new ReadableStream<Uint8Array>({
     start(controller) {
+      streamController = controller;
       for (const line of bootLines) controller.enqueue(encoder.encode(line + "\n"));
       // selfClose simulates a device that goes away on its own (unplugged);
       // otherwise the stream stays open, like a board still connected and quiet.
@@ -62,7 +68,11 @@ function makeFakePort(opts: { vendorId?: number; bootLines?: string[]; selfClose
       return { usbVendorId: vendorId };
     },
   } as unknown as SerialPort;
-  return { port, closeCalls: () => closeCalls };
+  return {
+    port,
+    closeCalls: () => closeCalls,
+    pushLine: (text: string) => streamController?.enqueue(encoder.encode(text + "\n")),
+  };
 }
 
 function mockSerial(requestPort: () => Promise<SerialPort>) {
@@ -213,7 +223,7 @@ test("plan present + connected: an address nobody expects shows as an unexpected
   assert.ok(screen.getByText(/checking for temp\/humidity sensor/i));
 });
 
-test("plan present + connected: a device that never answers turns amber with a working Debug button after the verification window", async () => {
+test("plan present + connected: a device that never answers turns amber with an inline debug panel that expands without losing the connection", async () => {
   const { port } = makeFakePort({ bootLines: ["FORGE-DIAG v1 sda=4 scl=5"] }); // boots, but never finds anything
   mockSerial(async () => port);
   const hints: string[] = [];
@@ -236,21 +246,24 @@ test("plan present + connected: a device that never answers turns amber with a w
   );
   assert.ok(screen.getByText(/temp\/humidity sensor \(0x44\) hasn't answered yet/));
 
-  const debugButtons = screen.getAllByRole("button", { name: /debug this/i });
-  assert.equal(debugButtons.length, 2, "both the OLED and the sensor are missing");
+  const toggles = screen.getAllByText(/why isn't this found/i);
+  assert.equal(toggles.length, 2, "both the OLED and the sensor are missing");
 
-  await userEvent.click(debugButtons[0]);
-  assert.deepEqual(hints, ["blank_display"], "OLED's Debug button must emit unstick.ts's real blank_display symptom id");
+  // Clicking the toggle expands the panel IN PLACE — it must never call
+  // onOpenUnstick (that would close the live serial connection, the exact
+  // regression this rewrite fixes).
+  await userEvent.click(toggles[0]);
+  await waitFor(() => assert.ok(screen.getByText(/sda and scl wires are swapped/i)), { timeout: 2000 });
+  assert.deepEqual(hints, [], "expanding the inline panel must not call onOpenUnstick / close the connection");
+  assert.ok(screen.getByRole("button", { name: /disconnect/i }), "the live connection stays open while the panel is expanded");
+  assert.ok(screen.getByText(/wiring check/i), "the wiring-check card (and its live re-scan loop) is still mounted");
 
-  await userEvent.click(debugButtons[1]);
-  assert.deepEqual(
-    hints,
-    ["blank_display", "sensor_wrong"],
-    "the sensor's Debug button must emit unstick.ts's real sensor_wrong symptom id"
-  );
+  // The escape hatch still reaches the generic drawer with the right hint.
+  await userEvent.click(screen.getByText(/open full troubleshooting/i));
+  assert.deepEqual(hints, ["blank_display"], "OLED's escape hatch must emit unstick.ts's real blank_display symptom id");
 });
 
-test("plan present + connected, but onOpenUnstick omitted: missing devices show no Debug button (nothing to call)", async () => {
+test("plan present + connected, but onOpenUnstick omitted: the inline panel still renders, just with no escape-hatch link", async () => {
   const { port } = makeFakePort({ bootLines: [] });
   mockSerial(async () => port);
 
@@ -266,5 +279,41 @@ test("plan present + connected, but onOpenUnstick omitted: missing devices show 
     () => assert.ok(screen.getByText(/OLED display \(0x3C\) hasn't answered yet/)),
     { timeout: 2500 }
   );
-  assert.equal(screen.queryByRole("button", { name: /debug this/i }), null);
+
+  await userEvent.click(screen.getAllByText(/why isn't this found/i)[0]);
+  await waitFor(() => assert.ok(screen.getByText(/i2c address in code/i)), { timeout: 2000 });
+  assert.equal(screen.queryByText(/open full troubleshooting/i), null);
+});
+
+test("plan present + connected: expanding a missing device's panel shows sibling-proven reassurance + a focused diagram, and the row flips to found live while the panel stays open", async () => {
+  const { port, pushLine } = makeFakePort({ bootLines: ["FORGE-DIAG v1 sda=4 scl=5"] });
+  mockSerial(async () => port);
+
+  let now = 1_700_000_000_000;
+  Date.now = () => now;
+
+  render(<FlashConsole open onClose={() => {}} plan={planWithI2c} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+  await waitFor(() => assert.ok(screen.getByText(/checking for OLED display/i)), { timeout: 2000 });
+
+  // The sensor answers first; the OLED does not.
+  pushLine("Found device at 0x44");
+  await waitFor(() => assert.ok(screen.getByText(/✓ temp\/humidity sensor answered at 0x44/)));
+
+  now += MISSING_AFTER_MS + 1000;
+  await waitFor(
+    () => assert.ok(screen.getByText(/OLED display \(0x3C\) hasn't answered yet/)),
+    { timeout: 2500 }
+  );
+
+  await userEvent.click(screen.getByText(/why isn't this found/i));
+  await waitFor(() => assert.ok(screen.getByText(/already answered on the exact same/i)));
+  assert.ok(document.querySelector("svg"), "the focused circuit diagram renders");
+
+  // The OLED itself now answers — proving the live re-scan loop (a real
+  // setInterval + the underlying stream read) kept running underneath the
+  // open panel, and that the SAME row instance (keyed by catalogId) flips
+  // straight from the "missing" branch to the "found" branch.
+  pushLine("Found device at 0x3C");
+  await waitFor(() => assert.ok(screen.getByText(/✓ OLED display answered at 0x3C/)), { timeout: 2500 });
 });

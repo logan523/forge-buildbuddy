@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BuildPlan, BuildStep, Part, MicroStep } from "@/lib/types";
 import type { FirmwarePackage } from "@/lib/firmware";
 import type { ProductVisual } from "@/lib/product-visual";
@@ -313,6 +313,12 @@ export function BuildScreen({
     el.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
   };
 
+  // Stable: an inline arrow here would regen SolderWorkbench's `toggle` every
+  // render, re-running its onGuidedState effect every render → setState loop.
+  const handleAutoComplete = useCallback(() => {
+    if (s && !completed.has(s.stepNumber)) onToggleComplete(s.stepNumber);
+  }, [s, completed, onToggleComplete]);
+
   const isLast = stepIndex === steps.length - 1;
   const microSteps = s?.compiled?.microSteps ?? [];
   const isWiringWithPins = !!s && microSteps.length > 0;
@@ -412,9 +418,7 @@ export function BuildScreen({
             plan={plan}
             planId={plan.id}
             stepCompleted={completed.has(s.stepNumber)}
-            onAutoComplete={() => {
-              if (!completed.has(s.stepNumber)) onToggleComplete(s.stepNumber);
-            }}
+            onAutoComplete={handleAutoComplete}
             onActiveWire={setActiveWire}
             onGuidedState={setGuidedAction}
             inventory={benchInv}

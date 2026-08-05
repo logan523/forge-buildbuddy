@@ -8,7 +8,7 @@
  * figcaption swatch + glowing pads on each board. Empty air between boards.
  */
 
-import { useId, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import type { MicroStep } from "@/lib/types";
 import {
   pinMatches,
@@ -54,13 +54,13 @@ function isNearBlack(hex: string): boolean {
  */
 function chipFill(hex: string): string {
   if (isNearBlack(hex)) return "#94a3b8"; // slate-400 — "black class", not a black stick
-  return hex || "#22d3ee";
+  return hex || "#0e7490";
 }
 
 /** Swatch in the caption may show true black (with light border). */
 function swatchFill(hex: string): string {
   if (isNearBlack(hex)) return "#1e293b";
-  return hex || "#22d3ee";
+  return hex || "#0e7490";
 }
 
 function DualHeaderBoard({
@@ -138,7 +138,7 @@ function DualHeaderBoard({
             textAnchor="middle"
             dominantBaseline="middle"
             fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-            fontSize={pin.length > 4 ? 9 : 11}
+            fontSize={11}
             fontWeight={on ? 800 : 600}
             fill={on ? contrastOn(accent) : "#94a3b8"}
           >
@@ -151,10 +151,11 @@ function DualHeaderBoard({
 
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} rx={14} fill="#14532d" stroke="rgba(255,255,255,0.12)" strokeWidth={1.5} />
+      {/* Real PCB green; ink outline (technical-light), not white glow. */}
+      <rect x={x} y={y} width={w} height={h} rx={14} fill="#14532d" stroke="#1a2744" strokeOpacity={0.45} strokeWidth={1.5} />
       <rect x={x + 6} y={y + 6} width={w - 12} height={h - 12} rx={10} fill="#166534" opacity={0.4} />
-      <rect x={x + w / 2 - 28} y={y + 10} width={56} height={16} rx={3} fill="#334155" stroke="rgba(255,255,255,0.2)" />
-      <text x={x + w / 2} y={y + 21} textAnchor="middle" dominantBaseline="middle" fontSize={9} fontWeight={700} fill="#e2e8f0" fontFamily="system-ui,sans-serif">
+      <rect x={x + w / 2 - 28} y={y + 10} width={56} height={16} rx={3} fill="#334155" stroke="#1a2744" strokeOpacity={0.4} />
+      <text x={x + w / 2} y={y + 21} textAnchor="middle" dominantBaseline="middle" fontSize={11} fontWeight={700} fill="#e2e8f0" fontFamily="system-ui,sans-serif">
         USB
       </text>
       <text x={x + w / 2} y={y + 48} textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize={13} fontWeight={700} fill="#ecfdf5">
@@ -205,15 +206,17 @@ function SingleRowBoard({
 
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} rx={14} fill={body} stroke="rgba(255,255,255,0.14)" strokeWidth={1.5} />
+      {/* Dark module bodies stay (that's what the real parts look like);
+          outline is ink, not white glow. */}
+      <rect x={x} y={y} width={w} height={h} rx={14} fill={body} stroke="#1a2744" strokeOpacity={0.45} strokeWidth={1.5} />
       <rect x={x + 6} y={y + 6} width={w - 12} height={h - 12} rx={10} fill={bodyHi} opacity={0.5} />
       {darkGlass && (
-        <rect x={x + 22} y={y + 44} width={w - 44} height={h - 120} rx={6} fill="#020617" stroke="rgba(34,211,238,0.2)" />
+        <rect x={x + 22} y={y + 44} width={w - 44} height={h - 120} rx={6} fill="#020617" stroke="#0e7490" strokeOpacity={0.35} />
       )}
       <text x={x + w / 2} y={y + 28} textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize={13} fontWeight={700} fill="#e2e8f0">
         {short(layout.shortName, 18)}
       </text>
-      <text x={x + w / 2} y={y + 44} textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize={10} fill="#64748b">
+      <text x={x + w / 2} y={y + 44} textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize={11} fill="#94a3b8">
         match silkscreen
       </text>
       <rect x={startX - 8} y={padY - 10} width={totalW + 16} height={10} rx={2} fill="#0f172a" />
@@ -242,7 +245,7 @@ function SingleRowBoard({
               textAnchor="middle"
               dominantBaseline="middle"
               fontFamily="ui-monospace,monospace"
-              fontSize={pin.length > 4 ? 9 : 11}
+              fontSize={11}
               fontWeight={on ? 800 : 600}
               fill={on ? contrastOn(accent) : "#94a3b8"}
             >
@@ -304,8 +307,7 @@ export function PremiumPadMap({
   micro: MicroStep;
   className?: string;
 }) {
-  const uid = useId();
-  const color = micro.colorHex || "#22d3ee";
+  const color = micro.colorHex || "#0e7490";
   const accent = chipFill(color);
   const swatch = swatchFill(color);
   const W = 640;
@@ -322,53 +324,50 @@ export function PremiumPadMap({
 
   return (
     <figure
-      className={`rounded-2xl overflow-hidden border border-white/10 bg-[#0b0e13] shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${className}`}
+      className={`rounded-2xl overflow-hidden border border-border-subtle bg-surface shadow-card ${className}`}
     >
-      <figcaption className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#11161f]">
+      <figcaption className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface-raised">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-cyan-400">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-accent">
             Find these two pads
           </p>
-          <p className="text-xs text-slate-400 truncate">
-            Zoom in — find these two pads on your real boards (the wire is drawn in the circuit above)
+          <p className="text-xs text-text-secondary truncate">
+            Zoom in — find these two pads on your real boards (the wire is drawn in the sheet above)
           </p>
         </div>
         <div
-          className="flex items-center gap-2 shrink-0 rounded-full border border-white/15 pl-2 pr-3 py-1.5"
+          className="flex items-center gap-2 shrink-0 rounded-full border border-border pl-2 pr-3 py-1.5"
           style={{ background: isNearBlack(color) ? "rgba(148,163,184,0.15)" : `${accent}22` }}
         >
           <span
-            className="w-3.5 h-3.5 rounded-full border-2 border-white/50 shrink-0 shadow-sm"
+            className="w-3.5 h-3.5 rounded-full border-2 border-white/70 shrink-0 shadow-sm"
             style={{ background: swatch }}
             aria-hidden
             title={micro.colorName || "wire"}
           />
-          <span className="text-sm font-mono font-bold text-white">
+          <span className="text-sm font-mono font-bold text-text">
             {micro.fromPin}
-            <span className="text-slate-400 font-sans mx-1.5">to</span>
+            <span className="text-text-muted font-sans mx-1.5">to</span>
             {micro.toPin}
           </span>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-300">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
             · {micro.colorName || "wire"}
           </span>
         </div>
       </figcaption>
 
-      <div className="w-full bg-[#0b0e13]">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto block" role="img" aria-label={aria}>
-          <defs>
-            <linearGradient id={`${uid}-bg`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0f141c" />
-              <stop offset="100%" stopColor="#0b0e13" />
-            </linearGradient>
-          </defs>
-          <rect width={W} height={H} fill={`url(#${uid}-bg)`} />
+      {/* Native-pixel sheet (same language as the wiring sheet): labels keep
+          their authored size; a narrow container scrolls instead of squishing. */}
+      <div className="w-full bg-surface overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block mx-auto" role="img" aria-label={aria}>
+          {/* Paper canvas — boards sit on the workbench sheet, ink labels. */}
+          <rect width={W} height={H} fill="#f5f0e8" />
 
           {/* Side labels — A / B, not a wire */}
-          <text x={leftX + boardW / 2} y={22} textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize={11} fontWeight={700} fill="#64748b">
+          <text x={leftX + boardW / 2} y={22} textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize={11} fontWeight={700} fill="#5c6b7a">
             BOARD A · START HERE
           </text>
-          <text x={rightX + boardW / 2} y={22} textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize={11} fontWeight={700} fill="#64748b">
+          <text x={rightX + boardW / 2} y={22} textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize={11} fontWeight={700} fill="#5c6b7a">
             BOARD B · THEN HERE
           </text>
 

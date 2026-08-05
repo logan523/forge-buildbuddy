@@ -1,21 +1,25 @@
 /**
- * Whole-circuit diagram — the ONE picture a beginner wants: every part and
- * every wire at once, color-coded, drawn from the same netlist truth as the
- * steps and the connection table (so colors/pins can never drift).
+ * Wiring sheet — the ONE picture a beginner wants: every part and every wire
+ * at once, color-coded, drawn from the same netlist truth as the steps and the
+ * connection table (so colors/pins can never drift).
  *
- * Unlike the pad map (two abstract boards, no line between them), this DRAWS
- * the wires. It answers "which part connects to which, in what color, on which
- * pins" in a single glance, and can highlight the current step's wire so the
- * beginner always sees where they are in the whole circuit.
+ * Technical-light sheet, ink on paper (DESIGN.md): white surface, ink outlines,
+ * wire colors verbatim from the authority, direct labels on the thing (Tufte) —
+ * pin names on every wire end, legend only for net classes. Native-pixel
+ * output: width/height are real pixels (viewBox 1:1), so text never scales
+ * below its authored size; hosts scroll horizontally at native width (the
+ * proven overflow-x-auto pattern) instead of squishing the viewBox.
  *
- * Pure: string in, SVG string out. Derives content from plan.electrical; the
- * LAYOUT is a role-based left→right power flow (sources → chargers → switch →
- * MCU → peripherals) so the common weather-clock-shaped build reads cleanly.
+ * `crop: true` renders only the step's focus parts + their wires, drawn large —
+ * the per-step teaching surface (solder workbench, step hero, missing-device
+ * panel). Wire state language matches the 3D stage exactly: pending = ghost,
+ * current = saturated + width bump + arrow, done = solid.
  */
 
 import type { BuildPlan } from "@/lib/types";
 import type { ElectricalComponent } from "@/lib/electrical/types";
 import { edgesFromModel } from "@/lib/steps/compile";
+import { wireLegend } from "@/lib/wire-colors";
 import { escText, escAttr } from "./svg-util";
 
 export interface CircuitDiagramOptions {
@@ -27,6 +31,8 @@ export interface CircuitDiagramOptions {
   focusPartIds?: string[];
   /** Optional heading above the diagram. */
   title?: string;
+  /** Crop to the focus parts + their wires, drawn large (per-step sheet). */
+  crop?: boolean;
 }
 
 interface Box {
@@ -42,7 +48,20 @@ interface Box {
   isCell: boolean;
 }
 
-const NEAR_BLACK = /^#?(1e293b|0f172a|000000|111827|000)$/i;
+/** Sheet palette — the DESIGN.md tokens, inlined (SVG strings can't use CSS). */
+const INK = "#1a2744";
+const INK_SECONDARY = "#4a5568";
+const INK_MUTED = "#5c6b7a";
+const PAPER = "#ffffff";
+const SHEET_BORDER = "#d4cfc5";
+const ACCENT = "#0e7490";
+
+const COL_STEP = 236;
+const COL_PAD = 34;
+const BOX_W = 176;
+const BOX_H = 58;
+const TOP = 30;
+const ROW_GAP = 92;
 
 function truncate(s: string, n: number): string {
   const t = (s || "").trim();
@@ -67,15 +86,8 @@ function columnFor(comp: ElectricalComponent): number {
   return 2;
 }
 
-const COL_X = [95, 315, 535, 755, 975];
-const BOX_W = 168;
-const BOX_H = 52;
-const TOP = 92;
-const ROW_GAP = 74;
-
 export function svgCircuitDiagram(plan: BuildPlan, opts: CircuitDiagramOptions = {}): string {
   const model = plan.electrical;
-  const W = 1070;
   const highlight = new Set(opts.highlightWireIds || []);
   const done = new Set(opts.doneWireIds || []);
   const focus = opts.focusPartIds && opts.focusPartIds.length ? new Set(opts.focusPartIds) : null;
@@ -83,26 +95,57 @@ export function svgCircuitDiagram(plan: BuildPlan, opts: CircuitDiagramOptions =
   const stateMode = hasHi || done.size > 0;
 
   if (!model || model.components.length === 0) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 200" role="img" aria-label="Circuit diagram unavailable">
-  <rect width="${W}" height="200" rx="12" fill="#0b0e13"/>
-  <text x="${W / 2}" y="104" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#94a3b8">Circuit diagram will appear once parts are wired.</text>
+    const W = 640;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 160" width="${W}" height="160" role="img" aria-label="Circuit diagram unavailable">
+  <rect width="${W}" height="160" rx="12" fill="${PAPER}" stroke="${SHEET_BORDER}"/>
+  <text x="${W / 2}" y="86" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="${INK_MUTED}">Circuit diagram will appear once parts are wired.</text>
 </svg>`;
   }
 
+  // --- Crop: keep only the focus parts (+ highlighted wire endpoints) ---
+  let comps = model.components;
+  if (opts.crop) {
+    const keep = new Set(focus ?? []);
+    const refToPart = new Map(model.components.map((c) => [c.ref, c.partId]));
+    const edges0 = edgesFromModel(plan, model);
+    for (const e of edges0) {
+      if (highlight.has(e.id)) {
+        const fp = refToPart.get(e.fromRef);
+        const tp = refToPart.get(e.toRef);
+        if (fp) keep.add(fp);
+        if (tp) keep.add(tp);
+      }
+    }
+    if (keep.size > 0) {
+      const cropped = comps.filter((c) => keep.has(c.partId));
+      if (cropped.length > 0) comps = cropped;
+    }
+  }
+
   // --- Layout: assign each component to a column, center each column's stack ---
-  const comps = model.components;
   const byCol: ElectricalComponent[][] = [[], [], [], [], []];
   for (const c of comps) byCol[columnFor(c)].push(c);
+  // Compact unused columns so a crop never carries dead whitespace.
+  const usedCols = byCol.map((_, i) => i).filter((i) => byCol[i].length > 0);
+  const colX = new Map<number, number>(
+    usedCols.map((col, i) => [col, COL_PAD + BOX_W / 2 + i * COL_STEP])
+  );
+  const colCount = Math.max(1, usedCols.length);
 
-  const maxRows = Math.max(1, ...byCol.map((l) => l.length));
+  const maxRows = Math.max(1, ...usedCols.map((i) => byCol[i].length));
   const stackH = maxRowsHeight(maxRows);
-  const H = TOP + stackH + 88; // room for legend
+  // A 2-part crop is narrower than the net-class legend row — never clip it.
+  const legendW = legendWidth();
+  const W = Math.max(colCount * COL_STEP + COL_PAD * 2, legendW);
+  const titleH = opts.title ? 38 : 0;
+  const H = titleH + TOP + stackH + 24 + 74; // legend row at the bottom
 
   const boxByRef = new Map<string, Box>();
   const boxes: Box[] = [];
-  byCol.forEach((list, col) => {
+  usedCols.forEach((col) => {
+    const list = byCol[col];
     const blockH = maxRowsHeight(Math.max(1, list.length));
-    const startY = TOP + (stackH - blockH) / 2;
+    const startY = titleH + TOP + (stackH - blockH) / 2;
     list.forEach((c, row) => {
       const b: Box = {
         ref: c.ref,
@@ -110,7 +153,7 @@ export function svgCircuitDiagram(plan: BuildPlan, opts: CircuitDiagramOptions =
         label: shortPart(c.name),
         col,
         row,
-        x: COL_X[col] - BOX_W / 2,
+        x: (colX.get(col) ?? COL_PAD) - BOX_W / 2,
         y: startY + row * ROW_GAP,
         w: BOX_W,
         h: BOX_H,
@@ -122,11 +165,12 @@ export function svgCircuitDiagram(plan: BuildPlan, opts: CircuitDiagramOptions =
   });
 
   // --- Wires: fan parallel edges between the same pair of boxes ---
-  const edges = edgesFromModel(plan, model);
+  const edges = edgesFromModel(plan, model).filter(
+    (e) => boxByRef.has(e.fromRef) && boxByRef.has(e.toRef)
+  );
   const pairKey = (a: string, b: string) => [a, b].sort().join("~");
   const groups = new Map<string, typeof edges>();
   for (const e of edges) {
-    if (!boxByRef.has(e.fromRef) || !boxByRef.has(e.toRef)) continue;
     const k = pairKey(e.fromRef, e.toRef);
     const arr = groups.get(k) ?? [];
     arr.push(e);
@@ -141,39 +185,46 @@ export function svgCircuitDiagram(plan: BuildPlan, opts: CircuitDiagramOptions =
       const from = boxByRef.get(e.fromRef)!;
       const to = boxByRef.get(e.toRef)!;
       // spread parallels across the facing edges
-      const spread = (i - (n - 1) / 2) * 12;
+      const spread = (i - (n - 1) / 2) * 14;
       const [sx, sy, tx, ty, dir] = anchors(from, to, spread);
-      const color = NEAR_BLACK.test((e.colorHex || "").replace(/\s/g, "")) ? "#64748b" : e.colorHex || "#64748b";
+      const color = e.colorHex || INK_SECONDARY;
       const isCurrent = highlight.has(e.id);
       const isDone = done.has(e.id);
       const dimByFocus = !!focus && !(focus.has(from.partId) && focus.has(to.partId));
-      // state mode (wiring step): current spotlit, done solid, pending faint.
-      // overview: full, or focus-dimmed.
+      // state mode (wiring step): current spotlit, done solid, pending ghost.
+      // overview: full, or focus-dimmed. Same language as the 3D wire layer.
       const op = stateMode ? (isCurrent ? 1 : isDone ? 0.92 : 0.16) : dimByFocus ? 0.32 : 1;
-      const wsw = isCurrent ? 4 : 2.4;
-      const cx = Math.max(40, Math.abs(tx - sx) * 0.45);
+      const sw = isCurrent ? 4 : 2.6;
+      const cx = Math.max(44, Math.abs(tx - sx) * 0.45);
       const c1x = dir === "h" ? sx + (tx > sx ? cx : -cx) : sx;
       const c2x = dir === "h" ? tx + (tx > sx ? -cx : cx) : tx;
       const c1y = dir === "h" ? sy : sy + (ty > sy ? cx : -cx);
       const c2y = dir === "h" ? ty : ty + (ty > sy ? -cx : cx);
+      const path = `M${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}`;
       if (isCurrent) {
         wireSvg.push(
-          `<path d="M${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}" fill="none" stroke="${escAttr(color)}" stroke-width="9" stroke-linecap="round" opacity="0.28"/>`
+          `<path d="${path}" fill="none" stroke="${ACCENT}" stroke-width="10" stroke-linecap="round" opacity="0.22"/>`
         );
       }
       wireSvg.push(
-        `<path d="M${sx},${sy} C${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}" fill="none" stroke="${escAttr(color)}" stroke-width="${wsw}" stroke-linecap="round" opacity="${op}"/>`
+        `<path d="${path}" fill="none" stroke="${escAttr(color)}" stroke-width="${sw}" stroke-linecap="round" opacity="${op}"/>`
       );
+      // Arrowhead: the current wire shows flow direction at its target pad.
+      if (isCurrent) {
+        const ang = Math.atan2(ty - c2y, tx - c2x);
+        wireSvg.push(arrowHead(tx, ty, ang, color));
+      }
       // endpoint pads
       wireSvg.push(
-        `<circle cx="${sx}" cy="${sy}" r="3" fill="${escAttr(color)}" opacity="${op}"/><circle cx="${tx}" cy="${ty}" r="3" fill="${escAttr(color)}" opacity="${op}"/>`
+        `<circle cx="${sx}" cy="${sy}" r="3.5" fill="${escAttr(color)}" stroke="${INK}" stroke-width="1" opacity="${op}"/><circle cx="${tx}" cy="${ty}" r="3.5" fill="${escAttr(color)}" stroke="${INK}" stroke-width="1" opacity="${op}"/>`
       );
-      // Pin labels only on the spotlighted (current) wire — in the overview the
-      // colored lines + boxes carry the picture; exact pins show when you're on it.
-      if (isCurrent) {
-        labelSvg.push(pinTag(sx, sy, dir === "h" ? (tx > sx ? "e" : "w") : "s", e.fromPin, color));
-        labelSvg.push(pinTag(tx, ty, dir === "h" ? (tx > sx ? "w" : "e") : "n", e.toPin, color));
-      }
+      // Direct pin labels on every wire end (the sheet is native-pixel, so
+      // 11px mono stays legible; the old squished viewBox made these 4px).
+      // Parallel vertical wires run close together in the gap between boxes,
+      // so fan their tags apart: left wire's tags grow left, right wire's right.
+      const vAnchor = spread < 0 ? "end" : spread > 0 ? "start" : undefined;
+      labelSvg.push(pinTag(sx, sy, dir === "h" ? (tx > sx ? "w" : "e") : "n", e.fromPin, color, op, dir === "v" ? vAnchor : undefined));
+      labelSvg.push(pinTag(tx, ty, dir === "h" ? (tx > sx ? "e" : "w") : "s", e.toPin, color, op, dir === "v" ? vAnchor : undefined));
     });
   }
 
@@ -182,29 +233,39 @@ export function svgCircuitDiagram(plan: BuildPlan, opts: CircuitDiagramOptions =
     .map((b) => {
       const dim = focus && !focus.has(b.partId);
       const op = dim ? 0.4 : 1;
-      const fill = b.isCell ? "#3b2a12" : "#171c26";
-      const stroke = b.isCell ? "#b45309" : "#334155";
+      const fill = PAPER;
+      const stroke = b.isCell ? "#b45309" : INK;
       return `<g opacity="${op}">
-  <rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="9" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>
-  <text x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 4}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="12.5" font-weight="600" fill="#e6e9ef">${escText(b.label)}</text>
+  <rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="10" fill="${fill}" stroke="${stroke}" stroke-width="1.6"/>
+  <text x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 4.5}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="600" fill="${INK}">${escText(b.label)}</text>
 </g>`;
     })
     .join("\n");
 
-  const legend = drawLegend(H, W);
+  const legend = drawLegend(H - 40);
   const heading = opts.title
-    ? `<text x="24" y="34" font-family="system-ui,sans-serif" font-size="15" font-weight="700" fill="#e6e9ef">${escText(opts.title)}</text>
-  <text x="24" y="54" font-family="system-ui,sans-serif" font-size="11.5" fill="#94a3b8">Every part, every wire — the colors match the steps exactly.</text>`
+    ? `<text x="${COL_PAD + 4}" y="26" font-family="system-ui,sans-serif" font-size="15" font-weight="600" fill="${INK}">${escText(opts.title)}</text>`
     : "";
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Whole circuit diagram: every part and every wire">
-  <rect width="${W}" height="${H}" rx="14" fill="#0b0e13"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Whole circuit diagram: every part and every wire">
+  <rect width="${W}" height="${H}" rx="14" fill="${PAPER}" stroke="${SHEET_BORDER}"/>
   ${heading}
   ${wireSvg.join("\n")}
-  ${labelSvg.join("\n")}
   ${boxSvg}
+  ${labelSvg.join("\n")}
   ${legend}
 </svg>`;
+}
+
+/** Small filled arrowhead pointing along `ang` at (x, y). */
+function arrowHead(x: number, y: number, ang: number, color: string): string {
+  const L = 9;
+  const Wd = 4.5;
+  const bx = x - Math.cos(ang) * L;
+  const by = y - Math.sin(ang) * L;
+  const px = -Math.sin(ang) * Wd;
+  const py = Math.cos(ang) * Wd;
+  return `<path d="M${x},${y} L${bx + px},${by + py} L${bx - px},${by - py} Z" fill="${escAttr(color)}"/>`;
 }
 
 function maxRowsHeight(rows: number): number {
@@ -235,32 +296,45 @@ function anchors(
   return [rx, ry, lx, ly, "h"];
 }
 
-/** Small pin-name tag anchored just off an endpoint. */
-function pinTag(x: number, y: number, side: "e" | "w" | "n" | "s", pin: string, color: string): string {
-  const label = truncate(pin, 6);
-  const dx = side === "e" ? 7 : side === "w" ? -7 : 0;
-  const dy = side === "s" ? 12 : side === "n" ? -8 : 3;
-  const anchor = side === "e" ? "start" : side === "w" ? "end" : "middle";
-  return `<text x="${x + dx}" y="${y + dy}" text-anchor="${anchor}" font-family="ui-monospace,monospace" font-size="9" font-weight="600" fill="${escAttr(color)}">${escText(label)}</text>`;
+/**
+ * Mono pin tag just off an endpoint, on the OUTSIDE of the box edge.
+ * Sized 11px (the DESIGN.md floor for expert-adjacent readouts; part labels
+ * and legend run 12–13px).
+ */
+function pinTag(
+  x: number,
+  y: number,
+  side: "e" | "w" | "n" | "s",
+  pin: string,
+  color: string,
+  op: number,
+  anchor?: "start" | "end"
+): string {
+  const label = truncate(pin, 7);
+  const dx = anchor === "start" ? 4 : anchor === "end" ? -4 : side === "e" ? 8 : side === "w" ? -8 : 0;
+  const dy = side === "s" ? 16 : side === "n" ? -10 : 4;
+  const a = anchor ?? (side === "e" ? "start" : side === "w" ? "end" : "middle");
+  return `<text x="${x + dx}" y="${y + dy}" text-anchor="${a}" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" font-weight="600" fill="${escAttr(color)}" opacity="${Math.max(op, 0.35)}">${escText(label)}</text>`;
 }
 
-function drawLegend(H: number, W: number): string {
-  const items: [string, string][] = [
-    ["#dc2626", "Power (red)"],
-    ["#64748b", "Ground (black)"],
-    ["#2563eb", "SDA (blue)"],
-    ["#eab308", "SCL (yellow)"],
-  ];
-  const y = H - 34;
-  let x = 24;
+/** Net-class legend from the color authority — the ONLY legend on the sheet. */
+function legendWidth(): number {
+  let w = COL_PAD + 8;
+  for (const row of wireLegend()) w += 26 + row.meaning.length * 6.6;
+  return Math.ceil(w);
+}
+
+function drawLegend(y: number): string {
+  const items = wireLegend();
+  let x = COL_PAD + 4;
   const parts: string[] = [];
-  for (const [c, label] of items) {
+  for (const row of items) {
+    const label = row.meaning;
     parts.push(
-      `<circle cx="${x + 6}" cy="${y}" r="6" fill="${c}"/><text x="${x + 18}" y="${y + 4}" font-family="system-ui,sans-serif" font-size="11.5" fill="#94a3b8">${escText(label)}</text>`
+      `<circle cx="${x + 6}" cy="${y}" r="5.5" fill="${escAttr(row.color)}" stroke="${INK}" stroke-width="1"/><text x="${x + 18}" y="${y + 4}" font-family="system-ui,sans-serif" font-size="12" fill="${INK_SECONDARY}">${escText(label)}</text>`
     );
-    x += 26 + label.length * 7.2;
+    x += 26 + label.length * 6.6;
   }
-  void W;
   return parts.join("\n");
 }
 

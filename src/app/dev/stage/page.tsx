@@ -3,9 +3,9 @@
 /**
  * /dev/stage — the Stage development harness.
  *
- * dynamic(ssr:false) is the code-split boundary: the entire three.js / drei /
- * postprocessing graph lives in the Stage chunk, NOT the page bundle. This is
- * the same boundary the production swap (S4) will use from build-session.
+ * dynamic(ssr:false) is the code-split boundary: the entire three.js / drei
+ * graph lives in the Stage chunk, NOT the page bundle. This is the same
+ * boundary the production swap (S4) will use from build-session.
  */
 import dynamic from "next/dynamic";
 

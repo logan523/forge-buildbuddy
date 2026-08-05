@@ -28,6 +28,7 @@ import {
 } from "@/lib/serial/verify";
 import type { BuildPlan } from "@/lib/types";
 import { FlashFlow, FlashFirmwareSection } from "./flash-flow";
+import { MissingDeviceDebugPanel } from "./missing-device-panel";
 
 export interface FlashConsoleProps {
   /**
@@ -340,7 +341,7 @@ export function FlashConsole({
               </div>
 
               {plan && (
-                <WiringCheckCard verdicts={verdicts} unexpected={unexpected} onOpenUnstick={onOpenUnstick} />
+                <WiringCheckCard plan={plan} verdicts={verdicts} unexpected={unexpected} onOpenUnstick={onOpenUnstick} />
               )}
 
               <div
@@ -395,10 +396,12 @@ function ConsoleLine({ text }: { text: string }) {
  * either) rather than showing an empty card shell.
  */
 function WiringCheckCard({
+  plan,
   verdicts,
   unexpected,
   onOpenUnstick,
 }: {
+  plan: BuildPlan;
   verdicts: DeviceVerdict[];
   unexpected: UnexpectedDevice[];
   onOpenUnstick?: (symptomHint: string) => void;
@@ -409,7 +412,7 @@ function WiringCheckCard({
       <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Wiring check</p>
       <ul className="space-y-1.5">
         {verdicts.map((v) => (
-          <DeviceVerdictRow key={v.device.catalogId} verdict={v} onOpenUnstick={onOpenUnstick} />
+          <DeviceVerdictRow key={v.device.catalogId} plan={plan} verdict={v} verdicts={verdicts} onOpenUnstick={onOpenUnstick} />
         ))}
         {unexpected.map((u) => (
           <li key={u.address} className="text-xs text-text-muted">
@@ -422,13 +425,21 @@ function WiringCheckCard({
 }
 
 function DeviceVerdictRow({
+  plan,
   verdict,
+  verdicts,
   onOpenUnstick,
 }: {
+  plan: BuildPlan;
   verdict: DeviceVerdict;
+  verdicts: DeviceVerdict[];
   onOpenUnstick?: (symptomHint: string) => void;
 }) {
   const { device, status, foundAddress } = verdict;
+  // Lazy-mount the debug panel's diagram/diagnosis work only once the
+  // builder actually opens it — stays mounted after that (even if they
+  // collapse it again) so reopening doesn't redo the work or lose state.
+  const [everOpened, setEverOpened] = useState(false);
 
   if (status === "waiting") {
     return (
@@ -447,16 +458,28 @@ function DeviceVerdictRow({
     );
   }
 
+  // Missing — expand in place rather than jumping to a separate drawer, so
+  // the live serial connection and the scan's 3s re-check loop never stop:
+  // reflow the joint and watch this same row flip to the "found" branch
+  // above while the panel stays open.
   return (
-    <li className="flex items-center justify-between gap-2 flex-wrap">
-      <span className="text-sm text-warning">
-        ✗ {device.label} (0x{hexAddr(device.addresses[0])}) hasn&apos;t answered yet
-      </span>
-      {onOpenUnstick && (
-        <Button variant="secondary" size="sm" onClick={() => onOpenUnstick(device.symptomHint)}>
-          Debug this
-        </Button>
-      )}
+    <li>
+      <details onToggle={(e) => (e.target as HTMLDetailsElement).open && setEverOpened(true)}>
+        <summary className="flex items-center justify-between gap-2 flex-wrap list-none cursor-pointer">
+          <span className="text-sm text-warning">
+            ✗ {device.label} (0x{hexAddr(device.addresses[0])}) hasn&apos;t answered yet
+          </span>
+          <span className="text-xs text-accent font-medium shrink-0">Why isn&apos;t this found? ▾</span>
+        </summary>
+        {everOpened && (
+          <MissingDeviceDebugPanel
+            plan={plan}
+            verdict={verdict}
+            verdicts={verdicts}
+            onOpenFullUnstick={onOpenUnstick ? () => onOpenUnstick(device.symptomHint) : undefined}
+          />
+        )}
+      </details>
     </li>
   );
 }

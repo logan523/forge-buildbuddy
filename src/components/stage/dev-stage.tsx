@@ -22,13 +22,6 @@ function DevStageInner() {
   );
   return (
     <>
-      {/* Warm the HDRI alongside the JS chunk (React hoists this to <head>). */}
-      <link
-        rel="preload"
-        href="/hdri/studio_small_08_1k.hdr"
-        as="fetch"
-        crossOrigin="anonymous"
-      />
       <div
         className="fixed inset-x-0 bottom-0"
         style={{ top: 56, height: "calc(100vh - 56px)" }}
@@ -47,7 +40,7 @@ function DevStageInner() {
 
 export default function DevStage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-slate-500">loading stage…</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-text-muted">loading stage…</div>}>
       <DevStageInner />
     </Suspense>
   );

@@ -30,7 +30,7 @@ test("circuit-diagram: spotlights the current wire (glow) and dims the rest", ()
   const sda = edges.find((e) => e.netName === "SDA");
   assert.ok(sda, "an SDA edge exists");
   const svg = svgCircuitDiagram(t, { highlightWireIds: [sda!.id] });
-  assert.match(svg, /stroke-width="9"/, "the current wire gets a glow underlay");
+  assert.match(svg, /stroke="#0e7490" stroke-width="10"/, "the current wire gets an accent glow underlay");
   assert.match(svg, /opacity="0\.16"/, "pending wires dim in state mode");
 });
 
@@ -45,4 +45,23 @@ test("circuit-diagram: an empty model degrades gracefully (no crash, no 'undefin
   const svg = svgCircuitDiagram({ ...t, electrical: undefined } as BuildPlan);
   assert.match(svg, /<svg/);
   assert.ok(!svg.includes("undefined"));
+});
+
+test("circuit-diagram: crop keeps only focus parts (per-step sheet)", () => {
+  const model = t.electrical!;
+  const mcu = model.components.find((c) => /esp32/i.test(c.catalogId || ""));
+  assert.ok(mcu, "the plan has an MCU");
+  const svg = svgCircuitDiagram(t, { crop: true, focusPartIds: [mcu!.partId] });
+  assert.ok(svg.includes("ESP32-C3"), "focused MCU stays on the cropped sheet");
+  assert.ok(!svg.includes('0.96" OLED'), "non-focused parts are cropped away");
+});
+
+test("circuit-diagram: renders an optional title as a visible heading", () => {
+  const svg = svgCircuitDiagram(t, { title: "Wire the I2C bus" });
+  assert.match(svg, /font-size="15"[^>]*>Wire the I2C bus</);
+});
+
+test("circuit-diagram: native-pixel output (width/height match the viewBox)", () => {
+  const svg = svgCircuitDiagram(t);
+  assert.match(svg, /viewBox="0 0 (\d+) (\d+)" width="\1" height="\2"/);
 });

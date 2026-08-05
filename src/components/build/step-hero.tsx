@@ -13,9 +13,10 @@
  * without opening the expanded 3D view. Desktop (lg+) is unchanged.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { BuildPlan, BuildStep, MicroStep } from "@/lib/types";
 import { resolveStepMedia } from "@/lib/step-media";
+import { svgCircuitDiagram } from "@/lib/step-media/circuit-diagram";
 import { StageApp } from "@/components/stage/stage-app";
 import { StageBoundary } from "@/components/stage/stage-boundary";
 import { StepMediaExtras } from "./step-media-extras";
@@ -75,6 +76,24 @@ export function StepHero({
 
   const hasFocus = (step.compiled?.focusPartIds?.length ?? 0) > 0 || !!focusWire;
 
+  // Wiring/solder steps: the cropped 2D wiring sheet is the hero — this
+  // step's parts and wires drawn large and legible, pin names on every
+  // endpoint (the old 96px 3D peek strip was noise, not information). The
+  // 3D stage stays one tap away via "View in 3D" for spatial confirmation.
+  // Placement and other steps keep the 3D stage as their hero.
+  const isWiringStep = (step.compiled?.microSteps?.length ?? 0) > 0;
+  const sheetSvg = useMemo(
+    () =>
+      isWiringStep
+        ? svgCircuitDiagram(plan, {
+            crop: true,
+            focusPartIds: step.compiled?.focusPartIds ?? [],
+            highlightWireIds: focusWire ? [focusWire.id] : [],
+          })
+        : "",
+    [plan, step, focusWire, isWiringStep]
+  );
+
   return (
     <div className="flex flex-col gap-3 h-full overflow-y-auto p-3">
       <div className="shrink-0">
@@ -95,32 +114,42 @@ export function StepHero({
             <span className="hidden lg:inline">⤢ Expand</span>
           </button>
         </div>
-        {/* ONE canvas: expanding swaps classNames inside ProductAssemblyApp.
-            Boundary so a WebGL failure shows a note, not a dead build screen. */}
-        <StageBoundary
-          fallback={
-            <div
-              className="flex items-center justify-center text-center rounded-lg border border-border-subtle bg-surface-overlay px-4"
-              style={{ height: stageHeight }}
-            >
-              <p className="text-xs text-text-secondary">
-                3D view unavailable here — the wiring and steps below still have you covered.
-              </p>
-            </div>
-          }
-        >
-          <StageApp
-            plan={plan}
-            stepIndex={stepIndex}
-            step={stepProps}
-            height={stageHeight}
-            expandable={false}
-            variant="step"
-            expanded={expanded}
-            onExpandedChange={setExpanded}
-            focusWire={focusWire}
+        {/* Wiring steps lead with the 2D sheet crop (this step's parts + the
+            active wire, drawn large); the 3D stage mounts only when the
+            builder asks via "View in 3D". Everything else keeps the canvas. */}
+        {isWiringStep && !expanded ? (
+          <div
+            className="rounded-lg border border-border-subtle bg-surface shadow-card overflow-x-auto [&_svg]:block [&_svg]:mx-auto"
+            dangerouslySetInnerHTML={{ __html: sheetSvg }}
           />
-        </StageBoundary>
+        ) : (
+          /* ONE canvas: expanding swaps classNames inside ProductAssemblyApp.
+             Boundary so a WebGL failure shows a note, not a dead build screen. */
+          <StageBoundary
+            fallback={
+              <div
+                className="flex items-center justify-center text-center rounded-lg border border-border-subtle bg-surface-overlay px-4"
+                style={{ height: stageHeight }}
+              >
+                <p className="text-xs text-text-secondary">
+                  3D view unavailable here — the wiring and steps below still have you covered.
+                </p>
+              </div>
+            }
+          >
+            <StageApp
+              plan={plan}
+              stepIndex={stepIndex}
+              step={stepProps}
+              height={stageHeight}
+              expandable={false}
+              variant="step"
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              focusWire={focusWire}
+            />
+          </StageBoundary>
+        )}
         {expanded && (
           <button
             type="button"
