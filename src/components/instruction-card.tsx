@@ -30,7 +30,7 @@ import {
   GlossaryText,
 } from "@/components/step-facts";
 import { PhotoCheck } from "@/components/build/photo-check";
-import { GuidedSteps } from "@/components/build/guided-steps";
+import { PrePowerGateCard, isPowerOnStep } from "@/components/build/pre-power-gate";
 
 export const TIME_BY_KIND: Record<ReturnType<typeof stepKind>, string> = {
   wiring: "≈15 min",
@@ -49,7 +49,7 @@ export function InstructionCard({
   plan,
   stepCompleted = false,
   onAutoComplete,
-  onActiveWire,
+  onActiveWire: _onActiveWire, // consumed by SolderWorkbench since Slice 1; prop kept for call-site compat
   firmware,
 }: {
   step: BuildStep;
@@ -77,14 +77,6 @@ export function InstructionCard({
     () => (firmware !== undefined ? firmware : plan ? generateFirmware(plan) : null),
     [firmware, plan]
   );
-  // Wiring steps with compiled micro-steps get the guided one-wire-at-a-time
-  // experience (hand-holding) in place of the coarse checklist + separate table.
-  // Prefer microSteps presence over kind so pad maps show whenever facts exist.
-  const guided =
-    !!plan &&
-    !!planId &&
-    !!onAutoComplete &&
-    (step.compiled?.microSteps?.length ?? 0) > 0;
 
   const goalBlock = (
     <GlossaryText
@@ -111,21 +103,12 @@ export function InstructionCard({
 
   return (
     <div className="space-y-4">
-      {guided ? (
+      {/* Slice 1: the guided one-wire-at-a-time branch moved into
+          SolderWorkbench (build-screen routes every micro-step step there);
+          InstructionCard now only ever renders steps WITHOUT micro-steps. */}
+      {(
         <>
-          <GuidedSteps
-            step={step}
-            plan={plan!}
-            planId={planId!}
-            stepCompleted={stepCompleted}
-            onAutoComplete={onAutoComplete}
-            onActiveWire={onActiveWire}
-          />
-          {goalBlock}
-          {safetyBlock}
-        </>
-      ) : (
-        <>
+          {plan && isPowerOnStep(step.title) && <PrePowerGateCard plan={plan} />}
           {goalBlock}
           {safetyBlock}
 
@@ -190,7 +173,7 @@ export function InstructionCard({
         </div>
       )}
 
-      <CheckYourWorkCard step={step} firmware={resolvedFirmware} />
+      <CheckYourWorkCard step={step} firmware={resolvedFirmware} customFirmware={plan?.customFirmware} />
 
       {planId && <PhotoCheck step={step} planId={planId} />}
 
@@ -232,7 +215,7 @@ export function InstructionCard({
             </details>
           )}
 
-          {step.toolTechnique && !guided && (
+          {step.toolTechnique && (
             <details className="group">
               <summary className="text-[10px] font-semibold text-text-muted uppercase tracking-wider cursor-pointer py-1.5 min-h-11">
                 Tool technique — {step.toolTechnique.tool}

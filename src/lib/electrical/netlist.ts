@@ -293,6 +293,35 @@ function normalizePinName(token: string, comp: ElectricalComponent): string {
     return comp.pins.find((p) => /^5V$/i.test(p.name) || p.name === "VIN")?.name || "5V";
   }
   if (t === "SIG" || t === "SIGNAL") return comp.pins.find((p) => p.name === "SIG" || p.name === "OUT")?.name || "SIG";
+  // Single-letter silkscreen (R3-lite, Slice 2): tiny boards abbreviate —
+  // the real build's ESP32-C3 clone printed "G" where the plan said "GND"
+  // ("i did GND to G what next"). Only bind when the component actually HAS
+  // the matching pin: a bare letter must never invent a pin, and "D"/"C"/"S"
+  // stay data-direction-safe by matching against the canonical pin list.
+  if (t === "G" || t === "GND" || t === "GROUND" || t === "VSS" || t === "-" || t === "−") {
+    const gnd = comp.pins.find((p) => /^(GND|GROUND|VSS|-|−)$/i.test(p.name));
+    if (gnd) return gnd.name;
+    if (t !== "G") return t; // non-G spellings keep today's fallthrough shape
+  }
+  if (t === "V" || t === "VCC" || t === "VDD" || t === "+") {
+    const pwr = comp.pins.find((p) => /^(VCC|VDD|3V3|3\.3V|VIN|\+)$/i.test(p.name));
+    if (pwr) return pwr.name;
+    if (t !== "V") return t;
+  }
+  if (t === "D" || t === "SDA" || t === "DA") {
+    const sda = comp.pins.find((p) => /SDA/i.test(p.name));
+    if (sda) return sda.name;
+    if (t !== "D" && t !== "DA") return t;
+  }
+  if (t === "C" || t === "SCL" || t === "CL" || t === "SCK") {
+    const scl = comp.pins.find((p) => /SCL|SCK/i.test(p.name));
+    if (scl) return scl.name;
+    if (t !== "C" && t !== "CL") return t;
+  }
+  if (t === "S") {
+    const sig = comp.pins.find((p) => /^(SIG|OUT|S)$/i.test(p.name));
+    if (sig) return sig.name;
+  }
   if (t === "BAT+" || t === "B+") return comp.pins.find((p) => /B\+|BAT\+/i.test(p.name))?.name || t;
   if (t === "BAT-" || t === "B-") return comp.pins.find((p) => /B-|BAT-/i.test(p.name))?.name || t;
   if (t === "OUT+" || t === "OUT") return comp.pins.find((p) => /OUT\+|BAT\+/i.test(p.name))?.name || t;

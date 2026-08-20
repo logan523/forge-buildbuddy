@@ -110,7 +110,7 @@ export function buildConnectionEdges(
         toNodeId: b,
         netName: net.name,
         netClass: net.netClass,
-        color: netColorFor(net.netClass, wireColor, net.name),
+        color: net.displayColorHex ?? netColorFor(net.netClass, wireColor, net.name),
         label: net.name,
       });
       if (edges.length >= maxEdges) break;

@@ -22,15 +22,18 @@ import { generateEnclosure } from "@/lib/enclosure";
 import { applyTrustPipeline } from "@/lib/trust";
 import { onStorageWarning, savePlan, touchPlan } from "@/lib/storage";
 import { shareUrlForPlan } from "@/lib/share";
-import { filterStepsForMode } from "@/lib/modes";
+import { filterStepsForMode, skippedStepsForMode } from "@/lib/modes";
 import { useProductVisual } from "@/components/product-hero";
 import { PrepScreen } from "@/components/build/prep-screen";
 import { BuildScreen } from "@/components/build/build-screen";
+import { hydrateReality, readReality, subscribeReality } from "@/lib/build-reality";
+import { useSyncExternalStore } from "react";
 import { BuildDrawers } from "@/components/build/build-drawers";
 import {
   useBuildState,
   progressPct,
   needsSafetyAck,
+  defaultBuildMode,
 } from "@/components/build/use-build-state";
 import { expectedI2cAddresses } from "@/lib/serial/expected-devices";
 import {
@@ -67,13 +70,45 @@ export function BuildSession({
     onStorageWarning((context) => setStorageWarning(context));
     return () => onStorageWarning(null);
   }, []);
-  const plan = useMemo(
-    () => applyTrustPipeline({ ...rawPlan, ...planPatch }),
-    [rawPlan, planPatch]
+  // BuildReality (Slice 2): sync-read the cache; undefined = not hydrated
+  // yet — the pipeline runs canonical-colored until hydration lands, then
+  // recompiles ONCE keyed on the monotonic revision (eng E1/E6 — never a
+  // content hash, never a per-keystroke recompute).
+  const reality = useSyncExternalStore(
+    subscribeReality,
+    () => readReality(rawPlan.id),
+    () => undefined
   );
+  const plan = useMemo(
+    () => applyTrustPipeline({ ...rawPlan, ...planPatch }, reality),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision IS the identity (E6)
+    [rawPlan, planPatch, reality?.revision]
+  );
+  useEffect(() => {
+    // Hydrate after first compile: the compiled edges let the legacy
+    // wirechecks migration record real endpoints (eng E9).
+    void hydrateReality(
+      rawPlan.id,
+      plan.steps.flatMap((st) => st.compiled?.connections ?? [])
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per plan
+  }, [rawPlan.id]);
 
+  // Slice 3 fix (carried from Slice 1 audit): deep-link indices arrive as
+  // FULL-list positions from page.tsx; the session navigates the FILTERED
+  // list. Map by real stepNumber so ?step/?wire land on the same step in
+  // either mode instead of drifting when quick mode drops steps.
+  const mappedInitialIndex = useMemo(() => {
+    if (initialStepIndex === undefined) return undefined;
+    const target = (rawPlan.steps ?? [])[initialStepIndex]?.stepNumber;
+    if (target === undefined) return initialStepIndex;
+    const filtered = filterStepsForMode(plan, defaultBuildMode(plan.id));
+    const idx = filtered.findIndex((st) => st.stepNumber === target);
+    return idx >= 0 ? idx : Math.max(0, Math.min(initialStepIndex, filtered.length - 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial-only
+  }, []);
   const { state, actions } = useBuildState(plan.id, startAtPrep, {
-    stepIndex: initialStepIndex,
+    stepIndex: mappedInitialIndex,
   });
 
   // P1.3/P2: end-of-build live I2C verify — shared by BuildScreen gate + FlashConsole.
@@ -83,6 +118,8 @@ export function BuildSession({
   );
 
   const steps = useMemo(() => filterStepsForMode(plan, state.buildMode), [plan, state.buildMode]);
+  // Slice 1 (Track 0.3): what quick mode skips is rendered, never hidden.
+  const skippedSteps = useMemo(() => skippedStepsForMode(plan, state.buildMode), [plan, state.buildMode]);
   const firmware = useMemo(() => generateFirmware(plan), [plan]);
   const pcb = useMemo(() => {
     try {
@@ -193,6 +230,8 @@ export function BuildSession({
       <BuildScreen
         plan={plan}
         steps={steps}
+        skippedSteps={skippedSteps}
+        onIncludeSkipped={() => actions.setBuildMode("full")}
         step={s}
         stepIndex={state.stepIndex}
         pct={pct}

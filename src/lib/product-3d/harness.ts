@@ -416,7 +416,10 @@ export function buildHarnesses(
         }
       }
       if (nodePins.length < 2) continue;
-      const color = netColorFor(net.netClass, (net as { wireColor?: string }).wireColor, net.name);
+      // Reality stamp first (R2/E3) — the 3D tubes must match the prose the
+      // builder reads, or "colors can never disagree" dies in the one place
+      // a beginner would notice.
+      const color = net.displayColorHex ?? netColorFor(net.netClass, (net as { wireColor?: string }).wireColor, net.name);
       const leg = (from: NodePin, to: NodePin) =>
         pairs.push({
           from: from.nodeId,

@@ -136,6 +136,44 @@ function d(
  * Ranked diagnosis trees for a symptom in the context of this plan/step.
  * Pure TypeScript — no LLM. Merges step commonMistakes when present.
  */
+/**
+ * Reality-aware trim (Slice 3, V2): drop checklist actions that are purely
+ * about wire continuity on nets the builder's own reality already PROVED
+ * (every joint on the net verified at instrument/assisted tier). Mirrors
+ * filterDiagnosesByProof's contract exactly: never empties a checklist,
+ * trimmed diagnoses sort last, orders renumber.
+ */
+export function filterDiagnosesByReality(
+  diagnoses: Diagnosis[],
+  reality: import("./build-reality/types").BuildReality | undefined
+): Diagnosis[] {
+  if (!reality) return diagnoses;
+  const byNet = new Map<string, { total: number; verified: number }>();
+  for (const j of Object.values(reality.joints)) {
+    if (j.state === "removed") continue;
+    const key = j.netName.toLowerCase();
+    const row = byNet.get(key) ?? { total: 0, verified: 0 };
+    row.total++;
+    if (j.state === "verified" && j.evidence && j.evidence.tier !== "self-report") row.verified++;
+    byNet.set(key, row);
+  }
+  const proven = new Set(
+    [...byNet.entries()].filter(([, r]) => r.total > 0 && r.verified === r.total).map(([k]) => k)
+  );
+  if (proven.size === 0) return diagnoses;
+
+  const withTrim = diagnoses.map((d) => {
+    const kept = d.actions.filter(
+      (a) => !(a.netHint && a.netHint.length > 0 && a.netHint.every((t) => proven.has(t.toLowerCase())))
+    );
+    const trimmed = kept.length < d.actions.length;
+    const finalActions = (kept.length > 0 ? kept : d.actions).map((a, i) => ({ ...a, order: i + 1 }));
+    return { diagnosis: { ...d, actions: finalActions }, trimmed };
+  });
+  withTrim.sort((a, b) => Number(a.trimmed) - Number(b.trimmed));
+  return withTrim.map((w) => w.diagnosis);
+}
+
 export function diagnose(plan: BuildPlan, symptomId: SymptomId, step?: BuildStep): Diagnosis[] {
   const parts = plan.parts || [];
   const blob = planBlob(plan, step);

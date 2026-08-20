@@ -16,6 +16,7 @@ import demo from "@/data/sat-line.json";
 const planWithI2c = applyTrustPipeline(demo as unknown as BuildPlan);
 
 const realDateNow = Date.now;
+const ORIGINAL_FETCH = globalThis.fetch;
 
 afterEach(() => {
   cleanup();
@@ -26,7 +27,12 @@ afterEach(() => {
     /* ignore */
   }
   Date.now = realDateNow;
+  globalThis.fetch = ORIGINAL_FETCH;
 });
+
+function mockManifestFetch(body: unknown) {
+  globalThis.fetch = (async () => ({ ok: true, json: async () => body })) as unknown as typeof fetch;
+}
 
 /** A fake SerialPort backed by a real ReadableStream, so session.ts's actual
  * pipe/reader/teardown code runs unmocked — only the USB layer is faked. */
@@ -316,4 +322,79 @@ test("plan present + connected: expanding a missing device's panel shows sibling
   // straight from the "missing" branch to the "found" branch.
   pushLine("Found device at 0x3C");
   await waitFor(() => assert.ok(screen.getByText(/✓ OLED display answered at 0x3C/)), { timeout: 2500 });
+});
+
+// --- B2: generic customFirmware flash section (replaces the old hardcoded plan-id gate) ---
+
+const planWithCustomFirmware: BuildPlan = {
+  ...planWithI2c,
+  id: "solar-weather-clock",
+  customFirmware: {
+    id: "solar-weather-clock",
+    label: "Solar Weather Clock firmware",
+    boardFamily: "esp32c3",
+    entryFile: "weather-clock.ino",
+    files: [],
+    authoredBy: "human",
+  },
+};
+
+test("customFirmware present, but not compiled yet (no manifest.customSketches entry for this plan id) — honest message, no dead button", async () => {
+  mockManifestFetch({ families: {} });
+  const { port } = makeFakePort();
+  mockSerial(async () => port);
+
+  render(<FlashConsole open onClose={() => {}} plan={planWithCustomFirmware} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+  await waitFor(() => assert.ok(screen.getByRole("button", { name: /disconnect/i })), { timeout: 2000 });
+
+  await waitFor(() => assert.ok(screen.getByText(/Solar Weather Clock firmware isn't compiled yet/i)));
+  assert.match(
+    screen.getByText(/scripts\/compile-firmware\.mjs/).textContent ?? "",
+    /--key solar-weather-clock/,
+    "the exact compile command for this plan is shown, not a generic placeholder"
+  );
+  assert.equal(screen.queryByRole("button", { name: /flash solar weather clock firmware/i }), null);
+});
+
+test("customFirmware present AND compiled (manifest.customSketches has this plan's entry) — a real button, wired to the right entry, not the old hardcoded id gate", async () => {
+  mockManifestFetch({
+    families: {},
+    customSketches: {
+      "solar-weather-clock": {
+        bin: "/firmware/esp32c3/solar-weather-clock.bin",
+        offset: 0,
+        builtAt: "2026-08-14T00:00:00.000Z",
+        sketch: "Solar Weather Clock firmware",
+        buildId: "a3f9c1c2",
+      },
+    },
+  });
+  const { port } = makeFakePort();
+  mockSerial(async () => port);
+
+  render(<FlashConsole open onClose={() => {}} plan={planWithCustomFirmware} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+  await waitFor(() => assert.ok(screen.getByRole("button", { name: /disconnect/i })), { timeout: 2000 });
+
+  const button = await waitFor(() => screen.getByRole("button", { name: /flash solar weather clock firmware/i }));
+  await userEvent.click(button);
+  // Clicking swaps the whole panel to FlashFlow's boot-guidance view — proves
+  // the resolved manifest entry actually reached FlashFlow, the same
+  // integration point every plan's custom firmware now shares (no more
+  // one-off hardcoded id check).
+  await waitFor(() => assert.ok(screen.getByText(/put your board in flashing mode/i)));
+});
+
+test("a plan with no customFirmware at all never renders the custom-firmware section", async () => {
+  mockManifestFetch({ families: {} });
+  const { port } = makeFakePort();
+  mockSerial(async () => port);
+
+  render(<FlashConsole open onClose={() => {}} plan={planWithI2c} />);
+  await userEvent.click(screen.getByRole("button", { name: /connect your board/i }));
+  await waitFor(() => assert.ok(screen.getByRole("button", { name: /disconnect/i })), { timeout: 2000 });
+
+  assert.equal(screen.queryByText(/isn't compiled yet/i), null);
+  assert.equal(screen.queryByText(/^Flash /i), null);
 });

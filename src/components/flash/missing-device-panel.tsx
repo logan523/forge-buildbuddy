@@ -104,7 +104,7 @@ export function MissingDeviceDebugPanel({
             >
               <span
                 className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: netColorFor(n.net.netClass, undefined, n.net.name) }}
+                style={{ backgroundColor: n.net.displayColorHex ?? netColorFor(n.net.netClass, undefined, n.net.name) }}
                 aria-hidden="true"
               />
               {friendlyNetName(n.net)} {n.proven ? "proven" : "unproven"}

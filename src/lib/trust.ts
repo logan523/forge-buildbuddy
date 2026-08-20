@@ -6,6 +6,8 @@ import { attachElectrical, ercToSafetyFindings } from "./electrical";
 import { attachCompiledFacts } from "./steps/compile";
 import { validateStepContent, stepIssuesToSafetyFindings } from "./steps/validate";
 import { diagLog } from "./diag";
+import type { BuildReality } from "./build-reality/types";
+import { netColorFor, wireColorName } from "./wire-colors";
 
 /**
  * Post-LLM trust + electrical + buy pipeline (pure TypeScript):
@@ -19,7 +21,45 @@ import { diagLog } from "./diag";
  *
  * No network. No LLM. Deterministic.
  */
-export function applyTrustPipeline(plan: BuildPlan): BuildPlan {
+/**
+ * Stamp the builder's declared wire colors onto the electrical model (R2 /
+ * eng E3). This is THE one place reality touches color resolution — every
+ * renderer (compile, 2D sheets, 3D harness, panels) reads the stamped
+ * fields with a canonical fallback. Only runs when declarations exist, so a
+ * plan with no reality compiles byte-identical to before.
+ */
+function stampRealityColors(plan: BuildPlan, reality: BuildReality): BuildPlan {
+  const model = plan.electrical;
+  if (!model) return plan;
+  const byNet = reality.wireColors.byNet;
+  const byConnection = reality.wireColors.byConnection;
+  if (Object.keys(byNet).length === 0 && Object.keys(byConnection).length === 0) return plan;
+
+  const nets = model.nets.map((net) => {
+    const netDecl = byNet[net.name.toLowerCase()];
+    const memberColorOverrides: NonNullable<typeof net.memberColorOverrides> = {};
+    for (const m of net.members || []) {
+      // Connection ids are hub-relative (`net:ref:pin` for the non-hub leg);
+      // a per-connection declaration maps to the member that leg lands on.
+      const decl = byConnection[`${net.name}:${m.ref}:${m.pin}`];
+      if (decl) memberColorOverrides[`${m.ref}:${m.pin}`] = { hex: decl.hex, name: decl.name, label: decl.label };
+    }
+    const hasMemberOverrides = Object.keys(memberColorOverrides).length > 0;
+    if (!netDecl && !hasMemberOverrides) return net;
+    const canonicalHex = netColorFor(net.netClass, undefined, net.name);
+    return {
+      ...net,
+      displayColorHex: netDecl?.hex ?? canonicalHex,
+      displayColorName: netDecl?.name ?? wireColorName(canonicalHex),
+      displayColorLabel: netDecl?.label,
+      displayColorSource: (netDecl ? "user" : "authority") as "user" | "authority",
+      ...(hasMemberOverrides ? { memberColorOverrides } : {}),
+    };
+  });
+  return { ...plan, electrical: { ...model, nets } };
+}
+
+export function applyTrustPipeline(plan: BuildPlan, reality?: BuildReality): BuildPlan {
   const parts: Part[] = attachBuyData(enrichParts(plan.parts || []));
   const withParts: BuildPlan = {
     ...plan,
@@ -30,7 +70,8 @@ export function applyTrustPipeline(plan: BuildPlan): BuildPlan {
     steps: plan.steps || [],
   };
 
-  const withElectrical = attachElectrical(withParts);
+  let withElectrical = attachElectrical(withParts);
+  if (reality) withElectrical = stampRealityColors(withElectrical, reality);
 
   // Instruction compiler + content validator — NEVER blocks plan load (F1).
   // On failure the plan renders without derived facts, with a visible banner

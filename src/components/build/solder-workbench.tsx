@@ -20,8 +20,116 @@ import {
 } from "@/lib/part-scan";
 import { PremiumPadMap } from "./premium-pad-map";
 import { LiveSolderCamera } from "./part-scan/live-solder-camera";
-import type { GuidedActionState } from "./guided-steps";
+import type { GuidedActionState } from "./guided-action";
 import { svgCircuitDiagram } from "@/lib/step-media/circuit-diagram";
+import { WireAndPartsIdentity } from "./part-identity-card";
+import { WireDoubleCheck } from "./wire-double-check";
+import { PhotoCheck } from "./photo-check";
+import { diagnose, filterDiagnosesByReality, type SymptomId } from "@/lib/unstick";
+import { encouragement } from "@/lib/steps/buddy";
+import { recordStruggle, preemptiveRock, frictionCount, type Rock } from "@/lib/steps/friction";
+import { WIRE_NAME_HEX } from "@/lib/wire-colors";
+import {
+  clearColor,
+  colorForConnection,
+  commitReality,
+  declareColor,
+  readReality,
+  subscribeReality,
+} from "@/lib/build-reality";
+import { useSyncExternalStore } from "react";
+import { BreadboardPanel } from "./breadboard-panel";
+import { PrePowerGateCard, isPowerOnStep } from "./pre-power-gate";
+
+/** The 12 buyable-jumper-kit swatches — capture is always swatch + optional free label (design voice 5.2). */
+const SWATCHES: { name: string; hex: string }[] = Object.entries(WIRE_NAME_HEX)
+  .filter(([name]) => name !== "gray")
+  .map(([name, hex]) => ({ name, hex }));
+
+/**
+ * "GND is brown" gets a home (Slice 2, R2). Declaring commits immediately
+ * with a visible undo — first-person facts about the builder's own hands are
+ * never gated behind a confirm card (tiered writes, audit row 9). The
+ * recompile that re-keys prose/sheets/3D is triggered by the reality
+ * revision upstream in BuildSession.
+ */
+function WireColorDeclaration({ planId, micro }: { planId: string; micro: MicroStep }) {
+  const reality = useSyncExternalStore(subscribeReality, () => readReality(planId), () => undefined);
+  const [labelText, setLabelText] = useState("");
+  const [wholeNet, setWholeNet] = useState(true);
+  const declared = colorForConnection(reality, micro.id, micro.netName);
+  if (reality === undefined) return null; // not hydrated — never paint then repaint colors
+
+  const apply = (swatch: { name: string; hex: string }) => {
+    const label = labelText.trim() || undefined;
+    commitReality(
+      declareColor(reality, {
+        hex: swatch.hex,
+        name: swatch.name,
+        label,
+        connectionId: micro.id,
+        ...(wholeNet ? { netName: micro.netName } : {}),
+      })
+    );
+  };
+  const undo = () => {
+    commitReality(clearColor(reality, { connectionId: micro.id, netName: wholeNet ? micro.netName : undefined }));
+  };
+
+  return (
+    <details className="group rounded-xl border border-console-border bg-console-surface px-4 py-2">
+      <summary className="text-sm font-semibold text-console-accent cursor-pointer min-h-11 flex items-center gap-2">
+        My wire is a different color
+        {declared && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-console-text normal-case">
+            <span className="w-3 h-3 rounded-full border border-white/20" style={{ background: declared.hex }} aria-hidden />
+            yours: {declared.label ?? declared.name}
+          </span>
+        )}
+      </summary>
+      <div className="mt-2 pb-2 space-y-3">
+        <p className="text-xs text-console-text-muted">
+          Your color is a fact, not a mistake — tell me what you actually used and every
+          instruction, sheet, and diagram re-keys to it.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {SWATCHES.map((sw) => (
+            <button
+              key={sw.name}
+              type="button"
+              onClick={() => apply(sw)}
+              title={sw.name}
+              aria-label={`my wire is ${sw.name}`}
+              className={`w-11 h-11 rounded-full border-2 cursor-pointer transition active:scale-95 ${
+                declared?.hex === sw.hex ? "border-console-accent ring-2 ring-console-accent/40" : "border-white/20 hover:border-white/50"
+              }`}
+              style={{ background: sw.hex }}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            value={labelText}
+            onChange={(e) => setLabelText(e.target.value)}
+            placeholder={'your words, e.g. "the short orange one"'}
+            autoCapitalize="off"
+            className="flex-1 min-w-[200px] min-h-11 px-3 rounded-lg bg-console-surface-raised border border-console-border text-sm text-console-text placeholder:text-console-text-muted/60"
+          />
+          <label className="flex items-center gap-2 text-xs text-console-text-muted cursor-pointer min-h-11">
+            <input type="checkbox" checked={wholeNet} onChange={(e) => setWholeNet(e.target.checked)} />
+            all {micro.netName} wires
+          </label>
+          {declared && (
+            <button type="button" onClick={undo} className="text-xs font-semibold text-warning cursor-pointer min-h-11 px-2 hover:underline">
+              Undo — back to standard
+            </button>
+          )}
+        </div>
+      </div>
+    </details>
+  );
+}
 
 export function SolderWorkbench({
   step,
@@ -33,6 +141,7 @@ export function SolderWorkbench({
   onGuidedState,
   inventory: inventoryProp,
   onOpenPartScan,
+  askSlot,
 }: {
   step: BuildStep;
   plan: BuildPlan;
@@ -43,12 +152,16 @@ export function SolderWorkbench({
   onGuidedState?: (s: GuidedActionState | null) => void;
   inventory?: BenchInventory;
   onOpenPartScan?: () => void;
+  /** Ask-AI (or any helper) rendered inside the scroll area — wired by BuildScreen so step skills stay up there. */
+  askSlot?: React.ReactNode;
 }) {
   const micro = step.compiled?.microSteps ?? [];
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [current, setCurrent] = useState(0);
   const [liveOpen, setLiveOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
+  const [rescueOpens, setRescueOpens] = useState(0);
+  const [preempt, setPreempt] = useState<{ rock: Rock; count: number } | null>(null);
   const [localInv, setLocalInv] = useState(() => loadBenchInventory(planId));
   const autoFired = useRef(false);
   const liveId = useId();
@@ -112,6 +225,34 @@ export function SolderWorkbench({
     [micro, checked]
   );
 
+  // Teaching layer (lifted from GuidedSteps when the dead branch dissolved,
+  // Slice 1): friction pre-empt once per step, struggle recording, per-wire
+  // rescue, and the buddy line.
+  const stepNetClasses = useMemo(
+    () => Array.from(new Set(micro.map((m) => m.netClass))),
+    [micro]
+  );
+  useEffect(() => {
+    setPreempt(preemptiveRock({ kind: "wiring", netClasses: stepNetClasses }, frictionCount));
+  }, [stepNetClasses]);
+  useEffect(() => {
+    setRescueOpens(0);
+  }, [current]);
+  // Opening the rescue a second time on one wire = struggling → record it, so
+  // the NEXT build pre-empts this rock before the builder hits it.
+  useEffect(() => {
+    if (rescueOpens === 2) recordStruggle({ kind: "wiring", netClasses: stepNetClasses });
+  }, [rescueOpens, stepNetClasses]);
+  const workbenchReality = useSyncExternalStore(subscribeReality, () => readReality(planId), () => undefined);
+  const rescue = useMemo(() => {
+    if (!cur?.rescueSymptomId) return null;
+    // V2: causes the builder's own evidence already eliminated don't get
+    // re-suggested — the codified "the sensor answered, so those exact
+    // wires are proven good."
+    const ds = filterDiagnosesByReality(diagnose(plan, cur.rescueSymptomId as SymptomId, step), workbenchReality);
+    return ds[0] ?? null;
+  }, [plan, cur, step, planId, workbenchReality]);
+
   // Cropped wiring sheet: just the two modules this wire joins, drawn large
   // with pin names on both ends — the ONE picture a beginner needs at the
   // iron. Native-pixel output (never squished into the container; it scrolls
@@ -144,6 +285,16 @@ export function SolderWorkbench({
   const liveText = `Wire ${current + 1} of ${micro.length}: solder ${cur.colorName} from ${cur.fromLabel} pin ${cur.fromPin} to ${cur.toLabel} pin ${cur.toPin}${isDone ? ", marked done" : ""}`;
   const fromScan = itemForPart(inv, cur.fromPartId);
   const toScan = itemForPart(inv, cur.toPartId);
+  // D7: dual-encoded progress — filled = made (asserted), bright = PROVEN
+  // by the board itself (instrument evidence in reality).
+  const provenCount = micro.filter((m) => workbenchReality?.joints[m.id]?.state === "verified").length;
+  const buddyLine = encouragement({
+    current,
+    total: micro.length,
+    doneCount,
+    netClass: cur.netClass,
+    struggling: rescueOpens > 1,
+  });
   const pct = Math.round((doneCount / micro.length) * 100);
 
   return (
@@ -177,7 +328,7 @@ export function SolderWorkbench({
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-console-accent">
                   Wire lab · {current + 1} / {micro.length}
                   <span className="text-console-text-muted font-semibold normal-case tracking-normal ml-2">
-                    {doneCount} done · {pct}%
+                    {doneCount} done{provenCount > 0 ? ` · ${provenCount} proven live` : ""} · {pct}%
                   </span>
                 </p>
                 <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-console-text leading-tight">
@@ -227,10 +378,13 @@ export function SolderWorkbench({
               aria-valuemax={micro.length}
               aria-label="Wires completed"
             >
-              <div
-                className="h-full rounded-full bg-console-accent transition-all duration-300"
-                style={{ width: `${pct}%` }}
-              />
+              <div className="h-full rounded-full bg-console-accent/50 transition-all duration-300 relative" style={{ width: `${pct}%` }}>
+                {/* bright inner segment = proven-by-the-board (instrument tier) */}
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-console-accent transition-all duration-300"
+                  style={{ width: micro.length ? `${Math.round((provenCount / Math.max(doneCount, 1)) * 100)}%` : "0%" }}
+                />
+              </div>
             </div>
             <button
               type="button"
@@ -286,17 +440,58 @@ export function SolderWorkbench({
           {/* Cropped wiring sheet on paper — the two modules this wire joins,
               drawn large with pin names on both ends. The glowing wire is the
               one to solder; done wires stay solid, the rest stay faint. */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-console-text-muted mb-2 px-0.5">
-              This connection — the glowing wire is the one you're soldering
-            </p>
-            <div
-              className="rounded-xl border border-border-subtle bg-surface shadow-card overflow-x-auto [&_svg]:block [&_svg]:mx-auto"
-              dangerouslySetInnerHTML={{ __html: circuitSvg }}
-            />
-          </div>
+          {isPowerOnStep(step.title) && <PrePowerGateCard plan={plan} />}
 
-          <PremiumPadMap micro={cur} />
+          <BreadboardPanel planId={planId} micro={cur} />
+
+          {workbenchReality?.formFactor === "breadboard" ? (
+            /* D8: one hero visual per formFactor — in breadboard mode the
+               board sheet above is the hero; the circuit sheet + pad map
+               demote to on-demand so three pictures of one wire never
+               compete. */
+            <details className="group rounded-xl border border-console-border bg-console-surface px-4 py-2">
+              <summary className="text-sm font-semibold text-console-accent cursor-pointer min-h-11 flex items-center">
+                See the circuit sheet &amp; solder pads
+              </summary>
+              <div className="mt-2 pb-2 space-y-4">
+                <div
+                  className="rounded-xl border border-border-subtle bg-surface shadow-card overflow-x-auto [&_svg]:block [&_svg]:mx-auto"
+                  dangerouslySetInnerHTML={{ __html: circuitSvg }}
+                />
+                <PremiumPadMap micro={cur} />
+              </div>
+            </details>
+          ) : (
+            <>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-console-text-muted mb-2 px-0.5">
+                  This connection — the glowing wire is the one you're soldering
+                </p>
+                <div
+                  className="rounded-xl border border-border-subtle bg-surface shadow-card overflow-x-auto [&_svg]:block [&_svg]:mx-auto"
+                  dangerouslySetInnerHTML={{ __html: circuitSvg }}
+                />
+              </div>
+
+              <PremiumPadMap micro={cur} />
+            </>
+          )}
+
+          {/* Pre-empted rock — the mistake THIS builder has already made twice */}
+          {preempt && (
+            <div className="rounded-xl border border-warning/40 bg-warning-soft/40 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-warning">
+                Heads up — this one has bitten you before
+              </p>
+              <p className="text-sm text-console-text mt-1 leading-snug">{preempt.rock.callout}</p>
+            </div>
+          )}
+
+          {buddyLine && (
+            <p className="text-sm text-console-text-muted italic px-0.5" data-testid="buddy-line">
+              {buddyLine}
+            </p>
+          )}
 
           {/* Verify strip — single row, no accordion spam */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -338,6 +533,53 @@ export function SolderWorkbench({
               )}
             </div>
           </div>
+
+          <WireColorDeclaration planId={planId} micro={cur} />
+
+          {/* "Is this the part I'm holding?" — wire + both parts + 1:1 size card */}
+          <details className="group rounded-xl border border-console-border bg-console-surface px-4 py-2">
+            <summary className="text-sm font-semibold text-console-accent cursor-pointer min-h-11 flex items-center">
+              What am I connecting? See both parts
+            </summary>
+            <div className="mt-2 pb-2 rounded-lg bg-surface p-2">
+              <WireAndPartsIdentity micro={cur} plan={plan} />
+            </div>
+          </details>
+
+          {/* Reverse-check: "I put the [color] wire on pin [X]" → netlist verdict */}
+          {step.compiled && (
+            <div className="rounded-xl border border-console-border bg-console-surface px-4 py-2 [&_summary]:text-console-accent [&_summary]:min-h-11">
+              <WireDoubleCheck compiled={step.compiled} />
+            </div>
+          )}
+
+          {/* "Did I do it right?" photo verdict — renders only when the vision
+              eval has passed (see photo-check.tsx's kill-switch). */}
+          <PhotoCheck step={step} planId={planId} />
+
+          {/* Inline rescue for THIS wire — stays on-screen, never a drawer swap */}
+          {rescue && (
+            <details
+              className="group rounded-xl border border-warning/30 bg-console-surface px-4 py-2"
+              onToggle={(e) => {
+                if ((e.target as HTMLDetailsElement).open) setRescueOpens((n) => n + 1);
+              }}
+            >
+              <summary className="text-sm font-semibold text-warning cursor-pointer min-h-11 flex items-center">
+                Doesn&apos;t look right?
+              </summary>
+              <div className="mt-1.5 space-y-1 pb-2">
+                <p className="text-sm font-medium text-console-text">{rescue.title}</p>
+                <p className="text-sm text-console-text-muted">{rescue.cause}</p>
+                {rescue.actions.slice(0, 2).map((a) => (
+                  <p key={a.order} className="text-sm text-console-text-muted">
+                    <span className="font-medium text-console-text">{a.order}.</span> {a.action}{" "}
+                    <span className="opacity-70">→ {a.expect}</span>
+                  </p>
+                ))}
+              </div>
+            </details>
+          )}
 
           {/* Connection table — glanceable from → to → color; tap any row to jump */}
           <div className="rounded-xl border border-console-border bg-console-surface overflow-hidden">
@@ -384,6 +626,8 @@ export function SolderWorkbench({
               })}
             </ul>
           </div>
+
+          {askSlot && <div className="pt-1">{askSlot}</div>}
 
           {/* Prev / next wire */}
           <div className="flex items-center justify-between gap-3 pt-1 pb-6">

@@ -68,6 +68,19 @@ export interface ElectricalNet {
   members: NetMember[];
   /** How the net was named/classified */
   grade: TrustGrade;
+  /**
+   * Reality-resolved display color, stamped ONCE by applyTrustPipeline when
+   * the builder has declared wire colors (R2 / eng E3). Every renderer reads
+   * the stamp with a canonical `netColorFor` fallback — colors are resolved
+   * in exactly one place, so surfaces can never disagree. Absent on plans
+   * with no declarations (keeps no-reality output byte-identical).
+   */
+  displayColorHex?: string;
+  displayColorName?: string;
+  displayColorLabel?: string;
+  displayColorSource?: "user" | "authority";
+  /** Per-member (`"ref:pin"`) color overrides — a single leg the builder recolored. */
+  memberColorOverrides?: Record<string, { hex: string; name: string; label?: string }>;
 }
 
 export interface ErcViolation {
