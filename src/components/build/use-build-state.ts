@@ -215,7 +215,12 @@ export function isFirstTimeBuilder(): boolean {
 export function defaultBuildMode(planId: string): BuildMode {
   const stored = loadMeta(planId)?.buildMode as BuildMode | undefined;
   if (stored) return stored;
-  return isFirstTimeBuilder() ? "quick" : "full";
+  // Slice 1 (Track 0.3): first-time builders get the FULL build. Quick mode
+  // silently dropped steps for exactly the people least equipped to notice —
+  // the real build's owner was jumped "to step 6 automatically" by this
+  // default. Quick stays available as an explicit choice on the prep screen,
+  // and its skips are now rendered visibly in the step list.
+  return "full";
 }
 
 export function useBuildState(

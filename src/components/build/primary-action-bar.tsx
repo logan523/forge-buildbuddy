@@ -21,7 +21,7 @@
 import type { BuildStep } from "@/lib/types";
 import { Button, type ButtonVariant } from "@/components/ui";
 
-/** Mirrors GuidedSteps' current wire — see GuidedActionContext in guided-steps.tsx. */
+/** Mirrors the workbench's current wire — see GuidedActionContext in guided-action.ts. */
 export interface PrimaryActionGuidedState {
   label: string;
   done: boolean;

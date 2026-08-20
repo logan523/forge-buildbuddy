@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BuildPlan, BuildStep } from "@/lib/types";
+import type { BuildPlan, BuildStep, StepAction } from "@/lib/types";
 import { resolveActions } from "@/lib/steps/instruction";
 import { loadActionChecks, saveActionChecks } from "@/lib/storage";
 import { isSpeechAvailable, speakLine, stopSpeech } from "@/lib/speech";
@@ -33,7 +33,21 @@ export function HandsFreeMode({
   onClose: () => void;
 }) {
   const step = steps[stepIndex];
-  const actions = useMemo(() => (step ? resolveActions(step) : []), [step]);
+  // Wiring steps: resolveActions deliberately returns [] (the pin table owns
+  // the checklist), which used to leave hands-free with NOTHING to speak on
+  // exactly the steps where hands are full of flux (Slice 1 fix). Speak the
+  // compiled per-wire actions instead — the same netlist truth the workbench
+  // shows. Checking wires here doesn't write wirechecks storage; hands-free
+  // is a speech layer, the workbench stays the source of record.
+  const actions = useMemo(() => {
+    if (!step) return [];
+    const micro = step.compiled?.microSteps ?? [];
+    if (micro.length > 0) {
+      const wireActions: StepAction[] = micro.map((m, i) => ({ n: i + 1, text: m.action }));
+      return wireActions;
+    }
+    return resolveActions(step);
+  }, [step]);
   const [checked, setChecked] = useState<Set<number>>(() =>
     step ? loadActionChecks(plan.id, step.stepNumber) : new Set()
   );

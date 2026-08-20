@@ -143,8 +143,11 @@ test("A5: isFirstTimeBuilder is true only when no plan has ever been saved", () 
   assert.equal(isFirstTimeBuilder(), false, "any saved plan — even a different one — ends first-time status");
 });
 
-test("A5: defaultBuildMode — quick for a first-ever session; full once returning; per-plan meta always wins", () => {
-  assert.equal(defaultBuildMode("new-plan"), "quick", "empty storage: first-time builder defaults to quick");
+test("A5/Slice-1: defaultBuildMode — FULL for a first-ever session (quick never silently drops steps on a beginner); per-plan meta always wins", () => {
+  // Slice 1 (Track 0.3) flipped this contract: first-timers get the FULL
+  // build — quick mode's silent step-dropping is what lost the real build's
+  // owner ("moved me to step 6 automatically").
+  assert.equal(defaultBuildMode("new-plan"), "full", "empty storage: first-time builder defaults to full");
 
   savePlan({ id: "some-other-plan", title: "x", steps: [] } as unknown as BuildPlan);
   assert.equal(

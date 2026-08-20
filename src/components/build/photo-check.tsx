@@ -66,6 +66,12 @@ const VERDICT_STYLE: Record<PhotoVerdict["verdict"], { head: string; cls: string
 };
 
 export function PhotoCheck({ step, planId }: { step: BuildStep; planId: string }) {
+  // Slice 1 (Track 0.5): the eval kill-switch stays — vision never ships
+  // unevaluated — but the per-step reference photo is now OPTIONAL (the API
+  // core already treats referenceBase64 as optional). The old double-gate
+  // made this feature dead on every plan except a demo with checked-in
+  // photos; now any plan gets "did I do it right?" once the eval passes.
+  const [enabled, setEnabled] = useState(false);
   const [refSrc, setRefSrc] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [verdict, setVerdict] = useState<PhotoVerdict | null>(null);
@@ -78,12 +84,14 @@ export function PhotoCheck({ step, planId }: { step: BuildStep; planId: string }
     setVerdict(null);
     setError(null);
     setBusy(false);
+    setEnabled(false);
     const ref = `/build-photos/${planId}/step-${step.stepNumber}.jpg`;
     fetch("/photo-check.pass.json")
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null)
       .then((flag: { passed?: boolean } | null) => {
         if (!alive || flag?.passed !== true) return;
+        setEnabled(true);
         const probe = new Image();
         probe.onload = () => {
           if (alive && probe.naturalWidth > 0) setRefSrc(ref);
@@ -97,7 +105,7 @@ export function PhotoCheck({ step, planId }: { step: BuildStep; planId: string }
     };
   }, [planId, step.stepNumber]);
 
-  if (!refSrc) return null;
+  if (!enabled) return null;
 
   const check = async (file: File) => {
     if (busy) return;
@@ -107,7 +115,7 @@ export function PhotoCheck({ step, planId }: { step: BuildStep; planId: string }
     try {
       const [imageBase64, referenceBase64] = await Promise.all([
         downscaleToBase64(file),
-        fetchAsBase64(refSrc),
+        refSrc ? fetchAsBase64(refSrc) : Promise.resolve(null),
       ]);
       if (!imageBase64) throw new Error("empty image");
       const res = await fetch("/api/photo-check", {

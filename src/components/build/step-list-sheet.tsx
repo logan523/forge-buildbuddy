@@ -17,6 +17,10 @@ import { stepKind, kindLabel } from "@/lib/steps/classify";
 
 export interface StepListSheetProps {
   steps: BuildStep[];
+  /** Steps quick mode filtered out — Slice 1 (Track 0.3): skips render, never vanish. */
+  skipped?: BuildStep[];
+  /** Include everything (switch to full mode) — fired from a skipped row. */
+  onIncludeSkipped?: () => void;
   stepIndex: number;
   completed: Set<number>;
   onGoStep: (index: number) => void;
@@ -38,11 +42,18 @@ function formatMinutes(total: number): string {
 
 export function StepListSheet({
   steps,
+  skipped = [],
+  onIncludeSkipped,
   stepIndex,
   completed,
   onGoStep,
   onClose,
 }: StepListSheetProps) {
+  // One list in real stepNumber order: visible steps are buttons, skipped
+  // steps are ghost rows that say so and offer the full build. The footer's
+  // "Step N of M" counts real numbers, so this list must show every N.
+  const skippedSet = new Set(skipped.map((s) => s.stepNumber));
+  const allRows = [...steps, ...skipped].sort((a, b) => a.stepNumber - b.stepNumber);
   const doneCount = steps.filter((s) => completed.has(s.stepNumber)).length;
   const remainingMinutes = steps
     .filter((s) => !completed.has(s.stepNumber))
@@ -54,7 +65,32 @@ export function StepListSheet({
         {doneCount} of {steps.length} complete · ~{formatMinutes(remainingMinutes)} left
       </p>
       <div className="space-y-1">
-        {steps.map((st, i) => {
+        {allRows.map((st) => {
+          if (skippedSet.has(st.stepNumber)) {
+            return (
+              <div
+                key={st.stepNumber}
+                className="w-full min-h-11 flex items-center gap-2.5 px-3 py-2 rounded-xl border border-dashed border-border-subtle opacity-70"
+              >
+                <span aria-hidden className="shrink-0 w-4 text-center text-xs text-text-muted">–</span>
+                <span className="shrink-0 w-5 text-xs font-mono text-text-muted">{st.stepNumber}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm truncate text-text-muted">{st.title}</span>
+                  <span className="text-[10px] text-text-muted">skipped in quick mode</span>
+                </span>
+                {onIncludeSkipped && (
+                  <button
+                    type="button"
+                    onClick={onIncludeSkipped}
+                    className="shrink-0 text-[11px] font-semibold text-accent cursor-pointer min-h-11 px-2 hover:underline"
+                  >
+                    Include
+                  </button>
+                )}
+              </div>
+            );
+          }
+          const i = steps.indexOf(st);
           const isDone = completed.has(st.stepNumber);
           const isCurrent = i === stepIndex;
           return (
@@ -80,7 +116,7 @@ export function StepListSheet({
               >
                 {isDone ? "✓" : "○"}
               </span>
-              <span className="shrink-0 w-5 text-xs font-mono text-text-muted">{i + 1}</span>
+              <span className="shrink-0 w-5 text-xs font-mono text-text-muted">{st.stepNumber}</span>
               <span className="min-w-0 flex-1">
                 <span
                   className={`block text-sm truncate ${isCurrent ? "font-semibold text-text" : "text-text"}`}

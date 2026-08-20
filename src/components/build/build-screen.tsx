@@ -16,7 +16,7 @@ import { NextBuildDoorway } from "./next-build-doorway";
 import { HandsFreeMode } from "./hands-free";
 import { AskAboutStep } from "./ask-step";
 import { useOverlay } from "./use-overlay";
-import { GuidedActionContext, type GuidedActionState } from "./guided-steps";
+import { GuidedActionContext, type GuidedActionState } from "./guided-action";
 import { PrimaryActionBar } from "./primary-action-bar";
 import { StepListSheet } from "./step-list-sheet";
 import { SolderWorkbench } from "./solder-workbench";
@@ -44,6 +44,10 @@ const DETAIL_LEVELS: { id: DetailLevel; label: string; icon: IconProps["name"] }
 export interface BuildScreenProps {
   plan: BuildPlan;
   steps: BuildStep[];
+  /** Steps quick mode filtered OUT — rendered as visible skipped rows (Track 0.3). */
+  skippedSteps?: BuildStep[];
+  /** Switch to full mode (include everything) — fired from a skipped row. */
+  onIncludeSkipped?: () => void;
   step: BuildStep | undefined;
   stepIndex: number;
   pct: number;
@@ -202,6 +206,8 @@ function ToolbarOverflow({
 export function BuildScreen({
   plan,
   steps,
+  skippedSteps = [],
+  onIncludeSkipped,
   step: s,
   stepIndex,
   pct,
@@ -389,13 +395,21 @@ export function BuildScreen({
           <div className="shrink-0 px-4 py-2.5 border-b border-console-border flex items-center justify-between gap-2 bg-console-surface">
             <div className="min-w-0">
               <p className="text-[10px] font-bold text-console-accent uppercase tracking-[0.14em]">
-                Step {stepIndex + 1} / {steps.length} · Wire lab · {microSteps.length} pads
+                Step {s.stepNumber} of {plan.steps.length} · Wire lab · {microSteps.length} pads
               </p>
               <h2 className="text-sm font-bold text-console-text truncate" title={s.title}>
                 {s.title}
               </h2>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => onOpenDrawer("flash")}
+                className="text-xs min-h-11 px-3 rounded-lg border border-success/40 bg-success/10 text-success font-semibold cursor-pointer"
+                title="Connect the board and watch each device answer live — reachable from any wire, not just the end of the build"
+              >
+                Live check
+              </button>
               <button
                 type="button"
                 onClick={() => setPartScanOpen(true)}
@@ -423,6 +437,18 @@ export function BuildScreen({
             onGuidedState={setGuidedAction}
             inventory={benchInv}
             onOpenPartScan={() => setPartScanOpen(true)}
+            askSlot={
+              <AskAboutStep
+                step={s}
+                parts={plan.parts}
+                onOpenUnstick={() => onOpenDrawer("unstick")}
+                skillDigest={
+                  stepSkills.length
+                    ? stepSkills.map((sk) => `${sk.name}: ${sk.summary}`).join(" · ")
+                    : undefined
+                }
+              />
+            }
           />
           <div className="shrink-0 px-4 py-2 border-t border-console-border flex items-center justify-between bg-console-surface">
             <button
@@ -432,13 +458,22 @@ export function BuildScreen({
             >
               ← Prev step
             </button>
-            <button
-              type="button"
-              onClick={() => onOpenDrawer("unstick")}
-              className="text-sm text-warning min-h-11 px-3 cursor-pointer"
-            >
-              I&apos;m stuck
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onOpenDrawer("unstick")}
+                className="text-sm text-warning min-h-11 px-3 cursor-pointer"
+              >
+                I&apos;m stuck
+              </button>
+              <button
+                type="button"
+                onClick={() => setHandsFree(true)}
+                className="text-sm text-console-text-muted hover:text-console-text min-h-11 px-3 cursor-pointer"
+              >
+                Hands-free
+              </button>
+            </div>
             <button
               onClick={onNext}
               disabled={stepIndex === steps.length - 1}
@@ -499,7 +534,7 @@ export function BuildScreen({
               <div className="max-w-md mx-auto">
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
                   <span>
-                    Step {stepIndex + 1} of {steps.length}
+                    Step {s?.stepNumber ?? stepIndex + 1} of {plan.steps.length}
                   </span>
                   <span className="px-1.5 py-0.5 rounded bg-surface-overlay">
                     {kindLabel(stepKind(s))}
@@ -729,7 +764,7 @@ export function BuildScreen({
               aria-expanded={activeDrawer === "steps"}
               className="min-h-11 px-3 text-sm text-text-secondary hover:text-text cursor-pointer"
             >
-              Step {stepIndex + 1} of {steps.length} ⌄
+              Step {s?.stepNumber ?? stepIndex + 1} of {plan.steps.length} ⌄
             </button>
             <button
               onClick={onNext}
@@ -769,6 +804,8 @@ export function BuildScreen({
       {activeDrawer === "steps" && (
         <StepListSheet
           steps={steps}
+          skipped={skippedSteps}
+          onIncludeSkipped={onIncludeSkipped}
           stepIndex={stepIndex}
           completed={completed}
           onGoStep={onGoStep}
