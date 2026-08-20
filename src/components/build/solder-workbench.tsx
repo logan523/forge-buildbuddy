@@ -39,7 +39,7 @@ import {
 } from "@/lib/build-reality";
 import { useSyncExternalStore } from "react";
 import { BreadboardPanel } from "./breadboard-panel";
-import { PrePowerGateCard, isPowerOnStep } from "./pre-power-gate";
+import { PrePowerGateCard, PowerOnCelebration, isPowerOnStep } from "./pre-power-gate";
 
 /** The 12 buyable-jumper-kit swatches — capture is always swatch + optional free label (design voice 5.2). */
 const SWATCHES: { name: string; hex: string }[] = Object.entries(WIRE_NAME_HEX)
@@ -142,6 +142,10 @@ export function SolderWorkbench({
   inventory: inventoryProp,
   onOpenPartScan,
   askSlot,
+  onPrevStep,
+  onNextStep,
+  canPrevStep = false,
+  canNextStep = false,
 }: {
   step: BuildStep;
   plan: BuildPlan;
@@ -154,6 +158,11 @@ export function SolderWorkbench({
   onOpenPartScan?: () => void;
   /** Ask-AI (or any helper) rendered inside the scroll area — wired by BuildScreen so step skills stay up there. */
   askSlot?: React.ReactNode;
+  /** D6 — ONE nav system: at the wire list's edges, prev/next continue into the neighboring chapter. */
+  onPrevStep?: () => void;
+  onNextStep?: () => void;
+  canPrevStep?: boolean;
+  canNextStep?: boolean;
 }) {
   const micro = step.compiled?.microSteps ?? [];
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -440,6 +449,7 @@ export function SolderWorkbench({
           {/* Cropped wiring sheet on paper — the two modules this wire joins,
               drawn large with pin names on both ends. The glowing wire is the
               one to solder; done wires stay solid, the rest stay faint. */}
+          {isPowerOnStep(step.title) && stepCompleted && <PowerOnCelebration />}
           {isPowerOnStep(step.title) && <PrePowerGateCard plan={plan} />}
 
           <BreadboardPanel planId={planId} micro={cur} />
@@ -633,22 +643,28 @@ export function SolderWorkbench({
           <div className="flex items-center justify-between gap-3 pt-1 pb-6">
             <button
               type="button"
-              disabled={current === 0}
-              onClick={() => setCurrent((i) => Math.max(0, i - 1))}
+              disabled={current === 0 && !canPrevStep}
+              onClick={() =>
+                current === 0 ? onPrevStep?.() : setCurrent((i) => Math.max(0, i - 1))
+              }
               className="min-h-12 min-w-12 px-4 rounded-xl border border-console-border text-sm font-semibold text-console-text disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer hover:border-white/25"
             >
-              ← Prev wire
+              {current === 0 && canPrevStep ? "← Prev step" : "← Prev wire"}
             </button>
             <p className="text-xs text-console-text-muted text-center hidden sm:block max-w-xs">
               Find the glowing pad on each board. AR guide overlays the same pins on camera.
             </p>
             <button
               type="button"
-              disabled={current >= micro.length - 1}
-              onClick={() => setCurrent((i) => Math.min(micro.length - 1, i + 1))}
+              disabled={current >= micro.length - 1 && !canNextStep}
+              onClick={() =>
+                current >= micro.length - 1
+                  ? onNextStep?.()
+                  : setCurrent((i) => Math.min(micro.length - 1, i + 1))
+              }
               className="min-h-12 min-w-12 px-4 rounded-xl border border-console-border text-sm font-semibold text-console-text disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer hover:border-white/25"
             >
-              Next wire →
+              {current >= micro.length - 1 && canNextStep ? "Next step →" : "Next wire →"}
             </button>
           </div>
         </div>

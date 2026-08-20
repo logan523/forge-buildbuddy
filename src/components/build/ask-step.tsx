@@ -17,6 +17,7 @@ export function AskAboutStep({
   onOpenUnstick,
   skillDigest,
   skillsForHelp,
+  realityDigest,
 }: {
   step: BuildStep;
   parts: Part[];
@@ -25,6 +26,8 @@ export function AskAboutStep({
   skillDigest?: string;
   /** Full skill guidance for /api/step-help (P2). */
   skillsForHelp?: string;
+  /** The builder's own bench state (BuildReality digest) — makes answers about THEIR build, not a generic one. */
+  realityDigest?: string;
 }) {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
@@ -72,6 +75,7 @@ export function AskAboutStep({
             .map((p) => p.name)
             .join(" · "),
           skillsDigest: skillsForHelp || skillDigest || undefined,
+          realityDigest: realityDigest || undefined,
         }),
       });
       const data = (await res.json()) as { answer?: string; error?: string };

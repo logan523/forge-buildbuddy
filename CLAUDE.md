@@ -44,6 +44,10 @@ User describes project → /api/analyze (Claude single pass) → BuildPlan JSON
 | `src/lib/wire-colors.ts` | THE wire-color authority (text + 2D + 3D + legend; class wins, SDA blue / SCL yellow) |
 | `src/lib/glossary.ts` | Beginner jargon definitions (step popovers + part tooltips) |
 | `src/lib/diag.ts` | Local diagnostics ring buffer (every rescue path logs here) |
+| `src/lib/build-reality/` | **THE builder's-world model** — joints + evidence tiers, user wire colors, actual parts, breadboard declarations, IndexedDB + export/import, serial→evidence bridge, soft pre-power gate. Read `docs/BUILD-REALITY.md` before touching colors, gates, or step assignment |
+| `src/lib/breadboard/` | Board geometry as data (presets, node truth, hole parsing) + ERC rules incl. the shared-column short-catch |
+| `src/lib/actions/cursor.ts` | The build-wide "what next" cursor (wiring-scoped, derived from compiled facts + reality) |
+| `src/lib/capability.ts` | Bench capability matrix (Web Serial is desktop-Chromium only — degrade honestly) |
 | `src/app/api/analyze/route.ts` | Claude → plan → trust pipeline (+ optional Nexar) |
 | `src/lib/trust.ts` | Catalog match + safety validators + BOM estimate |
 | `src/lib/catalog.ts` / `modules-catalog.json` | Module ground truth |
@@ -73,6 +77,8 @@ User describes project → /api/analyze (Claude single pass) → BuildPlan JSON
 
 ### 1. Over-engineering
 We built a 14-component architecture, 3-pass AI pipeline with research agents, cost tracking, chat IDE, debug modal, image generation, Fritzing diagrams, safety validators, community features, and a Zustand store. **All of it was noise.** The user just wants parts + steps. Start simple. Only add complexity when the simple version demonstrably fails.
+
+*Nuance added 2026-08-21 (post real-build retro):* "the user just wants parts + steps" is true and was under-specified. A real first-time build proved the steps must be about **the builder's actual bench** — their pin labels, their wire colors, their hole coordinates, their proven joints — or they get abandoned for a chat window. That layer is `src/lib/build-reality/` (contract: `docs/BUILD-REALITY.md`), and it is deterministic, testable, and local. It is NOT a re-run of the deleted "chat IDE": that thing had no ground truth and no tools. Adding conversational surface area is still gated; adding truth about the builder's world is the product.
 
 ### 2. Under-engineering / Deleting working features
 We stripped everything to 165 lines with no demo project, no wiring diagrams, no mark-complete, no prep screen. The user lost all their existing projects. **Refine, don't destroy.** Before removing anything, ask: did the user ask for this to be removed? Does it serve the North Star?

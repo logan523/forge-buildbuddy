@@ -25,6 +25,8 @@ interface StepHelpBody {
   partsDigest?: string;
   /** Matched skill digests (P1.2/P2) — expertise packs, still subordinate to connections. */
   skillsDigest?: string;
+  /** The builder's OWN bench state (BuildReality digest) — their form factor, colors, proven joints. */
+  realityDigest?: string;
 }
 
 const FAIL_CLOSED =
@@ -36,6 +38,7 @@ Rules:
 - Pins and wire colors: use ONLY the DERIVED CONNECTIONS provided — quote pin labels and colors verbatim from them. Never invent a pin, color, or physical pin position ("leftmost pin").
 - SKILLS (if provided) are expert workflow hints — use them for technique and order of operations, but NEVER let a skill invent pins/colors that contradict DERIVED CONNECTIONS.
 - If the answer isn't derivable from the provided facts, say so honestly and suggest the "I'm stuck" menu or re-checking the connections table.
+- THE BUILDER'S BENCH (if provided) is their own declared reality — their wire colors, form factor, and which joints the board already proved. Treat it as ground truth about THEIR build; never tell them their declared color is wrong, and never re-suggest checking a wire their board already proved good.
 - Safety first: never suggest bypassing protection circuits, working powered, or removing a Li-ion cell's wrap.`;
 
 export interface StepHelpResult {
@@ -75,6 +78,10 @@ export async function handleStepHelp(
     typeof body?.skillsDigest === "string" && body.skillsDigest.trim()
       ? body.skillsDigest.trim().slice(0, 1200)
       : "";
+  const bench =
+    typeof body?.realityDigest === "string" && body.realityDigest.trim()
+      ? body.realityDigest.trim().slice(0, 800)
+      : "";
 
   const user = [
     `CURRENT STEP: ${String(body?.stepTitle ?? "").slice(0, 120)}`,
@@ -83,6 +90,7 @@ export async function handleStepHelp(
     checks.length ? `CHECKS:\n${checks.join("\n")}` : "",
     body?.partsDigest ? `PARTS: ${String(body.partsDigest).slice(0, 400)}` : "",
     skills ? `SKILLS (workflow expertise; connections still win):\n${skills}` : "",
+    bench ? `THE BUILDER'S BENCH (their declared reality — ground truth about THEIR build):\n${bench}` : "",
     `QUESTION: ${question}`,
   ]
     .filter(Boolean)

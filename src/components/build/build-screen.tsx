@@ -17,6 +17,8 @@ import { HandsFreeMode } from "./hands-free";
 import { AskAboutStep } from "./ask-step";
 import { useOverlay } from "./use-overlay";
 import { GuidedActionContext, type GuidedActionState } from "./guided-action";
+import { realityDigest } from "@/lib/build-reality/digest";
+import { readReality } from "@/lib/build-reality";
 import { PrimaryActionBar } from "./primary-action-bar";
 import { StepListSheet } from "./step-list-sheet";
 import { SolderWorkbench } from "./solder-workbench";
@@ -437,6 +439,10 @@ export function BuildScreen({
             onGuidedState={setGuidedAction}
             inventory={benchInv}
             onOpenPartScan={() => setPartScanOpen(true)}
+            onPrevStep={onPrev}
+            onNextStep={onNext}
+            canPrevStep={stepIndex > 0}
+            canNextStep={stepIndex < steps.length - 1}
             askSlot={
               <AskAboutStep
                 step={s}
@@ -447,39 +453,27 @@ export function BuildScreen({
                     ? stepSkills.map((sk) => `${sk.name}: ${sk.summary}`).join(" · ")
                     : undefined
                 }
+                realityDigest={realityDigest(plan, readReality(plan.id)) ?? undefined}
               />
             }
           />
-          <div className="shrink-0 px-4 py-2 border-t border-console-border flex items-center justify-between bg-console-surface">
+          {/* D6: ONE nav system — the wire-level prev/next inside the
+              workbench continues into neighboring chapters at the edges, so
+              this footer no longer duplicates a second step-level pair. */}
+          <div className="shrink-0 px-4 py-2 border-t border-console-border flex items-center justify-center gap-1 bg-console-surface">
             <button
-              onClick={onPrev}
-              disabled={stepIndex === 0}
-              className="text-sm text-console-text-muted hover:text-console-text disabled:opacity-30 cursor-pointer min-h-11 px-2"
+              type="button"
+              onClick={() => onOpenDrawer("unstick")}
+              className="text-sm text-warning min-h-11 px-3 cursor-pointer"
             >
-              ← Prev step
+              I&apos;m stuck
             </button>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onOpenDrawer("unstick")}
-                className="text-sm text-warning min-h-11 px-3 cursor-pointer"
-              >
-                I&apos;m stuck
-              </button>
-              <button
-                type="button"
-                onClick={() => setHandsFree(true)}
-                className="text-sm text-console-text-muted hover:text-console-text min-h-11 px-3 cursor-pointer"
-              >
-                Hands-free
-              </button>
-            </div>
             <button
-              onClick={onNext}
-              disabled={stepIndex === steps.length - 1}
-              className="text-sm text-console-text-muted hover:text-console-text disabled:opacity-30 cursor-pointer min-h-11 px-2"
+              type="button"
+              onClick={() => setHandsFree(true)}
+              className="text-sm text-console-text-muted hover:text-console-text min-h-11 px-3 cursor-pointer"
             >
-              Next step →
+              Hands-free
             </button>
           </div>
         </div>
@@ -636,6 +630,7 @@ export function BuildScreen({
                   skillsForHelp={
                     stepSkills.length ? skillsDigest(stepSkills) : undefined
                   }
+                  realityDigest={realityDigest(plan, readReality(plan.id)) ?? undefined}
                 />
               )}
 

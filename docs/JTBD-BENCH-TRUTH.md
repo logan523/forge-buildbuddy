@@ -13,6 +13,23 @@ Secondary signals:
 
 **Not** the job: MCP, classroom packs, skills digests, MathWorks-style agent expansion, product-orbit 3D.
 
+> **Amendment (2026-08-21, after the real Solar Weather Clock build shipped).**
+> The "not the job" list held up — MCP was deliberately deferred again this cycle.
+> But the JOB ITSELF grew, and this doc's one-sentence version was too small.
+> Watching a real first-time build end to end showed that "which pad, which pad,
+> which wire color" is necessary and NOT sufficient, because the product was
+> asserting facts about a bench it knew nothing about:
+>
+> - the pads were named `G`/`OUT+` on his boards, not `GND`/`VCC`
+> - the wire colors were whatever his kit had, not the pedagogy palette
+> - on a breadboard there are no pads at all — there are hole coordinates
+> - checking a wire off is an ASSERTION; the board answering is EVIDENCE
+>
+> The job, restated: **show me the next single action in MY world — my parts, my
+> colors, my coordinates — and prove it worked before I trust it.** That is what
+> `docs/BUILD-REALITY.md` implements. The bench-truth instinct in this doc is the
+> foundation; reality is the layer that makes it true for a specific human.
+
 ## The job (one sentence)
 
 When I hold a soldering iron and two modules, show me **which pad, which pad, which wire color**, and let me check it off — in under two seconds of scanning.

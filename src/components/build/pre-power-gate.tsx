@@ -111,6 +111,25 @@ export function PrePowerGateCard({ plan }: { plan: BuildPlan }) {
   );
 }
 
+/**
+ * The power-on SUCCESS moment (design D11) — "holy shit its lighting up"
+ * was the emotional peak of the real build, and the product celebrated
+ * nothing. Distinct from the all-steps-complete card: this fires the moment
+ * the power-on step itself is marked done.
+ */
+export function PowerOnCelebration() {
+  return (
+    <div className="rounded-xl border border-success/40 bg-success/10 p-5 text-center space-y-1.5" data-testid="power-on-celebration">
+      <p className="text-2xl" aria-hidden>⚡</p>
+      <p className="text-lg font-bold text-console-text">It's alive.</p>
+      <p className="text-sm text-console-text-muted leading-snug">
+        That light is electrons doing exactly what you told them to. Every joint you made is
+        carrying real current right now — this is the moment the whole build was for.
+      </p>
+    </div>
+  );
+}
+
 /** The power-on moment: a battery/power/plug step late in the build. */
 export function isPowerOnStep(title: string | undefined): boolean {
   return !!title && /\b(power (it )?on|plug (it )?in|connect the battery|first power|bring .* to life)\b/i.test(title);

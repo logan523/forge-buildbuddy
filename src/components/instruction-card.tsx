@@ -30,7 +30,7 @@ import {
   GlossaryText,
 } from "@/components/step-facts";
 import { PhotoCheck } from "@/components/build/photo-check";
-import { PrePowerGateCard, isPowerOnStep } from "@/components/build/pre-power-gate";
+import { PrePowerGateCard, PowerOnCelebration, isPowerOnStep } from "@/components/build/pre-power-gate";
 
 export const TIME_BY_KIND: Record<ReturnType<typeof stepKind>, string> = {
   wiring: "≈15 min",
@@ -108,6 +108,7 @@ export function InstructionCard({
           InstructionCard now only ever renders steps WITHOUT micro-steps. */}
       {(
         <>
+          {isPowerOnStep(step.title) && stepCompleted && <PowerOnCelebration />}
           {plan && isPowerOnStep(step.title) && <PrePowerGateCard plan={plan} />}
           {goalBlock}
           {safetyBlock}
