@@ -10,7 +10,13 @@ import { stripDerived } from "./steps/compile";
 export function encodePlanShare(plan: BuildPlan): string {
   // Derived facts recompile on import (trust pipeline runs on every load) —
   // never ship them in a URL that is already ~61KB (eng 1A).
-  const json = JSON.stringify(stripDerived(plan));
+  // customFirmware is dropped entirely: hand-authored firmware source can
+  // carry secrets (Wi-Fi credentials are the proven case) and is device-local
+  // by nature — a share URL must never be able to leak it. The receiver's
+  // plan falls back to generated firmware templates, which is honest.
+  const { customFirmware: _cf, ...shareable } = stripDerived(plan);
+  void _cf;
+  const json = JSON.stringify(shareable);
   if (typeof Buffer !== "undefined") {
     return Buffer.from(json, "utf8")
       .toString("base64")

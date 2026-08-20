@@ -1,4 +1,4 @@
-import type { BuildStep, StepAction } from "@/lib/types";
+import type { BuildStep, StepAction, CustomFirmwareSource } from "@/lib/types";
 import type { FirmwarePackage } from "@/lib/firmware";
 import { doneWhenForSoftwareStep } from "@/lib/firmware";
 import { stepKind } from "./classify";
@@ -81,13 +81,23 @@ export function resolveYouNeed(step: BuildStep): string[] {
 
 /**
  * Success-criteria copy for a step. Priority: explicit author `doneWhen` →
- * (software steps only, when a firmware package is available) a check
- * derived from the actual sketch to upload → `afterState` → a leftover
- * `verification.description` → an honest "nothing generated" fallback that
- * never claims a check exists when none was produced (A4).
+ * (software steps only) when the plan ships its own hand-authored firmware
+ * (`customFirmware`), name its real entry file rather than guessing against
+ * a fixed template set that doesn't apply → otherwise, when a generated
+ * firmware package is available, a check derived from the actual sketch to
+ * upload → `afterState` → a leftover `verification.description` → an
+ * honest "nothing generated" fallback that never claims a check exists when
+ * none was produced (A4).
  */
-export function resolveDoneWhen(step: BuildStep, firmware?: FirmwarePackage | null): string {
+export function resolveDoneWhen(
+  step: BuildStep,
+  firmware?: FirmwarePackage | null,
+  customFirmware?: CustomFirmwareSource | null
+): string {
   if (step.doneWhen?.trim()) return step.doneWhen.trim();
+  if (customFirmware && stepKind(step) === "software") {
+    return `Upload ${customFirmware.entryFile} — this is your own firmware, not a Forge template. Watch Serial Monitor at 115200 baud for what it actually does.`;
+  }
   if (firmware && stepKind(step) === "software") {
     const derived = doneWhenForSoftwareStep(step, firmware);
     if (derived) return derived;

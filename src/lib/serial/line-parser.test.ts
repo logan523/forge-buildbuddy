@@ -117,3 +117,19 @@ test("parseScannerLine: boot-noise lines containing '0x' don't get misread as an
 test("parseScannerLine: an empty line is plain", () => {
   assert.deepEqual(parseScannerLine(""), { kind: "plain" });
 });
+
+test("parseScannerLine: matches the FORGE_BUILD_ID line printed first in setup()", () => {
+  assert.deepEqual(parseScannerLine("FORGE_BUILD_ID=a3f9c1c2"), { kind: "build-id", buildId: "a3f9c1c2" });
+});
+
+test("parseScannerLine: build ID is lowercased for a case-insensitive compare downstream", () => {
+  assert.deepEqual(parseScannerLine("FORGE_BUILD_ID=A3F9C1C2"), { kind: "build-id", buildId: "a3f9c1c2" });
+});
+
+test("parseScannerLine: build-id only matches at the start of the line, not embedded elsewhere", () => {
+  assert.deepEqual(parseScannerLine("boot log: FORGE_BUILD_ID=a3f9c1c2"), { kind: "plain" });
+});
+
+test("parseScannerLine: build-id is checked before i2c-found so it can't be shadowed", () => {
+  assert.deepEqual(parseScannerLine("FORGE_BUILD_ID=71b0aa9d"), { kind: "build-id", buildId: "71b0aa9d" });
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import type { BuildPlan, BuildStep, MatchConfidence, Part, SafetyFinding } from "@/lib/types";
+import type { BuildPlan, BuildStep, CustomFirmwareSource, MatchConfidence, Part, SafetyFinding } from "@/lib/types";
 import {
   diagnose,
   relevantSymptoms,
@@ -22,6 +22,7 @@ import { ComputerReady } from "@/components/flash/computer-ready";
 import { IsolationWalkPanel } from "@/components/build/isolation-walk-panel";
 import { DiagnosisCard } from "@/components/build/diagnosis-card";
 import { PartCard, type PartCardProps } from "@/components/build/parts/part-card";
+import { DisplayPreview } from "@/components/firmware/display-preview";
 
 // ── Part category icons ──
 // Same 12-branch text guesser as before; each branch now returns a lucide
@@ -103,12 +104,23 @@ const BOARD_ID_TO_FAMILY: Record<string, BoardFamily> = {
 
 export function FirmwareDrawer({
   fw,
+  customFirmware,
   activeId,
   onSelect,
   onClose,
   onOpenSerial,
 }: {
   fw: FirmwarePackage;
+  /**
+   * Track B1/B3 (rebuild cycle): when the plan ships its own hand-authored
+   * firmware, this drawer shows its REAL files (and a byte-derived display
+   * preview) instead of guessing from the generated template's fixed
+   * sketch set — the generated `fw` (smoke/bus-test sketches) stays
+   * available alongside it for bring-up, since those remain useful even
+   * when the "real app" is hand-authored; only the drawer's default
+   * landing tab changes.
+   */
+  customFirmware?: CustomFirmwareSource | null;
   activeId: string | null;
   onSelect: (id: string | null) => void;
   onClose: () => void;
@@ -118,11 +130,24 @@ export function FirmwareDrawer({
   const [copied, setCopied] = useState(false);
   const family = BOARD_ID_TO_FAMILY[fw.boardId] ?? null;
   const setupInfo = family ? boardSetupInfo(family) : null;
+
+  const customFile = customFirmware?.files.find((f) => f.path === activeId);
+  const showingPreview = !!customFirmware && activeId === "preview";
+  const showingCustomFile = !!customFile;
+  const defaultCustomId = customFirmware?.entryFile ?? customFirmware?.files[0]?.path ?? null;
+  const effectiveActiveId = activeId ?? (customFirmware ? defaultCustomId : fw.sketches[0]?.id ?? null);
+  // The full_app template is what customFirmware supersedes — the smoke/bus
+  // bring-up sketches (blink, i2c_scanner, ...) stay genuinely useful even
+  // when the real app is hand-authored, so they remain available rather
+  // than disappearing outright.
+  const bringUpSketches = customFirmware ? fw.sketches.filter((s) => s.id !== "full_app") : fw.sketches;
+
   const sketch: FirmwareSketch | undefined =
-    fw.sketches.find((s) => s.id === activeId) || fw.sketches[0];
+    fw.sketches.find((s) => s.id === activeId) || (customFirmware ? undefined : fw.sketches[0]);
   const showingPins = activeId === "pins" || activeId === "pio";
-  const body =
-    activeId === "pins"
+  const body = showingCustomFile
+    ? customFile.contents
+    : activeId === "pins"
       ? fw.pinDefines
       : activeId === "pio"
         ? fw.platformioIni
@@ -145,8 +170,9 @@ export function FirmwareDrawer({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download =
-      activeId === "pins"
+    a.download = showingCustomFile
+      ? customFile.path
+      : activeId === "pins"
         ? "pins.h"
         : activeId === "pio"
           ? "platformio.ini"
@@ -163,20 +189,22 @@ export function FirmwareDrawer({
       onClose={onClose}
       width="lg"
       footer={
-        <div className="flex items-center gap-2">
-          <button
-            onClick={copy}
-            className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold cursor-pointer hover:bg-accent-soft"
-          >
-            {copied ? "Copied ✓" : "Copy to clipboard"}
-          </button>
-          <button
-            onClick={download}
-            className="px-4 py-2.5 rounded-xl border border-border-subtle text-sm text-text-secondary cursor-pointer hover:text-text"
-          >
-            Download
-          </button>
-        </div>
+        showingPreview ? undefined : (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={copy}
+              className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold cursor-pointer hover:bg-accent-soft"
+            >
+              {copied ? "Copied ✓" : "Copy to clipboard"}
+            </button>
+            <button
+              onClick={download}
+              className="px-4 py-2.5 rounded-xl border border-border-subtle text-sm text-text-secondary cursor-pointer hover:text-text"
+            >
+              Download
+            </button>
+          </div>
+        )
       }
     >
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -191,14 +219,46 @@ export function FirmwareDrawer({
 
       <ComputerReady family={family} setupInfo={setupInfo} libraries={fw.libraries} />
 
+      {customFirmware && (
+        <p className="text-xs text-text-secondary px-1">
+          This build ships its own firmware — <span className="font-medium text-text">{customFirmware.label}</span>,
+          not a generated template.
+        </p>
+      )}
+
       <div className="shrink-0 px-4 py-2 border-b border-border-subtle overflow-x-auto">
         <div className="flex gap-1 min-w-max">
-          {fw.sketches.map((s) => (
+          {customFirmware?.files.map((f) => (
+            <button
+              key={f.path}
+              onClick={() => onSelect(f.path)}
+              className={`text-[11px] px-2.5 py-1 rounded-lg cursor-pointer whitespace-nowrap ${
+                effectiveActiveId === f.path
+                  ? "bg-accent text-white font-semibold"
+                  : "text-text-muted hover:text-text bg-surface-overlay"
+              }`}
+            >
+              {f.path}
+            </button>
+          ))}
+          {customFirmware && (
+            <button
+              onClick={() => onSelect("preview")}
+              className={`text-[11px] px-2.5 py-1 rounded-lg cursor-pointer whitespace-nowrap ${
+                effectiveActiveId === "preview"
+                  ? "bg-accent text-white font-semibold"
+                  : "text-text-muted hover:text-text bg-surface-overlay"
+              }`}
+            >
+              Preview
+            </button>
+          )}
+          {bringUpSketches.map((s) => (
             <button
               key={s.id}
               onClick={() => onSelect(s.id)}
               className={`text-[11px] px-2.5 py-1 rounded-lg cursor-pointer whitespace-nowrap ${
-                (activeId || fw.sketches[0].id) === s.id
+                effectiveActiveId === s.id
                   ? "bg-accent text-white font-semibold"
                   : "text-text-muted hover:text-text bg-surface-overlay"
               }`}
@@ -233,7 +293,7 @@ export function FirmwareDrawer({
         </div>
       </div>
 
-      {!showingPins && sketch && activeId !== "readme" && activeId !== "pio" && (
+      {!showingPreview && !showingPins && sketch && activeId !== "readme" && activeId !== "pio" && (
         <div className="shrink-0 px-5 py-3 border-b border-border-subtle bg-surface-raised">
           <p className="text-sm font-medium text-text">{sketch.name}</p>
           <p className="text-xs text-text-secondary mt-0.5">{sketch.description}</p>
@@ -245,10 +305,14 @@ export function FirmwareDrawer({
         </div>
       )}
 
-      <div className="flex-1 overflow-auto p-4 bg-console-surface-raised">
-        <pre className="text-[11px] leading-relaxed text-console-text font-mono whitespace-pre-wrap break-words">
-          {body}
-        </pre>
+      <div className={showingPreview ? "flex-1 overflow-auto" : "flex-1 overflow-auto p-4 bg-console-surface-raised"}>
+        {showingPreview && customFirmware ? (
+          <DisplayPreview customFirmware={customFirmware} />
+        ) : (
+          <pre className="text-[11px] leading-relaxed text-console-text font-mono whitespace-pre-wrap break-words">
+            {body}
+          </pre>
+        )}
       </div>
     </DrawerShell>
   );

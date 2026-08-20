@@ -1,6 +1,7 @@
 "use client";
 
-import type { BuildPlan, Part } from "@/lib/types";
+import { useState } from "react";
+import type { BuildPlan, CustomFirmwareFile, Part } from "@/lib/types";
 import { estimateBom, type CartStrategy } from "@/lib/cart";
 import { filterStepsForMode, modeLabel, type BuildMode } from "@/lib/modes";
 import { presentErc } from "@/lib/electrical/present";
@@ -276,6 +277,8 @@ export function PrepScreen({
             </div>
           )}
 
+          <OwnFirmwarePanel plan={plan} onPlanPatch={onPlanPatch} />
+
           <div className="mb-8 p-5 rounded-xl bg-surface border border-border-subtle">
             <h3 className="text-sm font-semibold text-text uppercase tracking-wider mb-3">Setup</h3>
             <ul className="space-y-2 text-sm text-text-secondary">
@@ -302,6 +305,123 @@ export function PrepScreen({
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-sm p-4 rounded-xl bg-gray-900 text-white text-xs leading-relaxed shadow-lg" onClick={() => onSetTooltip(null)}>
           {tooltip}
           <p className="text-white/40 mt-1 text-[10px]">Tap to dismiss</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Track B4 (rebuild cycle): "I already have my own firmware" — an
+ * integration mode, not a second content-generation pipeline. Accepts real
+ * files and holds them faithfully (populates `plan.customFirmware`,
+ * src/lib/types.ts) so the rest of the app (step instructions, the flash
+ * console, the display-asset preview) treats them with the same
+ * seriousness as a generated template — nothing here asks an LLM to
+ * interpret or explain the uploaded code, matching CLAUDE.md's anti-pattern
+ * warning against over-engineered AI pipelines. Deliberately narrow: a
+ * plain multi-file picker, not a drag-drop editor.
+ */
+function OwnFirmwarePanel({
+  plan,
+  onPlanPatch,
+}: {
+  plan: BuildPlan;
+  onPlanPatch: (patch: Partial<BuildPlan>) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const custom = plan.customFirmware;
+
+  async function handleFiles(fileList: FileList) {
+    setLoading(true);
+    try {
+      const files: CustomFirmwareFile[] = await Promise.all(
+        Array.from(fileList).map(
+          (f) =>
+            new Promise<CustomFirmwareFile>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () =>
+                resolve({
+                  path: f.name,
+                  contents: String(reader.result ?? ""),
+                  kind: /\.(ino|cpp)$/i.test(f.name) ? "sketch" : /\.(h|hpp)$/i.test(f.name) ? "header" : "asset",
+                });
+              reader.onerror = () => reject(reader.error);
+              reader.readAsText(f);
+            })
+        )
+      );
+      const entry = files.find((f) => f.kind === "sketch")?.path ?? files[0]?.path ?? "";
+      onPlanPatch({
+        customFirmware: {
+          id: plan.id,
+          label: `${plan.title} firmware`,
+          // Only board family the flash pipeline (manifest/compile tooling)
+          // supports today — see scripts/compile-firmware.mjs and
+          // flash-flow.tsx's BOARD_FAMILY constant.
+          boardFamily: "esp32c3",
+          entryFile: entry,
+          files,
+          authoredBy: "imported",
+        },
+      });
+      setExpanded(false);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (custom) {
+    return (
+      <div className="mb-8 p-4 rounded-xl border border-border-subtle bg-surface">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold text-text uppercase tracking-wider mb-1">
+              Your own firmware
+            </p>
+            <p className="text-sm text-text-secondary">
+              {custom.label} — {custom.files.length} file{custom.files.length === 1 ? "" : "s"}, entry:{" "}
+              <span className="font-mono">{custom.entryFile}</span>
+            </p>
+          </div>
+          <button
+            onClick={() => onPlanPatch({ customFirmware: undefined })}
+            className="text-xs text-text-muted hover:text-danger cursor-pointer shrink-0"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-8 rounded-xl border border-border-subtle bg-surface">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full p-4 flex items-center justify-between gap-3 text-left cursor-pointer"
+      >
+        <span className="text-sm text-text">
+          <span className="font-semibold">Have your own firmware?</span>{" "}
+          <span className="text-text-secondary">Upload it instead of using a generated template.</span>
+        </span>
+        <span className="text-xs text-accent font-medium shrink-0">{expanded ? "Cancel" : "Upload"}</span>
+      </button>
+      {expanded && (
+        <div className="px-4 pb-4">
+          <input
+            type="file"
+            multiple
+            accept=".ino,.h,.hpp,.cpp"
+            disabled={loading}
+            onChange={(e) => e.target.files && handleFiles(e.target.files)}
+            className="text-xs text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-accent file:text-white file:text-xs file:font-semibold file:cursor-pointer cursor-pointer"
+          />
+          <p className="text-xs text-text-muted mt-2">
+            Select your .ino sketch and any .h header files. They&apos;ll replace the generated code
+            package for this build — wiring/parts stay as they are.
+          </p>
         </div>
       )}
     </div>

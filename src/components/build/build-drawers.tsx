@@ -110,6 +110,7 @@ export function BuildDrawers({
             (firmware ? (
               <FirmwareDrawer
                 fw={firmware}
+                customFirmware={plan.customFirmware}
                 activeId={fwSketchId}
                 onSelect={onSetFwSketch}
                 onClose={onClose}

@@ -522,7 +522,11 @@ const int MESSAGE_COUNT = sizeof(MESSAGES) / sizeof(MESSAGES[0]);`);
         : "") +
       (hasSht ? `Adafruit_SHT31 sht = Adafruit_SHT31();\n` : "") +
       (touch != null ? `bool displayOn = true;\nbool lastTouch = false;\n` : "") +
-      (hasWeather ? `float g_outTemp = NAN;\nString g_outText = "--";\nunsigned long g_lastWeather = 0;\n` : "")
+      (hasWeather ? `float g_outTemp = NAN;\nString g_outText = "--";\nunsigned long g_lastWeather = 0;\n` : "") +
+      // Retried in loop() below, not just attempted once here — a Wi-Fi
+      // connect that fails or later drops otherwise leaves the sketch
+      // stuck (e.g. "Syncing time..." forever) with no way to recover.
+      (hasWifi ? `unsigned long g_lastWifiRetry = 0;\n` : "")
   );
 
   if (hasWeather) {
@@ -620,7 +624,14 @@ ${hasWeather ? `    fetchWeather();\n    g_lastWeather = millis();\n` : ""}  }
     loopBody.push(`  float t = sht.readTemperature();
   float h = sht.readHumidity();`);
   if (hasWifi)
-    loopBody.push(`  struct tm timeinfo;
+    // Retries every 30s while disconnected — setup() above only ever
+    // attempts once, so without this a failed or dropped connection never
+    // recovers on its own.
+    loopBody.push(`  if (WiFi.status() != WL_CONNECTED && millis() - g_lastWifiRetry > 30000UL) {
+    g_lastWifiRetry = millis();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  }
+  struct tm timeinfo;
   bool haveTime = getLocalTime(&timeinfo, 50);`);
   if (hasWeather)
     loopBody.push(`  if (millis() - g_lastWeather > 900000UL) { fetchWeather(); g_lastWeather = millis(); }`);
