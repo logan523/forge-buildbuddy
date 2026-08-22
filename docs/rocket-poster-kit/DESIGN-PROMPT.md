@@ -93,3 +93,78 @@ which happens to be exactly the vintage-poster palette.
    *absence* of data deliberately rather than leaving a hole.
 5. **Long-string stress test** — the 50-char provider + 59-char site, to prove the
    layout holds.
+
+---
+
+# REVISED: the realistic-rocket prompt
+
+The prompt above asks for a flat silhouette. That was an over-correction on my part —
+it optimizes for *clean* quantization and throws away the thing that actually buys
+realism on a 6-ink panel: **dithering**. Error diffusion is how e-ink photo frames
+render photographs, and it renders a shaded, dimensional rocket far better than a flat
+shape.
+
+Verified on the real pipeline (`spectra6.py`): a smoothly shaded cylinder keeps its
+roundness, its metal highlight and its terminator through quantization to six inks.
+A smooth gradient sky, by contrast, collapses into visible dither texture.
+
+**So: render the rocket realistically. Keep the BACKGROUND flat.**
+
+## THE PROMPT
+
+> A 1950s-60s space-age illustration in the style of Chesley Bonestell and Robert
+> McCall — the golden age of astronomical and aerospace art. Painted, airbrushed
+> realism: a real rocket with real weight, metal that reads as metal, believable
+> light.
+>
+> **Subject — render this fully, not as a silhouette:**
+> A [ROCKET NAME] ascending, seen from slightly below and to the side so the vehicle
+> reads three-dimensionally. Cylindrical body with visible panel lines, weld seams and
+> stage separation rings. Directional sunlight from the upper left: a hot specular
+> highlight down one side of the fuselage, a soft terminator, and reflected fill on
+> the shadow side. Engine plume as bright incandescent flame with layered shock
+> diamonds. Heat haze and exhaust smoke at the base.
+>
+> **Background — deliberately simple, this is important:**
+> Deep near-black space or a sky rendered as 3–4 FLAT horizontal bands of color.
+> **No smooth gradients anywhere.** Optionally a hard-edged planet limb, a graphic sun
+> disc, or a sparse starfield. The background must never compete with the vehicle.
+>
+> **Palette:** limited to six colors — black, warm off-white, brick red, mustard
+> yellow, deep navy, forest green. Saturated and bold. No teal, no pink, no magenta,
+> no purple.
+>
+> **Composition:** 800 × 480, landscape 5:3. The rocket occupies the left or right
+> third with strong negative space for type. Dramatic low angle. Poster framing.
+>
+> No text in the image — type is composited separately. No lens flare, no chrome
+> gradients, no modern CGI look, no photobash. Painted illustration only.
+
+## Why this works when the flat version didn't
+
+**Local contrast survives; global gradients don't.** Dithering trades spatial
+resolution for apparent tonal depth. On a shaded cylinder that trade is invisible at
+viewing distance — your eye integrates the dither into a smooth surface. Across a
+large flat sky there's nothing to hide the pattern, so it reads as noise.
+
+**The practical rule:** put your tonal detail where there's *form* (the vehicle,
+the plume, the planet limb) and keep the empty areas flat.
+
+## Run it before you commit
+
+```bash
+python3 spectra6.py your-render.png --compare
+```
+
+Writes `your-render.panel.png` (what the panel shows) and `.compare.png`
+(side by side), plus an ink-usage histogram. If it warns that over half the panel is
+"white", darken the composition — that white is newsprint grey and it reads flat.
+
+Useful flags:
+- `--dither atkinson` (default) — punchier, cleaner whites, best for poster art
+- `--dither floyd` — better tonal accuracy on photographic detail, speckles flats
+- `--dither sierra` — widest spread, least streaking on large smooth areas
+- `--saturation 2.5` (default) — the panel renders ~80% of print saturation
+- `--bin` — writes the packed bytes the ESP32 streams to the panel
+
+Takes about 6 seconds per image. Run it server-side, never on the ESP32.
