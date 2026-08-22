@@ -1,178 +1,234 @@
 """
-Flat launch-vehicle silhouettes, keyed to Launch Library 2's `rocket_family`.
+The vehicle drawn on the poster. Three tiers, in order of fidelity.
 
-Two decisions worth stating, because both were reversals:
+1. **An ingested asset**, if one exists for this rocket family
+   (`ingest.load`). A model drew it once; the file is committed. Highest
+   fidelity, and it costs nothing at render time.
+2. **A parametric schematic** built from the family's real geometry --
+   Launch Library 2 ships `length`, `diameter` and `max_stage` for ~86% of
+   configurations, so the proportions are the vehicle's own rather than
+   something authored. Falcon 9 is slender because it is 70m x 3.65m.
+3. **A generic slender single-core**, for the ~14% with no dimensions and no
+   family. Honest rather than a placeholder box: the vehicles that fall here
+   are mostly small commercial launchers that really do look like this.
 
-**Parametric, not an asset library.** `rocket_family` is null on 5 of the 24
-real sample records (Electron, Spectrum, Pallas-1, Themis, one other), so any
-lookup table needs a fallback anyway. A spec table plus a renderer gives one
-code path for both, and the fallback is a real slender single-core vehicle
-rather than a placeholder box. A search for permissively-licensed SVG
-silhouettes of real launch vehicles found nothing maintained -- the ecosystem
-is game mods, icons and diagrams with unclear provenance.
+Coverage therefore never has a hole; it only has a lower-fidelity floor.
 
-**Flat, not shaded.** An earlier pass rendered these with a lambertian falloff
-and a specular stripe, which does survive quantization -- a shaded cylinder
-keeps its roundness through six-ink dithering. But flat fills whose every color
-is already an exact ink survive it *perfectly*: the panel shows them pixel-for-
-pixel with no dithering at all. Two tones -- a lit side and a shadow side --
-is also what Broders and Cardinaux actually did on the alpine posters this
-series is modelled on. Realism lives in the silhouette being correct for the
-vehicle, not in airbrushed metal.
+Everything is drawn from exact ink values, which is what keeps a finished
+poster lossless on the panel -- see `spectra6.verify`.
 
-Not a technical illustration. Stage counts, engine counts and liveries are
-impressionistic. What has to be right is the recognizable proportion: Falcon's
-slender single core, Soyuz's four tapered conical strap-ons, Long March's
-cylindrical boosters.
+What is NOT derivable from the API, and so lives in FAMILY below: strap-on
+count and arrangement, fairing profile, livery bands, and identity features
+like Falcon's grid fins or Electron's black carbon-fibre body. That table is
+keyed on FAMILY, not configuration, which is why it stays small -- roughly 35
+families actually fly, against 532 configurations, and a new variant inherits
+its family's row automatically.
 """
 
 import math
 from PIL import Image, ImageDraw
 
+import flag
 from palette import INKS
 
-# fairing: nose profile. booster_style "cone" is the Soyuz/R-7 taper; "cyl" is
-# a plain cylindrical strap-on (Long March, Ariane, H3, GSLV).
-FAMILIES = {
-    "Falcon":     dict(core_w=0.30, fairing="ogive",  boosters=0, slender=1.00),
-    "Long March": dict(core_w=0.28, fairing="ogive",  boosters=4, booster_style="cyl",
-                       booster_h=0.52, slender=0.95),
-    "Soyuz":      dict(core_w=0.24, fairing="bullet", boosters=4, booster_style="cone",
-                       booster_h=0.62, slender=0.92, booster_scale=1.30),
-    "GSLV":       dict(core_w=0.32, fairing="ogive",  boosters=2, booster_style="cyl",
-                       booster_h=0.58, slender=0.88),
-    "Ariane":     dict(core_w=0.27, fairing="ogive",  boosters=2, booster_style="cyl",
-                       booster_h=0.50, slender=1.02),
-    "H3":         dict(core_w=0.28, fairing="ogive",  boosters=2, booster_style="cyl",
-                       booster_h=0.48, slender=1.00),
-    "Angara":     dict(core_w=0.27, fairing="cone",   boosters=0, slender=1.00),
-    "Vega":       dict(core_w=0.22, fairing="cone",   boosters=0, slender=1.06),
-    "Epsilon":    dict(core_w=0.22, fairing="cone",   boosters=0, slender=1.06),
+W_INK, K_INK, R_INK, Y_INK = (INKS[n] for n in ("white", "black", "red", "yellow"))
+
+# bands are (start, end, ink) as a fraction of core height, measured from the base.
+FAMILY = {
+    "Falcon": dict(boosters=0, fairing="ogive", body="white", dims=(70.0, 3.65), stages=2,
+                   bands=[(0.62, 0.70, "black")], gridfins=True, legs=True,
+                   octaweb=True, engines=9),
+    "Electron": dict(boosters=0, fairing="cone", body="black", dims=(18.0, 1.2), stages=2,
+                     bands=[(0.00, 0.05, "white")], engines=9, outline="white"),
+    "Long March": dict(boosters=4, fairing="ogive", body="white", dims=(56.97, 5.0), stages=2,
+                       booster_nose="cone", bands=[(0.44, 0.48, "red")],
+                       engines=2, booster_engines=2),
+    "Soyuz": dict(boosters=4, fairing="bullet", body="white", dims=(46.3, 2.95), stages=3,
+                  booster="cone", bands=[(0.30, 0.34, "black")],
+                  engines=4, booster_engines=4, hug=True, booster_scale=1.45),
+    "Ariane": dict(boosters=2, fairing="ogive", body="white", dims=(63.0, 5.4), stages=2,
+                   booster_nose="cone", bands=[(0.50, 0.56, "black")],
+                   engines=1, booster_engines=1),
+    "H3": dict(boosters=2, fairing="ogive", body="white", dims=(63.0, 5.27), stages=2,
+               booster_nose="cone", bands=[(0.48, 0.54, "red")], engines=2, booster_engines=1),
+    "GSLV": dict(boosters=2, fairing="ogive", body="white", dims=(43.5, 4.0), stages=3,
+                 booster_nose="cone", bands=[(0.40, 0.46, "red")], engines=1, booster_engines=1),
+    "Atlas": dict(boosters=0, fairing="ogive", body="white", dims=(58.3, 3.81), stages=2,
+                  bands=[(0.55, 0.60, "red")], engines=1),
+    "Vega": dict(boosters=0, fairing="cone", body="white", dims=(34.8, 3.0), stages=4,
+                 bands=[(0.30, 0.35, "green")], engines=1),
+    "Angara": dict(boosters=0, fairing="cone", body="white", dims=(42.7, 2.9), stages=2,
+                   bands=[(0.40, 0.45, "blue")], engines=1),
+    "Epsilon": dict(boosters=0, fairing="cone", body="white", dims=(26.0, 2.6), stages=3,
+                    bands=[(0.35, 0.40, "blue")], engines=1),
+    "New Glenn": dict(boosters=0, fairing="ogive", body="white", dims=(98.0, 7.0), stages=2,
+                      bands=[(0.55, 0.62, "black")], legs=True, engines=7),
+    "Starship": dict(boosters=0, fairing="cone", body="white", dims=(121.0, 9.0), stages=2,
+                     bands=[(0.55, 0.58, "black")], engines=6),
 }
-
-# No family in the record -- real for 5 of 24 samples. Those are all small
-# commercial launchers that genuinely are slender single cores, so this is an
-# honest default rather than a shrug.
-GENERIC = dict(core_w=0.25, fairing="ogive", boosters=0, slender=1.02)
-
-LIT = INKS["white"]
-SHADOW = INKS["black"]
+GENERIC = dict(boosters=0, fairing="ogive", body="white", dims=(45.0, 3.5), stages=2,
+               bands=[], engines=1)
 
 
 def spec_for(record):
     fam = (record.get("rocket_family") or "").strip()
-    return dict(FAMILIES.get(fam, GENERIC)), (fam or None)
+    return dict(FAMILY.get(fam, GENERIC)), (fam or None)
 
 
-def _column(d, cx, half, top, bot):
-    d.rectangle([cx - half, top, cx + half, bot], fill=LIT)
+def proportions(record, spec):
+    """Height-to-width ratio. Prefers the API's own numbers over the family
+    default so a variant with real dimensions gets its own shape.
 
-
-def _cone(d, cx, b_half, top, bot):
-    """Soyuz/R-7 strap-on: narrow at the nose, wide at the base."""
-    tw = b_half * 0.34
-    d.polygon([(cx - tw, top), (cx + tw, top), (cx + b_half, bot), (cx - b_half, bot)],
-              fill=LIT)
-
-
-def _plume(d, cx, half, top, length, accent):
-    """One tapered flat shape -- a stylized snow spray. No gradient: a gradient
-    is the one thing that dithers badly, and this is meant to stay lossless."""
-    d.polygon([(cx - half, top), (cx + half, top),
-               (cx + half * 0.30, top + length), (cx - half * 0.30, top + length)],
-              fill=accent)
-
-
-def draw_flat(record, palette, w=260, h=420):
-    """Vertical vehicle on a transparent ground; the poster rotates and places
-    it. Built in two passes -- the whole silhouette in the lit ink, then ONE
-    shadow band masked to that silhouette. Shading the nose, core and boosters
-    separately (an earlier attempt) made the light read as three different
-    light sources, which is exactly what a flat poster cannot get away with.
+    The clamp is not cosmetic. LL2's `diameter` is semantically inconsistent --
+    Angara A5 reports 8.86m, which is the span across its strap-ons, not the
+    core -- and the config list also contains non-launchers (an Apollo LM row
+    yields a ratio of 0.7). Clamping keeps one bad record from drawing a
+    pancake.
     """
-    sp, fam = spec_for(record)
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    L = record.get("length") or spec["dims"][0]
+    D = record.get("diameter") or spec["dims"][1]
+    try:
+        ratio = float(L) / float(D)
+    except (TypeError, ValueError, ZeroDivisionError):
+        ratio = spec["dims"][0] / spec["dims"][1]
+    return max(5.0, min(24.0, ratio))
+
+
+def _edge(d, pts, ink, width):
+    d.line(list(pts) + [pts[0]], fill=ink, width=width, joint="curve")
+
+
+def _nose(cx, half, y, h, kind):
+    if kind == "ogive":
+        return ([(cx - half * math.cos(t * math.pi / 2) ** 0.5, y - h * t)
+                 for t in [i / 16 for i in range(17)]]
+                + [(cx + half * math.cos(t * math.pi / 2) ** 0.5, y - h * t)
+                   for t in [i / 16 for i in range(16, -1, -1)]])
+    if kind == "bullet":
+        return ([(cx - half, y)]
+                + [(cx - half * math.cos(t * math.pi / 2), y - h * math.sin(t * math.pi / 2))
+                   for t in [i / 12 for i in range(13)]]
+                + [(cx + half, y)])
+    return [(cx - half, y), (cx, y - h), (cx + half, y)]
+
+
+def draw_parametric(record, palette, H=520, stroke=2, country=None):
+    sp, _ = spec_for(record)
+    ratio = proportions(record, sp)
+    stages = int(record.get("max_stage") or sp.get("stages") or 2)
+    body_ink = INKS[sp["body"]]
+    line = INKS[sp.get("outline", "black")]
+
+    body_h = H * 0.74
+    bw = body_h / ratio
+    nose = bw * (2.0 if sp["fairing"] == "ogive" else 2.8)
+    nb = sp.get("boosters", 0)
+    sw = bw * (0.60 if nb == 4 else 0.72) * sp.get("booster_scale", 1.0)
+    hug = 0.80 if sp.get("hug") else 1.02
+    Wpx = int(bw + (2 * sw * hug + 10 if nb else 0) + 54)
+
+    img = Image.new("RGBA", (Wpx, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
+    cx, y0, y1 = Wpx / 2, H - body_h - 10, H - 34
 
-    cx = w * 0.5
-    core_half = w * sp["core_w"] / 2 * sp["slender"]
-    top, bot = h * 0.16, h * 0.74
-    accent = palette.accent
-    # A white accent would make the plume vanish into the vehicle; the plume is
-    # the one element that must always separate from it.
-    plume_ink = accent if accent != LIT else INKS["yellow"]
-
-    plumes = [(cx, core_half * 0.84, h * 0.24)]
-
-    # Outer strap-on pair only. A rear pair reads as clutter at poster scale --
-    # two flanking shapes is what makes a Long March look like a Long March.
-    n = sp.get("boosters", 0)
-    if n:
-        b_half = core_half * 0.62 * sp.get("booster_scale", 1.0)
-        b_top = bot - (bot - top) * sp["booster_h"]
+    if nb:
+        bt = y1 - body_h * (0.46 if sp.get("booster") == "cone" else 0.52)
         for o in (-1, 1):
-            bx = cx + o * (core_half + b_half * 0.94)
-            if sp.get("booster_style") == "cone":
-                _cone(d, bx, b_half, b_top, bot)
+            bx = cx + o * (bw / 2 + sw / 2 * hug)
+            if sp.get("booster") == "cone":
+                tw, nh = sw * 0.26, sw * 1.5      # Soyuz's taper is its signature
+                poly = [(bx - tw, bt), (bx, bt - nh), (bx + tw, bt),
+                        (bx + sw / 2, y1), (bx - sw / 2, y1)]
             else:
-                _column(d, bx, b_half, b_top, bot)
-                d.polygon([(bx, b_top - h * 0.05), (bx - b_half, b_top),
-                           (bx + b_half, b_top)], fill=LIT)
-            plumes.append((bx, b_half * 0.74, h * 0.16))
+                nh = sw * 1.7
+                poly = [(bx - sw / 2, bt), (bx, bt - nh), (bx + sw / 2, bt),
+                        (bx + sw / 2, y1), (bx - sw / 2, y1)]
+            d.polygon(poly, fill=body_ink)
+            _edge(d, poly, line, stroke)
+            n = sp.get("booster_engines", 1)
+            for i in range(n):
+                ex = bx - sw * 0.30 + sw * 0.60 * ((i + 0.5) / n)
+                bell = [(ex - sw * .12, y1), (ex + sw * .12, y1),
+                        (ex + sw * .19, y1 + 12), (ex - sw * .19, y1 + 12)]
+                d.polygon(bell, fill=body_ink); _edge(d, bell, line, 1)
 
-    _column(d, cx, core_half, top, bot)
+    d.rectangle([cx - bw / 2, y0, cx + bw / 2, y1], fill=body_ink)
+    for lo, hi, ink in sp.get("bands", []):
+        d.rectangle([cx - bw / 2, y1 - body_h * hi, cx + bw / 2, y1 - body_h * lo],
+                    fill=INKS[ink])
+    _edge(d, [(cx - bw / 2, y0), (cx + bw / 2, y0), (cx + bw / 2, y1), (cx - bw / 2, y1)],
+          line, stroke)
 
-    fh = h * (0.15 if sp["fairing"] != "cone" else 0.17)
-    if sp["fairing"] == "ogive":
-        left = [(cx - core_half * math.cos(t * math.pi / 2) ** 0.55, top - fh * t)
-                for t in [i / 20 for i in range(21)]]
-        right = [(cx + core_half * math.cos(t * math.pi / 2) ** 0.55, top - fh * t)
-                 for t in [i / 20 for i in range(20, -1, -1)]]
-        d.polygon(left + right, fill=LIT)
-    elif sp["fairing"] == "bullet":
-        d.pieslice([cx - core_half, top - fh, cx + core_half, top + fh], 180, 360, fill=LIT)
-    else:
-        d.polygon([(cx, top - fh), (cx - core_half, top), (cx + core_half, top)], fill=LIT)
+    pts = _nose(cx, bw / 2, y0, nose, sp["fairing"])
+    d.polygon(pts, fill=body_ink); _edge(d, pts, line, stroke)
 
-    # ONE shadow band, masked to whatever silhouette we just built. Light comes
-    # from the left, so the right third of the VEHICLE falls away -- measured
-    # off the silhouette's own bounding box, not the canvas. (Positioning it
-    # against the canvas made the shadow miss the core entirely on every
-    # single-stack family and land only on the right booster.)
-    alpha = img.split()[3]
-    bbox = alpha.getbbox()
-    if bbox:
-        x0, _, x1, _ = bbox
-        seam = x0 + (x1 - x0) * 0.68
-        shade = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        ImageDraw.Draw(shade).rectangle([seam, 0, w, h], fill=SHADOW + (255,))
-        img.paste(shade, (0, 0), Image.composite(
-            shade.split()[3], Image.new("L", (w, h), 0), alpha))
+    for i in range(1, max(1, stages)):
+        y = y0 + (y1 - y0) * i / stages
+        d.line([(cx - bw / 2, y), (cx + bw / 2, y)], fill=line, width=1)
 
-    # livery band, drawn after the shadow so it stays one solid color
-    by = top + (bot - top) * 0.30
-    d.rectangle([cx - core_half, by, cx + core_half, by + h * 0.035], fill=accent)
+    # National marking, low on the core where real vehicles carry it.
+    if country and bw >= 22:
+        fw = bw * 0.62
+        fh = fw * 0.62
+        flag.draw(d, country, cx - fw / 2, y1 - body_h * 0.20, fw, fh)
 
-    for px, phalf, plen in plumes:
-        _plume(d, px, phalf, bot, plen, plume_ink)
-    return img, fam
+    if sp.get("gridfins"):
+        for o in (-1, 1):
+            x = cx + o * bw / 2
+            box = [min(x, x + o * bw * 0.40), y0 + nose * 0.10,
+                   max(x, x + o * bw * 0.40), y0 + nose * 0.10 + bw * 0.32]
+            d.rectangle(box, fill=body_ink); d.rectangle(box, outline=line, width=1)
+    if sp.get("legs"):
+        for o in (-1, 1):
+            d.line([(cx + o * bw * 0.40, y1 - bw * 1.6), (cx + o * (bw / 2 + bw * 0.55), y1)],
+                   fill=line, width=stroke + 1)
+    base = y1
+    if sp.get("octaweb"):
+        ow = [(cx - bw / 2, y1), (cx + bw / 2, y1),
+              (cx + bw * .60, y1 + 14), (cx - bw * .60, y1 + 14)]
+        d.polygon(ow, fill=body_ink); _edge(d, ow, line, stroke)
+        base = y1 + 14
+    n = sp.get("engines", 1)
+    span = bw * (1.10 if sp.get("octaweb") else 0.74)
+    for i in range(n):
+        ex = cx - span / 2 + span * ((i + 0.5) / n)
+        w = span / n * 0.40
+        bell = [(ex - w, base), (ex + w, base), (ex + w * 1.5, base + 10), (ex - w * 1.5, base + 10)]
+        d.polygon(bell, fill=body_ink); _edge(d, bell, line, 1)
+    return img
+
+
+def draw_vehicle(record, palette, H=520, country=None):
+    """Asset first, parametric second. Returns (image, tier) so callers -- and
+    tests -- can see which path drew it."""
+    import ingest
+    fam = (record.get("rocket_family") or "").strip()
+    if fam:
+        asset = ingest.load(fam)
+        if asset is not None:
+            s = H / asset.height
+            asset = asset.resize((max(1, round(asset.width * s)), H), Image.NEAREST)
+            return asset, "asset"
+    return draw_parametric(record, palette, H=H, country=country), \
+           ("parametric" if fam in FAMILY else "generic")
 
 
 if __name__ == "__main__":
     import json, os
     from palette import palette_for
     HERE = os.path.dirname(os.path.abspath(__file__))
-    recs = json.load(open(os.path.join(HERE, "launch-samples.json")))["samples"]
-    seen, tiles = set(), []
-    for r in recs:
-        key = r.get("rocket_family") or "(none)"
-        if key in seen:
-            continue
-        seen.add(key)
-        im, fam = draw_flat(r, palette_for(r["destination"]))
-        tiles.append((im, fam or "none"))
-    sheet = Image.new("RGB", (260 * len(tiles), 420), INKS["blue"])
-    for i, (im, _) in enumerate(tiles):
-        sheet.paste(im, (260 * i, 0), im)
+    demo = [("Falcon", "USA"), ("Electron", "NZL"), ("Long March", "CHN"),
+            ("Soyuz", "RUS"), ("Ariane", "FRA"), ("H3", "JPN"),
+            ("GSLV", "IND"), ("Starship", "USA")]
+    ims = []
+    for famname, cc in demo:
+        im, tier = draw_vehicle({"rocket_family": famname},
+                                palette_for("Low Earth Orbit"), country=cc)
+        ims.append((im, famname, tier))
+    pad = 26
+    sheet = Image.new("RGB", (sum(i.width + pad for i, _, _ in ims) + pad, 560), INKS["blue"])
+    x = pad
+    for im, _, _ in ims:
+        sheet.paste(im, (x, 20), im); x += im.width + pad
     sheet.save(os.path.join(HERE, "vehicles.png"))
-    print("families:", ", ".join(f for _, f in tiles))
+    print(" ".join(f"{n}:{t}" for _, n, t in ims))

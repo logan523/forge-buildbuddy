@@ -33,8 +33,12 @@ FLAGS = {
     "JPN": dict(bars=[(0, 0, 1, 1, W)], disc=(.5, .5, .30, R)),
     "FRA": dict(bars=[(0, 0, .34, 1, B), (.34, 0, .67, 1, W), (.67, 0, 1, 1, R)]),
     "GUF": dict(bars=[(0, 0, .34, 1, B), (.34, 0, .67, 1, W), (.67, 0, 1, 1, R)]),
-    "GBR": dict(bars=[(0, 0, 1, 1, B), (0, .38, 1, .62, W), (0, .43, 1, .57, R),
-                      (.40, 0, .60, 1, W), (.44, 0, .56, 1, R)]),
+    # The diagonals are the Union Jack's identity; without them it reads as an
+    # Iceland cross. Drawn as explicit corner-to-corner bands.
+    "GBR": dict(bars=[(0, 0, 1, 1, B)],
+                diagonals=[(W, .22), (R, .10)],
+                bars2=[(0, .38, 1, .62, W), (0, .43, 1, .57, R),
+                       (.40, 0, .60, 1, W), (.44, 0, .56, 1, R)]),
     "NZL": dict(bars=[(0, 0, 1, 1, B), (0, 0, .45, .5, B), (.60, .30, .74, .48, R),
                       (.76, .55, .90, .73, R)]),
     "KOR": dict(bars=[(0, 0, 1, 1, W), (0, 0, 1, .5, R)], disc=(.5, .5, .22, B)),
@@ -48,6 +52,18 @@ FLAGS = {
     "AUS": dict(bars=[(0, 0, 1, 1, B), (.62, .28, .74, .44, W), (.78, .58, .90, .74, W)]),
     "ITA": dict(bars=[(0, 0, .34, 1, G), (.34, 0, .67, 1, W), (.67, 0, 1, 1, R)]),
     "BRA": dict(bars=[(0, 0, 1, 1, G)], disc=(.5, .5, .28, Y)),
+    # Nordic crosses: the vertical bar sits toward the hoist, not centred.
+    # Norway and Sweden are in the fixture set (Andoya, Esrange) -- the flag
+    # coverage test caught their absence.
+    "NOR": dict(bars=[(0, 0, 1, 1, R), (0, .36, 1, .64, W), (.24, 0, .46, 1, W),
+                      (0, .43, 1, .57, B), (.30, 0, .40, 1, B)]),
+    "SWE": dict(bars=[(0, 0, 1, 1, B), (0, .40, 1, .60, Y), (.26, 0, .44, 1, Y)]),
+    "DNK": dict(bars=[(0, 0, 1, 1, R), (0, .40, 1, .60, W), (.26, 0, .44, 1, W)]),
+    "FIN": dict(bars=[(0, 0, 1, 1, W), (0, .38, 1, .62, B), (.24, 0, .46, 1, B)]),
+    "DEU": dict(bars=[(0, 0, 1, .34, K), (0, .34, 1, .67, R), (0, .67, 1, 1, Y)]),
+    "ESP": dict(bars=[(0, 0, 1, .26, R), (0, .26, 1, .74, Y), (0, .74, 1, 1, R)]),
+    "UKR": dict(bars=[(0, 0, 1, .5, B), (0, .5, 1, 1, Y)]),
+    "TWN": dict(bars=[(0, 0, 1, 1, R), (0, 0, .5, .5, B)]),
     "ESA": dict(bars=[(0, 0, 1, 1, B)], disc=(.5, .5, .22, Y)),
     "EU":  dict(bars=[(0, 0, 1, 1, B)], disc=(.5, .5, .22, Y)),
 }
@@ -60,6 +76,12 @@ def draw(d, code, x, y, w, h, border=True):
     """Paint a flag into an existing ImageDraw at a pixel rect."""
     spec = FLAGS.get((code or "").upper(), UNKNOWN)
     for x0, y0, x1, y1, ink in spec["bars"]:
+        d.rectangle([x + x0 * w, y + y0 * h, x + x1 * w, y + y1 * h], fill=ink)
+    for ink, thick in spec.get("diagonals", []):
+        t = max(1, int(thick * min(w, h)))
+        d.line([(x, y), (x + w, y + h)], fill=ink, width=t)
+        d.line([(x + w, y), (x, y + h)], fill=ink, width=t)
+    for x0, y0, x1, y1, ink in spec.get("bars2", []):
         d.rectangle([x + x0 * w, y + y0 * h, x + x1 * w, y + y1 * h], fill=ink)
     if "disc" in spec:
         cx, cy, r, ink = spec["disc"]

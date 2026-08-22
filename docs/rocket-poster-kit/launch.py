@@ -76,7 +76,12 @@ def normalize(raw):
         "provider_type": (raw.get("launch_service_provider") or {}).get("type") or "",
         "site": loc.get("name") or "",
         "pad": pad.get("name") or "",
-        "country": loc.get("country_code") or "",
+        # The AGENCY's country, not the pad's -- an Electron flying from
+        # Wallops is still a New Zealand vehicle, and a Soyuz from Kourou is
+        # still Russian. Falls back to the pad's country when the provider has
+        # none.
+        "country": ((raw.get("launch_service_provider") or {}).get("country_code")
+                    or loc.get("country_code") or ""),
         "lat": pad.get("latitude") or "",
         "lon": pad.get("longitude") or "",
         "t0_utc": raw.get("net") or "",

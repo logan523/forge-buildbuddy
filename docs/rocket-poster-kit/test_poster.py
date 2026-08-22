@@ -18,7 +18,9 @@ import typeset as T
 from palette import INKS, INK_RGB, CANVAS, palette_for, FALLBACK
 from poster import render, M, BAND_TOP, FOOTER_H, on
 from spectra6 import verify, pack, index_map
-from vehicle import FAMILIES, GENERIC, spec_for, draw_flat
+import flag
+import ingest
+from vehicle import FAMILY, GENERIC, spec_for, draw_vehicle, proportions
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAMPLES = json.load(open(os.path.join(HERE, "launch-samples.json")))["samples"]
@@ -148,10 +150,74 @@ class Coverage(unittest.TestCase):
                 self.assertEqual(sp, GENERIC)
 
     def test_every_family_draws_without_error(self):
-        for name in list(FAMILIES) + ["definitely-not-a-family"]:
-            img, _ = draw_flat({"rocket_family": name}, palette_for("Low Earth Orbit"))
+        for name in list(FAMILY) + ["definitely-not-a-family", ""]:
+            img, tier = draw_vehicle({"rocket_family": name}, palette_for("Low Earth Orbit"))
             with self.subTest(family=name):
                 self.assertIsNotNone(img.getbbox(), f"{name} drew nothing")
+                self.assertIn(tier, ("asset", "parametric", "generic"))
+
+    def test_an_unknown_family_still_gets_a_real_vehicle(self):
+        """Coverage must never have a hole -- only a lower-fidelity floor."""
+        img, tier = draw_vehicle({"rocket_family": "Nonesuch-9"},
+                                 palette_for("Low Earth Orbit"))
+        self.assertEqual(tier, "generic")
+        self.assertIsNotNone(img.getbbox())
+
+
+class Proportions(unittest.TestCase):
+    """The vehicle's shape comes from the API's own length/diameter."""
+
+    def test_real_dimensions_beat_the_family_default(self):
+        sp, _ = spec_for({"rocket_family": "Falcon"})
+        stubby = proportions({"length": "20", "diameter": "5"}, sp)
+        slim = proportions({"length": "70", "diameter": "3.65"}, sp)
+        self.assertLess(stubby, slim)
+
+    def test_a_bad_diameter_cannot_draw_a_pancake(self):
+        """LL2's `diameter` is semantically inconsistent -- Angara A5 reports
+        the span across its strap-ons -- and the config list even contains
+        non-launchers. One bad row must not produce a squashed vehicle."""
+        sp, _ = spec_for({"rocket_family": "Falcon"})
+        self.assertGreaterEqual(proportions({"length": "2.8", "diameter": "4.29"}, sp), 5.0)
+        self.assertLessEqual(proportions({"length": "500", "diameter": "1"}, sp), 24.0)
+
+    def test_missing_or_junk_dimensions_fall_back_rather_than_raise(self):
+        sp, _ = spec_for({"rocket_family": "Soyuz"})
+        for bad in ({}, {"length": None, "diameter": None}, {"length": "x", "diameter": "y"},
+                    {"length": "10", "diameter": "0"}):
+            with self.subTest(bad=bad):
+                self.assertGreater(proportions(bad, sp), 0)
+
+
+class Flags(unittest.TestCase):
+    def test_flags_use_only_the_six_inks(self):
+        for code in list(flag.FLAGS) + ["ZZZ"]:
+            im = Image.new("RGB", (60, 40), INKS["black"])
+            flag.draw(ImageDraw.Draw(im), code, 0, 0, 59, 39)
+            with self.subTest(code=code):
+                self.assertEqual(verify(im), set())
+
+    def test_an_unknown_country_renders_a_neutral_block_rather_than_guessing(self):
+        self.assertFalse(flag.known("ZZZ"))
+        self.assertTrue(flag.known("usa"))          # case-insensitive
+        im = Image.new("RGB", (60, 40), INKS["black"])
+        flag.draw(ImageDraw.Draw(im), None, 0, 0, 59, 39)
+        self.assertEqual(verify(im), set())
+
+    def test_every_launching_nation_in_the_fixtures_has_a_flag(self):
+        missing = sorted({r["country"] for r in SAMPLES
+                          if r.get("country") and not flag.known(r["country"])})
+        self.assertEqual(missing, [], f"no flag for {missing}")
+
+
+class Assets(unittest.TestCase):
+    def test_load_returns_none_for_an_uningested_family(self):
+        self.assertIsNone(ingest.load("Nonesuch-9"))
+
+    def test_known_ratios_are_sane(self):
+        for fam, r in ingest.KNOWN_RATIO.items():
+            with self.subTest(family=fam):
+                self.assertTrue(5 < r < 30, f"{fam} ratio {r} is not a launch vehicle")
 
 
 class WireFormat(unittest.TestCase):

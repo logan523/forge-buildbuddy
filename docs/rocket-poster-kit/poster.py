@@ -29,12 +29,12 @@ from PIL import Image, ImageDraw
 
 import typeset as T
 from palette import INKS, CANVAS, palette_for
-from vehicle import draw_flat
+from vehicle import draw_vehicle
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 W, H = CANVAS
 M = 44                      # margin
-HORIZON = 262               # hard edge between sky and the type band
+HORIZON = 296               # hard edge between sky and the type band
 FOOTER_H = 36               # previous-launch strip
 BAND_TOP = HORIZON + 6
 
@@ -80,14 +80,31 @@ def render(rec, previous=None, art=None):
         # steps read as atmosphere; a smooth ramp reads as dither noise.
         d.rectangle([0, 0, W, int(HORIZON * 0.42)], fill=on(pal.field))
         d.rectangle([0, 0, W, int(HORIZON * 0.42)], fill=pal.field)  # keep it plain
-        veh, _ = draw_flat(rec, pal, w=250, h=400)
+        veh, tier = draw_vehicle(rec, pal, H=520, country=rec.get("country"))
         # NEAREST, always: any interpolating resample invents in-between colors
         # and would put off-palette pixels straight onto the panel.
-        veh = veh.rotate(-20, expand=True, resample=Image.NEAREST)
+        # Crop to the silhouette BEFORE fitting. The layer carries transparent
+        # margin, and fitting the padded box to the frame was quietly throwing
+        # away about a third of the vehicle's drawn size.
+        bb = veh.getbbox()
+        if bb:
+            veh = veh.crop(bb)
+        veh = veh.rotate(-14, expand=True, resample=Image.NEAREST)
+        bb = veh.getbbox()
+        if bb:
+            veh = veh.crop(bb)
         # Size to the space that exists, rather than to a fixed number that
         # happened to look right once -- an unbounded thumbnail ran the nose
         # straight off the top of the canvas.
-        OVERLAP, TOP_MARGIN, MAX_W = 34, 16, 430
+        # A rotated tall object's bounding box grows fast, so a steep angle
+        # costs real drawn size once it is fitted back into the frame. 14
+        # degrees keeps the ascent read while leaving the vehicle big enough
+        # for its panel lines and flag to survive.
+        # Overlap is deliberately small now: pushing the vehicle deep into the
+        # band hid its own base -- the engine bells, strap-ons and flag, which
+        # are exactly the parts that identify it. Height comes from the sky
+        # instead, which is why HORIZON sits as low as the type will allow.
+        OVERLAP, TOP_MARGIN, MAX_W = 14, 8, 470
         # Scale to HEIGHT first so every vehicle stands the same tall in the
         # frame -- fitting to a width box instead made the wide strap-on
         # families (H3, GSLV) render visibly smaller than a bare Falcon, which
