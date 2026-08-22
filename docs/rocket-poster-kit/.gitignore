@@ -11,3 +11,5 @@ next-offline.*
 *.panel.png
 *.compare.png
 __pycache__/
+flags.png
+raw/
