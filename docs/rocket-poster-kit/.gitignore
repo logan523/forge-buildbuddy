@@ -13,3 +13,6 @@ next-offline.*
 __pycache__/
 flags.png
 raw/
+falcon-asset-poster.png
+asset-test.png
+pair.png

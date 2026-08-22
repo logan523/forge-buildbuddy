@@ -1,0 +1,17 @@
+{
+ "Falcon": {
+  "drawn_ratio": 10.59,
+  "family": "Falcon",
+  "file": "falcon.png",
+  "prompt": "nano_banana_2_lite thinking=HIGH, orthographic Falcon 9",
+  "real_ratio": 19.18,
+  "seed": null,
+  "size": [
+   85,
+   900
+  ],
+  "source": "falcon-nb.png",
+  "source_sha256": "1c1d092c49326fd9",
+  "warning": null
+ }
+}

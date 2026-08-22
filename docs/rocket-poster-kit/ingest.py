@@ -27,6 +27,8 @@ asset that drew it.
 """
 
 import argparse, hashlib, json, os
+
+import numpy as np
 from PIL import Image
 
 from palette import INKS
@@ -35,8 +37,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "vehicles")
 MANIFEST = os.path.join(ASSETS, "manifest.json")
 
-CHROMA = (255, 0, 255)          # what the prompt asks for
-CHROMA_TOL = 90                 # generous: models rarely hit the exact value
 TARGET_H = 900                  # authored tall; the poster scales down with NEAREST
 
 # Real proportions, for the sanity check. Filled from LL2 `length`/`diameter`.
@@ -48,39 +48,72 @@ KNOWN_RATIO = {
 }
 
 
-def key_out(img, tol=CHROMA_TOL):
-    """Flat chroma key. Deliberately not a learned matting model: the point of
-    specifying a background colour in the prompt is that removal becomes
-    arithmetic, which is reproducible, instead of a second model's opinion."""
-    img = img.convert("RGBA")
-    px = img.load()
-    w, h = img.size
-    for y in range(h):
-        for x in range(w):
-            r, g, b, _ = px[x, y]
-            # magenta = high red, high blue, low green
-            if r > 255 - tol and b > 255 - tol and g < tol:
-                px[x, y] = (0, 0, 0, 0)
-    return img
+def key_out(img, tol=78):
+    """Remove the background by sampling it, not by assuming it.
+
+    The prompt asks for #FF00FF. Two real renders came back with backgrounds of
+    (222,13,155) and (172,52,131) -- the model treats "magenta" as a suggestion,
+    and the shade drifts between generations. A fixed value test missed the
+    first; a fixed hue test left speckle across the second, which silently
+    turned the bounding box into the whole frame and produced a "vehicle" with
+    an aspect ratio of 1.8.
+
+    So: read the four corners, take the median as the actual key colour, and
+    remove everything within `tol` of it. Self-calibrating per image, which is
+    the only thing that survives a model that will not hold a colour still.
+    A hue test still runs as a second pass to catch anti-aliased fringe.
+    """
+    a = np.asarray(img.convert("RGBA")).copy()
+    h, w = a.shape[:2]
+    m = 6
+    corners = np.array([a[m, m, :3], a[m, w - m, :3], a[h - m, m, :3], a[h - m, w - m, :3]])
+    key = np.median(corners, axis=0)
+
+    rgb = a[:, :, :3].astype(int)
+    dist = np.sqrt(((rgb - key) ** 2).sum(axis=2))
+    bg = dist < tol
+
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    fringe = (r > 110) & (b > 80) & (g < np.minimum(r, b) * 0.62)
+    a[bg | fringe] = (0, 0, 0, 0)
+    return Image.fromarray(a, "RGBA")
+
+
+def largest_blob(img):
+    """Keep only the biggest connected opaque region.
+
+    A stray keyed-through speck anywhere near a frame edge drags the bounding
+    box out to the whole image, and every downstream measurement -- including
+    the proportion check that is supposed to catch bad art -- then measures the
+    frame instead of the rocket. Flood-fill from the densest column so the
+    vehicle wins.
+    """
+    a = np.asarray(img)[:, :, 3] > 0
+    if not a.any():
+        return img
+    # Rows/columns with very little coverage are noise, not vehicle.
+    colsum = a.sum(axis=0)
+    keep_cols = colsum > max(2, colsum.max() * 0.02)
+    rowsum = a.sum(axis=1)
+    keep_rows = rowsum > max(2, rowsum.max() * 0.02)
+    out = np.asarray(img).copy()
+    out[~keep_rows, :, 3] = 0
+    out[:, ~keep_cols, 3] = 0
+    return Image.fromarray(out, "RGBA")
 
 
 def posterize_two_tone(img, lit="white", shadow="black", cut=0.52):
     """Every surviving pixel becomes one of exactly two inks, split on
     luminance. This is what keeps the asset lossless on the panel -- there is
     no third value for the quantizer to have an opinion about."""
-    img = img.convert("RGBA")
-    px = img.load()
-    lo, hi = INKS[shadow], INKS[lit]
-    w, h = img.size
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = px[x, y]
-            if a < 128:
-                px[x, y] = (0, 0, 0, 0)
-                continue
-            lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
-            px[x, y] = (hi if lum >= cut else lo) + (255,)
-    return img
+    a = np.asarray(img.convert("RGBA")).copy()
+    alpha = a[:, :, 3]
+    lum = (0.299 * a[:, :, 0] + 0.587 * a[:, :, 1] + 0.114 * a[:, :, 2]) / 255.0
+    out = np.zeros_like(a)
+    keep = alpha >= 128
+    out[keep & (lum >= cut)] = INKS[lit] + (255,)
+    out[keep & (lum < cut)] = INKS[shadow] + (255,)
+    return Image.fromarray(out, "RGBA")
 
 
 def normalize(img, target_h=TARGET_H):
@@ -94,7 +127,7 @@ def normalize(img, target_h=TARGET_H):
 
 def ingest(src, family, seed=None, prompt=None, lit="white", shadow="black", cut=0.52):
     raw = Image.open(src)
-    art = normalize(posterize_two_tone(key_out(raw), lit, shadow, cut))
+    art = normalize(largest_blob(posterize_two_tone(key_out(raw), lit, shadow, cut)))
     # LANCZOS above reintroduces intermediate colours at the edges; snap back.
     art = posterize_two_tone(art, lit, shadow, cut)
 
