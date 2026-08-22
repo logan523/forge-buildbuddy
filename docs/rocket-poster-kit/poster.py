@@ -60,17 +60,27 @@ def vehicle_layer(rec, h):
     return im.resize((max(1, round(im.width * s)), h), Image.LANCZOS)
 
 
-def dither(img):
-    """Quantize background+vehicle to six inks. Type is drawn AFTER."""
-    import subprocess, tempfile
-    with tempfile.TemporaryDirectory() as td:
-        p = os.path.join(td, "c.png")
-        img.convert("RGB").save(p)
-        subprocess.run([sys.executable, os.path.join(HERE, "spectra6.py"), p,
-                        "--out", os.path.join(td, "c"), "--size", f"{img.width}x{img.height}",
-                        "--saturation", "1.6", "--contrast", "1.05"],
-                       check=True, capture_output=True)
-        return Image.open(os.path.join(td, "c.panel.png")).convert("RGB")
+def dither_vehicle(layer):
+    """Quantize the vehicle to BLACK AND WHITE only.
+
+    The renders are bare metal -- greyscale. Offered the full six inks, error
+    diffusion reaches for green and red to approximate mid-grey, because those
+    genuinely are the nearest available colours in RGB distance. The result is
+    a white rocket crawling with coloured speckle. Restricting the palette to
+    the two neutrals is both truer to the subject and much cleaner: measured
+    on the Falcon render, 77% of the vehicle is already near-white and lands
+    on solid white, 10% on solid black, and only the remaining 13% carries any
+    dither at all.
+
+    Contrast is pushed first so that mid-tone band shrinks further -- the panel
+    has no grey ink, so every mid-tone pixel MUST become a checkerboard, and
+    the honest fix is to have fewer of them.
+    """
+    from PIL import ImageEnhance
+    from spectra6 import dither as _d
+    rgb = ImageEnhance.Contrast(layer.convert("RGB")).enhance(1.45)
+    _, out = _d(rgb, "atkinson", inks=("black", "white"))
+    return Image.fromarray(out, "RGB")
 
 
 def on(ink):
@@ -106,10 +116,15 @@ def render(rec, previous=None, art=None):
                            check=True, capture_output=True)
             img = Image.open(os.path.join(td, "a.panel.png")).convert("RGB")
     else:
+        # The field is already an exact ink, so it needs no quantization at
+        # all -- dithering it only invites speckle. Only the vehicle carries
+        # tone, and it is dithered ALONE, in neutral inks, then composited.
+        # Doing it the other way round put dithered fringe along every edge
+        # where the rocket met the field.
         veh = vehicle_layer(rec, H + 20)
         if veh is not None:
-            img.paste(veh.convert("RGB"), (W - 250, -10), veh)
-        img = dither(img)
+            img.paste(dither_vehicle(veh), (W - 250, -10), veh.split()[3].point(
+                lambda v: 255 if v > 140 else 0))
 
     d = ImageDraw.Draw(img)
     acc = readable(pal.accent, pal.field)

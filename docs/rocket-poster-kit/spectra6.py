@@ -47,7 +47,7 @@ KERNELS = {
 def nearest(px):
     return int(np.argmin(((PAL - px) ** 2).sum(axis=1)))
 
-def dither(img, kernel="atkinson"):
+def dither(img, kernel="atkinson", inks=None):
     """Error-diffusion quantize to the 6 inks. Returns (index_map, rgb_preview).
 
     Deliberately plain-Python arithmetic over flat lists rather than numpy per
@@ -63,6 +63,12 @@ def dither(img, kernel="atkinson"):
     """
     a = np.asarray(img.convert("RGB"), dtype=np.float64)
     h, w, _ = a.shape
+    # `inks` restricts which of the six the diffusion may reach for. A grey
+    # object dithered against the FULL palette reaches for red and green to
+    # approximate grey, which is arithmetically nearest and visually filth --
+    # a white rocket comes out speckled with colour. Neutral subjects get
+    # neutral inks.
+    use = [i for i, (n, _) in enumerate(INKS) if inks is None or n in inks]
     # Flat per-channel lists: indexing a Python list is far cheaper than
     # indexing a numpy array one element at a time.
     R = a[:, :, 0].ravel().tolist()
@@ -77,8 +83,8 @@ def dither(img, kernel="atkinson"):
         for x in range(w):
             i0 = row + x
             r, g, b = R[i0], G[i0], B[i0]
-            best, bd = 0, 1e18
-            for k in range(6):
+            best, bd = use[0], 1e18
+            for k in use:
                 pr, pg, pb = pal[k]
                 dr, dg, db = r - pr, g - pg, b - pb
                 dist = dr * dr + dg * dg + db * db
