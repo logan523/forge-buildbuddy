@@ -83,8 +83,20 @@ def key_out(img, tol=78):
     bg = dist < tol
 
     r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
-    fringe = (r > 110) & (b > 80) & (g < np.minimum(r, b) * 0.62)
+    # Anti-aliased edge pixels are a BLEND of rocket and background, so they
+    # keep a magenta cast that the flat key misses -- it survived all the way
+    # into the stored asset as coloured speckle along every edge. Any pixel
+    # where green sits meaningfully below both red and blue is contaminated;
+    # it is either background or a blend with it.
+    fringe = (g < np.minimum(r, b) * 0.80) & (r > 60) & (b > 45)
     a[bg | fringe] = (0, 0, 0, 0)
+    # Neutralise what is left: the surviving edge is desaturated to its own
+    # luminance, so no magenta tint can reach the threshold step.
+    keep = a[:, :, 3] > 0
+    lum = (0.299 * r + 0.587 * g + 0.114 * b).astype(np.uint8)
+    tinted = keep & (g < np.minimum(r, b) * 0.92)
+    for c in range(3):
+        a[:, :, c] = np.where(tinted, lum, a[:, :, c])
     return Image.fromarray(a, "RGBA")
 
 
@@ -134,23 +146,24 @@ def normalize(img, target_h=TARGET_H):
     return img.resize((max(1, round(img.width * scale)), target_h), Image.LANCZOS)
 
 
-def ingest_tonal(src, family, target_h=1400):
+def ingest_tonal(src, family, target_h=None):
     """Keyed, but NOT posterized -- greyscale detail preserved.
 
-    The flat two-ink asset is lossless but throws away every panel line and
-    highlight in the render, which only matters once the rocket is small. When
-    it is the hero of the composition, that detail IS the design, and error
-    diffusion is the right tool: a shaded metal cylinder keeps its roundness
-    through six-ink quantization. Dithering happens at composite time, against
-    the finished background, so the rocket is never quantized twice.
+    Stored at NATIVE resolution. An earlier version normalised every asset to
+    1400px tall, which sounds harmless until you notice a Falcon 9 is slender:
+    1400 tall made it 106px WIDE, discarding 384px of generated width before
+    the panel ever saw it. The panel then took that to 38. Most of the "why is
+    it pixellated" was this one line. Scaling happens once, at composite time,
+    from the full-resolution asset.
     """
     art = largest_blob(key_out(Image.open(src)))
     bbox = art.getbbox()
     if not bbox:
         raise ValueError("nothing left after keying")
     art = art.crop(bbox)
-    s = target_h / art.height
-    art = art.resize((max(1, round(art.width * s)), target_h), Image.LANCZOS)
+    if target_h:
+        s = target_h / art.height
+        art = art.resize((max(1, round(art.width * s)), target_h), Image.LANCZOS)
     os.makedirs(TONAL, exist_ok=True)
     out = os.path.join(TONAL, f"{family.lower().replace(' ', '-')}.png")
     art.save(out)

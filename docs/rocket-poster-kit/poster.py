@@ -48,18 +48,36 @@ def readable(ink, over):
     return ink if abs(_lum(ink) - _lum(over)) > 55 else on(over)
 
 
+# A vehicle taller than this many times its own width is a slender single core
+# -- Falcon, Electron, Vega. Shown whole it collapses to a ~40px sliver and all
+# the generated detail is wasted. Shown cropped it reads properly, and the part
+# that runs off frame is the plain lower body, not an identifying feature.
+#
+# The strap-on families are the opposite: their flared base IS the
+# identification (Soyuz's four tapered boosters, Long March's cluster), and
+# they are already 2-3x wider so they do not need the help. They stay whole.
+SLENDER_RATIO = 8.0
+
+
 def vehicle_layer(rec, h):
-    """Tonal render if the family has one, else the flat parametric fallback.
-    Coverage never has a hole; it has a lower-fidelity floor."""
+    """Returns (layer, y_offset). Tonal render if the family has one, else the
+    flat parametric fallback. Coverage never has a hole, only a lower floor."""
     fam = (rec.get("rocket_family") or "").strip()
     im = ingest.load_tonal(fam) if fam else None
     if im is None:
         im, _ = draw_vehicle(rec, palette_for(rec.get("destination")),
                              H=h, country=rec.get("country"))
-    if im is None:
-        return None
-    s = h / im.height
-    return im.resize((max(1, round(im.width * s)), h), Image.LANCZOS)
+        if im is None:
+            return None, 0
+        return im, -10
+
+    slender = im.height / im.width > SLENDER_RATIO
+    target = int(h * 2.3) if slender else h
+    sc = target / im.height
+    out = im.resize((max(1, round(im.width * sc)), target), Image.LANCZOS)
+    # Anchor the nose near the top either way; a slender vehicle's base simply
+    # continues past the bottom edge.
+    return out, -12
 
 
 def posterize_vehicle(layer, cut=118, contrast=1.35):
@@ -128,10 +146,10 @@ def render(rec, previous=None, art=None):
         # The field is already an exact ink and needs no quantization at all.
         # The vehicle is thresholded ALONE and composited through a hard alpha,
         # so no edge picks up a dithered fringe.
-        veh = vehicle_layer(rec, H + 20)
+        veh, vy = vehicle_layer(rec, H + 20)
         if veh is not None:
-            img.paste(posterize_vehicle(veh), (W - 250, -10), veh.split()[3].point(
-                lambda v: 255 if v > 140 else 0))
+            img.paste(posterize_vehicle(veh), (W - veh.width - 34, vy),
+                      veh.split()[3].point(lambda v: 255 if v > 140 else 0))
 
     d = ImageDraw.Draw(img)
     acc = readable(pal.accent, pal.field)
