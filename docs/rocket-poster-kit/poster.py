@@ -22,6 +22,8 @@ import argparse, json, os, sys
 from datetime import datetime, timezone
 from PIL import Image, ImageDraw
 
+import numpy as np
+
 import flag
 import ingest
 import typeset as T
@@ -60,26 +62,33 @@ def vehicle_layer(rec, h):
     return im.resize((max(1, round(im.width * s)), h), Image.LANCZOS)
 
 
-def dither_vehicle(layer):
-    """Quantize the vehicle to BLACK AND WHITE only.
+def posterize_vehicle(layer, cut=118, contrast=1.35):
+    """Hard-threshold the vehicle into two flat inks. NO dithering.
 
-    The renders are bare metal -- greyscale. Offered the full six inks, error
-    diffusion reaches for green and red to approximate mid-grey, because those
-    genuinely are the nearest available colours in RGB distance. The result is
-    a white rocket crawling with coloured speckle. Restricting the palette to
-    the two neutrals is both truer to the subject and much cleaner: measured
-    on the Falcon render, 77% of the vehicle is already near-white and lands
-    on solid white, 10% on solid black, and only the remaining 13% carries any
-    dither at all.
+    This is the fix for "why is it pixellated". The panel has six inks and none
+    of them is grey, so any continuous tone must be faked -- and error
+    diffusion fakes it with a checkerboard, which at 130 PPI is exactly the
+    speckle that reads as pixellation. Offered the full palette it was worse
+    still: green and red are arithmetically the nearest match to mid-grey, so a
+    white rocket came out crawling with colour.
 
-    Contrast is pushed first so that mid-tone band shrinks further -- the panel
-    has no grey ink, so every mid-tone pixel MUST become a checkerboard, and
-    the honest fix is to have fewer of them.
+    A hard threshold has no in-between state to approximate, so it produces no
+    noise at all. What survives is the render's real structure -- the black
+    interstage, panel seams, engine bells, and the grid fins' actual crosshatch
+    -- rendered as crisp shapes instead of dithered mush. Compared side by side
+    at 2x, this is dramatically cleaner and loses nothing a viewer would miss.
+
+    Contrast is applied first so the threshold falls in a sparse part of the
+    histogram rather than through the middle of the fuselage, where a pixel or
+    two of noise would flip large areas.
     """
     from PIL import ImageEnhance
-    from spectra6 import dither as _d
-    rgb = ImageEnhance.Contrast(layer.convert("RGB")).enhance(1.45)
-    _, out = _d(rgb, "atkinson", inks=("black", "white"))
+    rgb = ImageEnhance.Contrast(layer.convert("RGB")).enhance(contrast)
+    a = np.asarray(rgb).astype(np.int16)
+    lum = 0.299 * a[:, :, 0] + 0.587 * a[:, :, 1] + 0.114 * a[:, :, 2]
+    out = np.empty((a.shape[0], a.shape[1], 3), np.uint8)
+    out[lum > cut] = INKS["white"]
+    out[lum <= cut] = INKS["black"]
     return Image.fromarray(out, "RGB")
 
 
@@ -116,14 +125,12 @@ def render(rec, previous=None, art=None):
                            check=True, capture_output=True)
             img = Image.open(os.path.join(td, "a.panel.png")).convert("RGB")
     else:
-        # The field is already an exact ink, so it needs no quantization at
-        # all -- dithering it only invites speckle. Only the vehicle carries
-        # tone, and it is dithered ALONE, in neutral inks, then composited.
-        # Doing it the other way round put dithered fringe along every edge
-        # where the rocket met the field.
+        # The field is already an exact ink and needs no quantization at all.
+        # The vehicle is thresholded ALONE and composited through a hard alpha,
+        # so no edge picks up a dithered fringe.
         veh = vehicle_layer(rec, H + 20)
         if veh is not None:
-            img.paste(dither_vehicle(veh), (W - 250, -10), veh.split()[3].point(
+            img.paste(posterize_vehicle(veh), (W - 250, -10), veh.split()[3].point(
                 lambda v: 255 if v > 140 else 0))
 
     d = ImageDraw.Draw(img)
