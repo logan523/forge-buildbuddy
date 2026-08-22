@@ -13,9 +13,10 @@ off-palette color, not here.
 import json, os, unittest
 from PIL import Image, ImageDraw
 
+import export_bmp
 import launch
 import typeset as T
-from palette import INKS, INK_RGB, CANVAS, palette_for, FALLBACK
+from palette import INKS, INK_RGB, CANVAS, NOMINAL, MEASURED_TO_NOMINAL, palette_for, FALLBACK
 from poster import render, M, on
 from spectra6 import verify, pack, index_map
 import flag
@@ -332,3 +333,55 @@ class Normalizer(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class PanelExport(unittest.TestCase):
+    """The BMP the firmware actually reads.
+
+    PhotoPainter's GUI_BMPfile.c matches each pixel against six EXACT nominal
+    RGB triples. There is no else clause, and its `color` variable lives
+    outside the pixel loop -- so a pixel matching none of them inherits the
+    previous pixel and smears across the row. Everything here guards that.
+    """
+
+    def test_the_two_palettes_are_actually_different(self):
+        """If these ever converge, the swap is a no-op and the reason for it
+        has been lost. They should not: measured white is newsprint grey."""
+        self.assertNotEqual(set(INKS.values()), set(NOMINAL.values()))
+        self.assertEqual(len(MEASURED_TO_NOMINAL), 6)
+
+    def test_every_fixture_exports_only_nominal_inks(self):
+        for i, rec in enumerate(SAMPLES):
+            img = render(rec, previous=SAMPLES[i - 1])
+            bmp = export_bmp.to_panel_bmp(img)
+            used = {c for _, c in bmp.getcolors(bmp.width * bmp.height)}
+            with self.subTest(i=i):
+                self.assertTrue(used <= set(NOMINAL.values()),
+                                f"record {i} exported {used - set(NOMINAL.values())}")
+
+    def test_a_stray_pixel_is_refused_rather_than_smeared(self):
+        """The export must fail loudly. Passing one bad pixel through is worse
+        than an exception -- it corrupts an entire row on the panel."""
+        img = render(SAMPLES[3], previous=SAMPLES[2])
+        img.putpixel((400, 240), (7, 8, 9))
+        with self.assertRaises(ValueError):
+            export_bmp.to_panel_bmp(img)
+
+    def test_the_written_file_is_what_the_firmware_expects(self):
+        import tempfile
+        img = render(SAMPLES[3], previous=SAMPLES[2])
+        with tempfile.TemporaryDirectory() as td:
+            p = os.path.join(td, "001.bmp")
+            export_bmp.to_panel_bmp(img).save(p, "BMP")
+            self.assertEqual(export_bmp.verify_bmp(p), set())
+            reread = Image.open(p)
+            self.assertEqual(reread.size, CANVAS)      # 800x480, not rotated
+            self.assertEqual(reread.mode, "RGB")       # 24-bit, not palettised
+            # 24-bit uncompressed: 3 bytes/px plus a small header
+            self.assertGreater(os.path.getsize(p), CANVAS[0] * CANVAS[1] * 3)
+
+    def test_wrong_canvas_size_is_refused(self):
+        """The firmware accepts only 800x480 or 480x800. Anything else is a
+        silent no-display, so catch it here."""
+        with self.assertRaises(ValueError):
+            export_bmp.to_panel_bmp(Image.new("RGB", (640, 400), INKS["black"]))

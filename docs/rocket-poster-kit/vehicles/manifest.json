@@ -64,18 +64,18 @@
   "warning": null
  },
  "Falcon": {
-  "drawn_ratio": 10.59,
+  "drawn_ratio": 13.24,
   "family": "Falcon",
   "file": "falcon.png",
-  "prompt": "nano_banana_2_lite thinking=HIGH",
+  "prompt": "nano_banana_pro 4k, tight framing",
   "real_ratio": 19.18,
   "seed": null,
   "size": [
-   85,
+   68,
    900
   ],
-  "source": "falcon-nb.png",
-  "source_sha256": "1c1d092c49326fd9",
+  "source": "falcon-4k.png",
+  "source_sha256": "412ddf5c321397e7",
   "tonal": "falcon.png",
   "warning": null
  },

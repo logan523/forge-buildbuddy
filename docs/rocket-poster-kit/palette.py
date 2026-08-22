@@ -12,7 +12,23 @@ The destination pairing is what gives the series variety without redesign:
 a polar sun-sync shot are different posters by construction, not by hand.
 """
 
-# name -> measured RGB
+# TWO palettes, and conflating them silently destroys the image.
+#
+# MEASURED is what the panel actually reflects. Quantize against these, so both
+# the nearest-ink decision and the diffused error reflect reality -- e-paper
+# shows colours 30-70% darker than nominal, and deciding against nominal RGB
+# produces washed-out results with wrong error propagation.
+#
+# NOMINAL is what the firmware's BMP reader matches. PhotoPainter's
+# GUI_BMPfile.c tests each pixel against six exact RGB triples with NO else
+# clause, and `color` is declared outside the pixel loop -- so a pixel that
+# matches nothing silently inherits the PREVIOUS pixel's colour and smears
+# horizontally across the row. It is not a nearest-match; it is exact or
+# garbage.
+#
+# So: design and quantize in MEASURED, then map to NOMINAL on export. Writing
+# measured values into the BMP would have missed all six triples and turned
+# every poster into coloured streaks.
 INKS = {
     "black":  (26, 26, 24),
     "white":  (214, 211, 200),   # newsprint grey, not paper white
@@ -21,6 +37,18 @@ INKS = {
     "blue":   (53, 84, 138),
     "green":  (74, 117, 80),
 }
+
+# Exactly what lib/GUI/GUI_BMPfile.c compares against. Do not "improve" these.
+NOMINAL = {
+    "black":  (0, 0, 0),
+    "white":  (255, 255, 255),
+    "yellow": (255, 255, 0),
+    "red":    (255, 0, 0),
+    "blue":   (0, 0, 255),
+    "green":  (0, 255, 0),
+}
+
+MEASURED_TO_NOMINAL = {INKS[k]: NOMINAL[k] for k in INKS}
 
 # Panel index order. spectra6.pack() writes 4bpp against this ordering; the
 # driver's own order is a separate thing to verify against the datasheet.
