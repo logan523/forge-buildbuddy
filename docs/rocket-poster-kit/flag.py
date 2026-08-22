@@ -96,7 +96,9 @@ def known(code):
 
 
 if __name__ == "__main__":
+    import os
     from PIL import Image, ImageDraw
+    HERE = os.path.dirname(os.path.abspath(__file__))
     codes = list(FLAGS) + ["ZZZ"]
     cw, ch, pad = 96, 64, 14
     cols = 7
@@ -108,5 +110,5 @@ if __name__ == "__main__":
         x, y = pad + col * (cw + pad), pad + r * (ch + pad + 16)
         draw(d, c, x, y, cw, ch)
         d.text((x, y + ch + 3), c, fill=INKS["white"])
-    im.save("flags.png")
+    im.save(os.path.join(HERE, "flags.png"))
     print(f"{len(FLAGS)} flags + unknown fallback -> flags.png")

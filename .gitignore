@@ -68,3 +68,9 @@ scripts/firmware-src/**/build_id.h
 *.swp
 # real Wi-Fi credentials — template lives at wifi_secrets.example.h
 scripts/firmware-src/**/wifi_secrets.h
+
+# Higgsfield companion skills (installed via `npx skills add higgsfield-ai/skills`).
+# Local tooling, reinstallable, not project source.
+.agents/
+.claude/skills/
+skills-lock.json
