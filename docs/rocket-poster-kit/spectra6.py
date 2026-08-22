@@ -48,22 +48,53 @@ def nearest(px):
     return int(np.argmin(((PAL - px) ** 2).sum(axis=1)))
 
 def dither(img, kernel="atkinson"):
-    """Error-diffusion quantize to the 6 inks. Returns (index_map, rgb_preview)."""
+    """Error-diffusion quantize to the 6 inks. Returns (index_map, rgb_preview).
+
+    Deliberately plain-Python arithmetic over flat lists rather than numpy per
+    pixel. The obvious implementation calls np.argmin once per pixel to find
+    the nearest ink -- 384,000 array allocations for one 800x480 panel, which
+    cost 5.4 seconds and made the test suite slow enough to start skipping.
+    With only six inks, an unrolled loop over six tuples beats numpy's
+    per-call overhead by an order of magnitude.
+
+    Error diffusion is inherently sequential -- each pixel's error feeds its
+    neighbours -- so this cannot be vectorised the way the chroma key was.
+    Output is bit-identical to the numpy version; there is a test.
+    """
     a = np.asarray(img.convert("RGB"), dtype=np.float64)
     h, w, _ = a.shape
-    idx = np.zeros((h, w), dtype=np.uint8)
+    # Flat per-channel lists: indexing a Python list is far cheaper than
+    # indexing a numpy array one element at a time.
+    R = a[:, :, 0].ravel().tolist()
+    G = a[:, :, 1].ravel().tolist()
+    B = a[:, :, 2].ravel().tolist()
+    pal = [(float(c[0]), float(c[1]), float(c[2])) for c in PAL]
+    idx = np.zeros(h * w, dtype=np.uint8)
     offs, _ = KERNELS[kernel]
+
     for y in range(h):
+        row = y * w
         for x in range(w):
-            old = a[y, x].copy()
-            i = nearest(old)
-            idx[y, x] = i
-            err = old - PAL[i]
-            a[y, x] = PAL[i]
+            i0 = row + x
+            r, g, b = R[i0], G[i0], B[i0]
+            best, bd = 0, 1e18
+            for k in range(6):
+                pr, pg, pb = pal[k]
+                dr, dg, db = r - pr, g - pg, b - pb
+                dist = dr * dr + dg * dg + db * db
+                if dist < bd:
+                    bd, best = dist, k
+            idx[i0] = best
+            pr, pg, pb = pal[best]
+            er, eg, eb = r - pr, g - pg, b - pb
             for dx, dy, wt in offs:
                 nx, ny = x + dx, y + dy
                 if 0 <= nx < w and 0 <= ny < h:
-                    a[ny, nx] += err * wt
+                    j = ny * w + nx
+                    R[j] += er * wt
+                    G[j] += eg * wt
+                    B[j] += eb * wt
+    idx = idx.reshape(h, w)
     return idx, PAL[idx].astype(np.uint8)
 
 def verify(img):

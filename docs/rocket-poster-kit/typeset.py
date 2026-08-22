@@ -121,3 +121,32 @@ def fit_headline(draw, primary, fallback, index, max_w, start, floor, track=0.0)
             return lines, f
     f = font(index, floor)
     return wrap(draw, short, f, max_w)[:2], f
+
+
+def fit_wrap(draw, s, index, max_w, start, floor, track=0.0, max_lines=2):
+    """Shrink until the WRAPPED LINES fit, not just the whole string.
+
+    fit() sizes the full string against the column, but wrap() can still emit a
+    line wider than it -- a single unbreakable word ("MID-INCLINATION",
+    "GEOSTATIONARY") is longer than the column at the floor size, so the text
+    silently bleeds into the vehicle. Measure what will actually be drawn.
+
+    Returns (lines, font). At the floor it truncates with an ellipsis rather
+    than overflowing: a shortened headline is recoverable, one running under a
+    dithered rocket is not.
+    """
+    size = start
+    while size >= floor:
+        f = font(index, size)
+        lines = wrap(draw, s, f, max_w)
+        if len(lines) <= max_lines and all(
+                tracked_width(draw, l, f, track) <= max_w for l in lines):
+            return lines, f
+        size -= 2
+    f = font(index, floor)
+    out = []
+    for line in wrap(draw, s, f, max_w)[:max_lines]:
+        while line and tracked_width(draw, line + "…", f, track) > max_w:
+            line = line[:-1]
+        out.append(line + "…" if line != s else line)
+    return out, f

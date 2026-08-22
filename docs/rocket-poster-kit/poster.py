@@ -2,31 +2,28 @@
 """
 The poster. One Launch Library 2 record in, one 800x480 six-ink panel out.
 
-Style is the 1930s alpine travel poster -- Roger Broders, Emil Cardinaux --
-transposed to spaceflight: two or three flat color fields, one bold subject,
-the destination set huge across the bottom the way ZERMATT was. That reference
-is not decoration. Those posters were screen-printed with a handful of flat
-spot inks, which is almost exactly what a 6-color e-ink panel imposes.
+Layout chosen from a two-round shotgun: the vehicle at full frame height on the
+right, and the MISSION as the headline rather than the destination.
 
-It is also, measurably, the only style this panel renders perfectly. An image
-whose every fill is already an exact ink passes through the quantizer
-UNCHANGED -- six colors in, six colors out, pixel for pixel, no dithering
-anywhere. Introduce one off-palette fill and that region immediately fragments
-into dithered noise. So `verify()` returning an empty set is not a nicety here;
-it is the whole design thesis, enforced.
+That second choice is the one worth defending. Leading with the orbit reads
+"LOW EARTH ORBIT" four days out of five -- 81 of the next 100 launches go to
+LEO, Polar or Sun-Synchronous. The mission name is the field that actually
+varies and the one a person cares about: "Crew-13", "Chang'e 7", "Martian Moon
+eXplorer". The destination still gets its own line directly beneath, in the
+accent ink, so nothing is lost.
 
-The destination is the headline. `DESIGN-PROMPT.md` argued the opposite -- 81
-of the next 100 launches go to Low Earth / Polar / Sun-Synchronous orbit, so
-leading with the orbit is dull four days in five. That was right when the
-destination was the only thing that varied. It no longer is: the palette, the
-silhouette and the mission line all move with it, so the repeated word reads as
-series identity rather than monotony. The reversal is deliberate, not drift.
+The rocket is a generated render, ingested once per family and composited with
+its tone intact; the background and vehicle are dithered together ONCE, then
+type is drawn on top in exact ink values. Run that order backwards and error
+diffusion shreds the letterforms.
 """
 
 import argparse, json, os, sys
 from datetime import datetime, timezone
 from PIL import Image, ImageDraw
 
+import flag
+import ingest
 import typeset as T
 from palette import INKS, CANVAS, palette_for
 from vehicle import draw_vehicle
@@ -37,6 +34,43 @@ M = 44                      # margin
 HORIZON = 296               # hard edge between sky and the type band
 FOOTER_H = 36               # previous-launch strip
 BAND_TOP = HORIZON + 6
+
+
+def _lum(c):
+    return 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
+
+
+def readable(ink, over):
+    """`ink` if it separates from `over`, else white/black. Brick red on deep
+    navy is a 20-point luminance gap -- two distinct inks, unreadable at 14px."""
+    return ink if abs(_lum(ink) - _lum(over)) > 55 else on(over)
+
+
+def vehicle_layer(rec, h):
+    """Tonal render if the family has one, else the flat parametric fallback.
+    Coverage never has a hole; it has a lower-fidelity floor."""
+    fam = (rec.get("rocket_family") or "").strip()
+    im = ingest.load_tonal(fam) if fam else None
+    if im is None:
+        im, _ = draw_vehicle(rec, palette_for(rec.get("destination")),
+                             H=h, country=rec.get("country"))
+    if im is None:
+        return None
+    s = h / im.height
+    return im.resize((max(1, round(im.width * s)), h), Image.LANCZOS)
+
+
+def dither(img):
+    """Quantize background+vehicle to six inks. Type is drawn AFTER."""
+    import subprocess, tempfile
+    with tempfile.TemporaryDirectory() as td:
+        p = os.path.join(td, "c.png")
+        img.convert("RGB").save(p)
+        subprocess.run([sys.executable, os.path.join(HERE, "spectra6.py"), p,
+                        "--out", os.path.join(td, "c"), "--size", f"{img.width}x{img.height}",
+                        "--saturation", "1.6", "--contrast", "1.05"],
+                       check=True, capture_output=True)
+        return Image.open(os.path.join(td, "c.panel.png")).convert("RGB")
 
 
 def on(ink):
@@ -60,110 +94,79 @@ def fmt_when(iso):
 def render(rec, previous=None, art=None):
     pal = palette_for(rec.get("destination"))
     img = Image.new("RGB", (W, H), pal.field)
-    d = ImageDraw.Draw(img)
 
-    # --- sky -----------------------------------------------------------------
     if art:
-        # The one path where dithering is wanted: a generated painting has tone
-        # to preserve. Flat template art never takes this branch.
+        # The one path where the background itself is a painting.
         import subprocess, tempfile
-        src = Image.open(art).convert("RGB")
         with tempfile.TemporaryDirectory() as td:
             p = os.path.join(td, "a.png")
-            src.save(p)
+            Image.open(art).convert("RGB").save(p)
             subprocess.run([sys.executable, os.path.join(HERE, "spectra6.py"), p,
-                            "--out", os.path.join(td, "a"), "--size", f"{W}x{HORIZON}"],
+                            "--out", os.path.join(td, "a"), "--size", f"{W}x{H}"],
                            check=True, capture_output=True)
-            img.paste(Image.open(os.path.join(td, "a.panel.png")).convert("RGB"), (0, 0))
+            img = Image.open(os.path.join(td, "a.panel.png")).convert("RGB")
     else:
-        # A second flat band gives the sky depth without a gradient. Two hard
-        # steps read as atmosphere; a smooth ramp reads as dither noise.
-        d.rectangle([0, 0, W, int(HORIZON * 0.42)], fill=on(pal.field))
-        d.rectangle([0, 0, W, int(HORIZON * 0.42)], fill=pal.field)  # keep it plain
-        veh, tier = draw_vehicle(rec, pal, H=520, country=rec.get("country"))
-        # NEAREST, always: any interpolating resample invents in-between colors
-        # and would put off-palette pixels straight onto the panel.
-        # Crop to the silhouette BEFORE fitting. The layer carries transparent
-        # margin, and fitting the padded box to the frame was quietly throwing
-        # away about a third of the vehicle's drawn size.
-        bb = veh.getbbox()
-        if bb:
-            veh = veh.crop(bb)
-        veh = veh.rotate(-14, expand=True, resample=Image.NEAREST)
-        bb = veh.getbbox()
-        if bb:
-            veh = veh.crop(bb)
-        # Size to the space that exists, rather than to a fixed number that
-        # happened to look right once -- an unbounded thumbnail ran the nose
-        # straight off the top of the canvas.
-        # A rotated tall object's bounding box grows fast, so a steep angle
-        # costs real drawn size once it is fitted back into the frame. 14
-        # degrees keeps the ascent read while leaving the vehicle big enough
-        # for its panel lines and flag to survive.
-        # Overlap is deliberately small now: pushing the vehicle deep into the
-        # band hid its own base -- the engine bells, strap-ons and flag, which
-        # are exactly the parts that identify it. Height comes from the sky
-        # instead, which is why HORIZON sits as low as the type will allow.
-        OVERLAP, TOP_MARGIN, MAX_W = 14, 8, 470
-        # Scale to HEIGHT first so every vehicle stands the same tall in the
-        # frame -- fitting to a width box instead made the wide strap-on
-        # families (H3, GSLV) render visibly smaller than a bare Falcon, which
-        # read as an inconsistent series rather than a design choice.
-        target_h = HORIZON + OVERLAP - TOP_MARGIN
-        scale = target_h / veh.height
-        if veh.width * scale > MAX_W:
-            scale = MAX_W / veh.width
-        veh = veh.resize((max(1, int(veh.width * scale)), max(1, int(veh.height * scale))),
-                         Image.NEAREST)
-        # Overlapping the horizon is the point: the vehicle rises OUT of the
-        # band rather than sitting politely above it.
-        img.paste(veh, (W - veh.width - 30, HORIZON + OVERLAP - veh.height), veh)
+        veh = vehicle_layer(rec, H + 20)
+        if veh is not None:
+            img.paste(veh.convert("RGB"), (W - 250, -10), veh)
+        img = dither(img)
 
-    d.rectangle([0, HORIZON, W, BAND_TOP], fill=pal.accent)
-    d.rectangle([0, BAND_TOP, W, H - FOOTER_H], fill=INKS["black"])
+    d = ImageDraw.Draw(img)
+    acc = readable(pal.accent, pal.field)
+    M, COL = 46, 450
 
-    # --- type band -----------------------------------------------------------
-    # Measured, then vertically centered. Setting each line from a running
-    # cursor let the last one fall off the bottom of the band when the headline
-    # came back tall -- the meta line simply vanished, silently, which is the
-    # failure mode this whole kit is supposed to make impossible.
+    T.tracked(img, (M, 54), (rec.get("provider") or "").upper()[:44],
+              T.font(T.MEDIUM, 10), acc, 1.9)
+
+    # Mission is the hero -- but only when there IS one. Real records carry
+    # "Unknown Payload", empty strings, and classified entries; promoting those
+    # to a headline would put "UNKNOWN PAYLOAD" in 66pt on the wall. In that
+    # case the destination takes the headline back and the mission line is
+    # dropped rather than shown empty.
+    mission = (rec.get("mission") or "").strip()
     dest = (rec.get("destination") or "UNKNOWN").upper()
-    lines, f_dest = T.fit_headline(d, dest, (rec.get("destination_abbrev") or "").upper(),
-                                   T.XCONDENSED, W - M * 2, 72, 34, track=1.5)
-    head = lines[0]
+    hero_is_mission = bool(mission) and mission.lower() not in (
+        "unknown", "unknown payload", "classified", "n/a", "tbd")
 
-    vehicle_line = " · ".join(x for x in [rec.get("rocket"), rec.get("mission"),
-                                          rec.get("provider")] if x)
-    f_v, tr_v = T.fit_tracked(d, vehicle_line, T.MEDIUM, W - M * 2,
-                              [19, 18, 17, 16, 15, 14, 13], [0.8, 0.4, 0.0])
+    hero = (mission if hero_is_mission else dest).upper()
+    hero_lines, fh = T.fit_wrap(d, hero, T.XCONDENSED, COL, 66, 24, track=1.2, max_lines=2)
+    y = 74
+    for ln in hero_lines:
+        T.tracked(img, (M, y), ln, fh, INKS["white"], 1.2)
+        y += fh.size + 2
+    y += 16
+    d.rectangle([M, y, M + 190, y + 4], fill=acc)
+    y += 22
 
-    meta = " · ".join(x for x in [fmt_when(rec.get("t0_utc")),
-                                  (rec.get("purpose") or "").upper(),
-                                  (rec.get("site") or "").upper()] if x)
-    f_m, tr_m = T.fit_tracked(d, meta, T.MEDIUM, W - M * 2,
-                              [13, 12, 11, 10, 9], [0.6, 0.3, 0.0])
+    if hero_is_mission:
+        fd, td = T.fit_tracked(d, dest, T.MEDIUM, COL, [26, 24, 22, 20, 18, 16], [1.0, 0.4])
+        T.tracked(img, (M, y), dest, fd, acc, td)
+        y += fd.size + 22
 
-    GAP_H, GAP_V = 12, 9
-    stack = f_dest.size + GAP_H + f_v.size + GAP_V + f_m.size
-    band_h = (H - FOOTER_H) - BAND_TOP
-    y = BAND_TOP + max(8, (band_h - stack) // 2) - 6
+    rows = [("VEHICLE", rec.get("rocket") or ""),
+            ("LAUNCH", fmt_when(rec.get("t0_utc"))),
+            ("SITE", (rec.get("site") or "").upper())]
+    for lab, val in rows:
+        if not val:
+            continue
+        T.tracked(img, (M, y), lab, T.font(T.MEDIUM, 8), acc, 1.8)
+        f, tr = T.fit_tracked(d, val, T.BOLD, COL, [14, 13, 12, 11, 10], [0.3, 0.0])
+        T.tracked(img, (M, y + 11), val, f, INKS["white"], tr)
+        y += f.size + 20
 
-    T.tracked(img, (M, y), head, f_dest, INKS["white"], 1.5)
-    y += f_dest.size + GAP_H
-    T.tracked(img, (M, y), vehicle_line, f_v, pal.accent, tr_v)
-    y += f_v.size + GAP_V
-    T.tracked(img, (M, y), meta, f_m, INKS["white"], tr_m)
+    if rec.get("country"):
+        flag.draw(d, rec["country"], M, H - 78, 50, 32)
 
-    # --- previous-launch footer ---------------------------------------------
-    d.rectangle([0, H - FOOTER_H, W, H], fill=pal.accent)
+    # The previous launch, kept deliberately quiet at the very bottom -- it is
+    # context, not the subject.
     if previous:
-        prev = "LAST · " + " · ".join(x for x in [
+        prev = " · ".join(x for x in [
+            "LAST",
             (previous.get("rocket_short") or previous.get("rocket") or "").upper(),
-            previous.get("mission"),
+            previous.get("mission") or "",
             fmt_when(previous.get("t0_utc")).split(" · ")[0]] if x)
-        f_p, tr_p = T.fit_tracked(d, prev, T.MEDIUM, W - M * 2,
-                                  [12, 11, 10, 9], [1.4, 0.8, 0.3, 0.0])
-        T.tracked(img, (M, H - FOOTER_H + 11), prev, f_p, on(pal.accent), tr_p)
+        f, tr = T.fit_tracked(d, prev, T.MEDIUM, W - M - 250, [10, 9, 8], [1.2, 0.6, 0.2])
+        T.tracked(img, (M + 62, H - 62), prev, f, acc, tr)
     return img
 
 

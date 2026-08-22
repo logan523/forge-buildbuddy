@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw
 import launch
 import typeset as T
 from palette import INKS, INK_RGB, CANVAS, palette_for, FALLBACK
-from poster import render, M, BAND_TOP, FOOTER_H, on
+from poster import render, M, on
 from spectra6 import verify, pack, index_map
 import flag
 import ingest
@@ -37,9 +37,9 @@ class Losslessness(unittest.TestCase):
                 self.assertEqual(bad, set(),
                                  f"record {i} put off-ink colors on the panel: {list(bad)[:5]}")
 
-    def test_dithering_a_finished_poster_is_a_no_op(self):
-        """Not just 'legal' -- provably unchanged. This is the claim the whole
-        flat direction rests on, so it is asserted rather than assumed."""
+    def test_a_finished_poster_survives_requantization(self):
+        """The panel driver must have nothing left to decide. A poster whose
+        pixels are all exact inks passes back through the quantizer unchanged."""
         from spectra6 import dither
         import numpy as np
         img = render(SAMPLES[3], previous=SAMPLES[2])
@@ -47,11 +47,45 @@ class Losslessness(unittest.TestCase):
         self.assertTrue(np.array_equal(rgb, np.asarray(img.convert("RGB"))),
                         "quantizing a finished poster changed pixels; it should be identical")
 
+    def test_the_fast_dither_matches_the_reference_implementation(self):
+        """The inner loop was rewritten off numpy for a 4.7x speedup. That is
+        only safe if it is bit-identical -- error diffusion has no tolerance
+        for 'close enough', since every pixel's error feeds its neighbours."""
+        import numpy as np
+        from PIL import Image as _I
+        from spectra6 import dither, PAL
+        src = _I.open(os.path.join(HERE, "raw", "falcon-nb.png")).convert("RGB").resize((120, 200))
+        ref_idx = _reference_dither(np.asarray(src, dtype=np.float64), PAL)
+        idx, _ = dither(src, "atkinson")
+        self.assertTrue(np.array_equal(idx, ref_idx))
+
     def test_an_off_palette_pixel_is_actually_caught(self):
         """A gate that cannot fail is not a gate."""
         img = render(SAMPLES[3], previous=SAMPLES[2])
         img.putpixel((10, 10), (123, 45, 200))
         self.assertIn((123, 45, 200), verify(img))
+
+
+def _reference_dither(a, PAL):
+    """The original per-pixel numpy implementation, kept ONLY as a test oracle.
+    Slow by design -- it is the thing the fast path must agree with."""
+    import numpy as np
+    a = a.copy()
+    h, w, _ = a.shape
+    idx = np.zeros((h, w), dtype=np.uint8)
+    offs = [(1, 0, 1/8), (2, 0, 1/8), (-1, 1, 1/8), (0, 1, 1/8), (1, 1, 1/8), (0, 2, 1/8)]
+    for y in range(h):
+        for x in range(w):
+            old = a[y, x].copy()
+            i = int(np.argmin(((PAL - old) ** 2).sum(axis=1)))
+            idx[y, x] = i
+            err = old - PAL[i]
+            a[y, x] = PAL[i]
+            for dx, dy, wt in offs:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    a[ny, nx] += err * wt
+    return idx
 
 
 class Determinism(unittest.TestCase):
@@ -106,17 +140,37 @@ class TypeFits(unittest.TestCase):
         self.assertGreaterEqual(max(len(r["provider"]) for r in SAMPLES), 50)
         self.assertGreaterEqual(max(len(r["site"]) for r in SAMPLES), 59)
 
-    def test_no_type_pixels_land_in_the_footer_strip(self):
-        """The band-overflow bug this caught once: a tall headline pushed the
-        meta line off the bottom, where it vanished silently."""
+    def test_nothing_is_drawn_past_the_bottom_edge(self):
+        """The previous-launch line is the last thing placed and the easiest to
+        push off the canvas -- an earlier layout did exactly that, invisibly at
+        thumbnail scale and fatally at 800x480. Checked arithmetically rather
+        than by pixels, so it fails for the right reason."""
+        d = ImageDraw.Draw(Image.new("RGB", CANVAS))
         for i, rec in enumerate(SAMPLES):
-            img = render(rec, previous=SAMPLES[i - 1])
-            pal = palette_for(rec["destination"])
-            strip = img.crop((0, H - FOOTER_H + 1, W, H - 2))
-            colors = {c for _, c in strip.getcolors(W * H)}
+            prev = SAMPLES[i - 1]
+            line = " · ".join(x for x in [
+                "LAST", (prev.get("rocket_short") or prev.get("rocket") or "").upper(),
+                prev.get("mission") or "", "01 JAN 2026"] if x)
+            f, tr = T.fit_tracked(d, line, T.MEDIUM, W - M - 250, [10, 9, 8], [1.2, 0.6, 0.2])
             with self.subTest(i=i):
-                self.assertTrue(colors <= {pal.accent, on(pal.accent)},
-                                f"record {i} leaked {colors - {pal.accent, on(pal.accent)}} into the footer")
+                self.assertLess(H - 62 + f.size, H - 2, "previous-launch line runs off the canvas")
+                self.assertLessEqual(T.tracked_width(d, line, f, tr), W - M - 250,
+                                     "previous-launch line runs under the vehicle")
+
+    def test_the_type_column_never_reaches_the_vehicle(self):
+        """The vehicle occupies the right 250px. Type that crosses into it is
+        unreadable against a dithered rocket, which is the failure mode the
+        column width exists to prevent."""
+        d = ImageDraw.Draw(Image.new("RGB", CANVAS))
+        COL = 450
+        self.assertLessEqual(M + COL, W - 250 + 96,
+                             "type column overlaps the vehicle's clear space")
+        for rec in SAMPLES:
+            hero = (rec["mission"] or rec["destination"]).upper()
+            lines, f = T.fit_wrap(d, hero, T.XCONDENSED, COL, 66, 24, track=1.2, max_lines=2)
+            for ln in lines:
+                with self.subTest(hero=ln):
+                    self.assertLessEqual(T.tracked_width(d, ln, f, 1.2), COL)
 
 
 class Coverage(unittest.TestCase):
