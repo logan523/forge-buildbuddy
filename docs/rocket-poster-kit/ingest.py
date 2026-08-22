@@ -48,6 +48,14 @@ KNOWN_RATIO = {
 }
 
 
+# Strap-ons and a wide fairing make the DRAWN silhouette much wider than the
+# core, so a bare length/diameter is the wrong yardstick. Multipliers measured
+# against correct renders: a 4-booster stack is about 3x its core width.
+BOOSTERS = {"Long March": 4, "Soyuz": 4, "Angara": 4,
+            "Ariane": 2, "H3": 2, "GSLV": 2}
+WIDTH_MULTIPLIER = {0: 1.7, 2: 2.2, 4: 3.0}
+
+
 def key_out(img, tol=78):
     """Remove the background by sampling it, not by assuming it.
 
@@ -140,12 +148,25 @@ def ingest(src, family, seed=None, prompt=None, lit="white", shadow="black", cut
     expected = KNOWN_RATIO.get(family)
     warn = None
     if expected:
-        # A vehicle's silhouette is wider than its core (boosters, fins), so
-        # the drawn ratio is always <= length/diameter. Flag only a big miss --
-        # that is a hallucinated proportion, not artistic licence.
-        if measured < expected * 0.35 or measured > expected * 1.25:
-            warn = (f"drawn ratio {measured:.1f} vs real length/diameter "
-                    f"{expected:.1f} -- proportions look wrong, consider a reroll")
+        # The real ratio is length/CORE diameter, but the drawn silhouette is as
+        # wide as the whole vehicle -- strap-ons and fairing included. Comparing
+        # them directly flagged a textbook-correct Soyuz and Long March 5 as
+        # "wrong proportions", which is the fastest way to teach someone to
+        # ignore a warning. Scale the expectation by how wide the family
+        # actually is, so the check stays meaningful.
+        mult = WIDTH_MULTIPLIER.get(BOOSTERS.get(family, 0), 1.0)
+        target = expected / mult
+        # Asymmetric on purpose. Too WIDE means the model added hardware that
+        # is not on the vehicle -- the exact failure that put strap-on boosters
+        # on a Falcon 9, and the one worth catching. Too SLENDER usually means
+        # it drew a cleaner vehicle with a narrow fairing, which is what a
+        # correct Vega-C looks like; flagging that trains you to ignore the
+        # warning, and a guard that is ignored is worse than no guard.
+        if not (target * 0.50 <= measured <= target * 1.90):
+            side = "wide" if measured < target else "slender"
+            warn = (f"drawn ratio {measured:.1f} vs expected ~{target:.1f} for a "
+                    f"{BOOSTERS.get(family, 0)}-booster vehicle -- too {side}, "
+                    f"consider a reroll")
 
     entry = {
         "family": family, "file": f"{slug}.png",
