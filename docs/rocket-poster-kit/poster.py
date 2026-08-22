@@ -26,6 +26,7 @@ import numpy as np
 
 import flag
 import ingest
+import scene
 import typeset as T
 from palette import INKS, CANVAS, palette_for
 from vehicle import draw_vehicle
@@ -128,85 +129,91 @@ def fmt_when(iso):
     return t.strftime("%d %b %Y · %H:%M UTC").upper()
 
 
-def render(rec, previous=None, art=None):
-    pal = palette_for(rec.get("destination"))
-    img = Image.new("RGB", (W, H), pal.field)
+PPI = 128                  # 800px across a 6.26in panel
 
-    if art:
-        # The one path where the background itself is a painting.
+
+def pt(points):
+    """Physical points -> pixels. The panel is a 6x4 print, not a poster, so
+    type is sized from the real object rather than from how it looks in a
+    browser tab -- which is how the headline ended up at 37pt."""
+    return max(6, round(points * PPI / 72))
+
+
+def render(rec, previous=None, art=None):
+    """Scene on top, type in a band below -- the structure of the alpine travel
+    posters this is modelled on. The scene is generated; the vehicle, the type,
+    the palette and the band are not.
+    """
+    pal = palette_for(rec.get("destination"))
+    BAND = H - scene.SCENE_H          # 144px
+
+    plate = None if art else scene.load(rec)
+    img = Image.new("RGB", (W, H), pal.field)
+    if plate is not None:
+        img.paste(plate, (0, 0))
+    elif art:
         import subprocess, tempfile
         with tempfile.TemporaryDirectory() as td:
             p = os.path.join(td, "a.png")
             Image.open(art).convert("RGB").save(p)
             subprocess.run([sys.executable, os.path.join(HERE, "spectra6.py"), p,
-                            "--out", os.path.join(td, "a"), "--size", f"{W}x{H}"],
+                            "--out", os.path.join(td, "a"), "--size", f"{W}x{scene.SCENE_H}"],
                            check=True, capture_output=True)
-            img = Image.open(os.path.join(td, "a.panel.png")).convert("RGB")
-    else:
-        # The field is already an exact ink and needs no quantization at all.
-        # The vehicle is thresholded ALONE and composited through a hard alpha,
-        # so no edge picks up a dithered fringe.
-        veh, vy = vehicle_layer(rec, H + 20)
-        if veh is not None:
-            img.paste(posterize_vehicle(veh), (W - veh.width - 34, vy),
-                      veh.split()[3].point(lambda v: 255 if v > 140 else 0))
+            img.paste(Image.open(os.path.join(td, "a.panel.png")).convert("RGB"), (0, 0))
 
+    # The vehicle stands IN the scene, its base meeting the band.
+    veh, _ = vehicle_layer(rec, scene.SCENE_H + 40)
+    if veh is not None:
+        sc = (scene.SCENE_H + 34) / veh.height
+        v = veh.resize((max(1, round(veh.width * sc)), scene.SCENE_H + 34), Image.LANCZOS)
+        img.paste(posterize_vehicle(v), (int(W * 0.56), -8),
+                  v.split()[3].point(lambda p: 255 if p > 140 else 0))
+
+    # The band is painted regardless of what the model did down there -- the
+    # prompt asks for it to be left plain, but it is never trusted to comply.
     d = ImageDraw.Draw(img)
-    acc = readable(pal.accent, pal.field)
-    M, COL = 46, 450
+    band_ink = INKS["white"] if plate is None else INKS["white"]
+    d.rectangle([0, scene.SCENE_H, W, H], fill=band_ink)
+    d.rectangle([0, scene.SCENE_H, W, scene.SCENE_H + 4], fill=INKS["black"])
+    ink, sub = INKS["black"], INKS["red"]
 
-    T.tracked(img, (M, 54), (rec.get("provider") or "").upper()[:44],
-              T.font(T.MEDIUM, 10), acc, 1.9)
-
-    # Mission is the hero -- but only when there IS one. Real records carry
-    # "Unknown Payload", empty strings, and classified entries; promoting those
-    # to a headline would put "UNKNOWN PAYLOAD" in 66pt on the wall. In that
-    # case the destination takes the headline back and the mission line is
-    # dropped rather than shown empty.
-    mission = (rec.get("mission") or "").strip()
+    # Destination is the headline in the band, the way the resort name is on a
+    # ski poster; the mission carries the line beneath it.
     dest = (rec.get("destination") or "UNKNOWN").upper()
-    hero_is_mission = bool(mission) and mission.lower() not in (
-        "unknown", "unknown payload", "classified", "n/a", "tbd")
+    lines, fh = T.fit_wrap(d, dest, T.XCONDENSED, W - 120, pt(23), pt(11), 2.0, 1)
+    hw = T.tracked_width(d, lines[0], fh, 2.0)
+    T.tracked(img, ((W - hw) / 2, scene.SCENE_H + 22), lines[0], fh, ink, 2.0)
+    y = scene.SCENE_H + 22 + fh.size + 12
 
-    hero = (mission if hero_is_mission else dest).upper()
-    hero_lines, fh = T.fit_wrap(d, hero, T.XCONDENSED, COL, 66, 24, track=1.2, max_lines=2)
-    y = 74
-    for ln in hero_lines:
-        T.tracked(img, (M, y), ln, fh, INKS["white"], 1.2)
-        y += fh.size + 2
-    y += 16
-    d.rectangle([M, y, M + 190, y + 4], fill=acc)
-    y += 22
+    mission = (rec.get("mission") or "").strip()
+    bits = [x for x in [mission, rec.get("rocket"), rec.get("provider")] if x]
+    line = "  ·  ".join(bits).upper()
+    f2, t2 = T.fit_tracked(d, line, T.MEDIUM, W - 150,
+                           [pt(7), pt(6.5), pt(6), pt(5.5), pt(5)], [1.6, 0.9, 0.4])
+    lw = T.tracked_width(d, line, f2, t2)
+    d.rectangle([(W - lw) / 2 - 28, y + f2.size / 2, (W - lw) / 2 - 10,
+                 y + f2.size / 2 + 2], fill=sub)
+    d.rectangle([(W + lw) / 2 + 10, y + f2.size / 2, (W + lw) / 2 + 28,
+                 y + f2.size / 2 + 2], fill=sub)
+    T.tracked(img, ((W - lw) / 2, y), line, f2, sub, t2)
+    y += f2.size + 10
 
-    if hero_is_mission:
-        fd, td = T.fit_tracked(d, dest, T.MEDIUM, COL, [26, 24, 22, 20, 18, 16], [1.0, 0.4])
-        T.tracked(img, (M, y), dest, fd, acc, td)
-        y += fd.size + 22
-
-    rows = [("VEHICLE", rec.get("rocket") or ""),
-            ("LAUNCH", fmt_when(rec.get("t0_utc"))),
-            ("SITE", (rec.get("site") or "").upper())]
-    for lab, val in rows:
-        if not val:
-            continue
-        T.tracked(img, (M, y), lab, T.font(T.MEDIUM, 8), acc, 1.8)
-        f, tr = T.fit_tracked(d, val, T.BOLD, COL, [14, 13, 12, 11, 10], [0.3, 0.0])
-        T.tracked(img, (M, y + 11), val, f, INKS["white"], tr)
-        y += f.size + 20
+    meta = "  ·  ".join(x for x in [fmt_when(rec.get("t0_utc")),
+                                    (rec.get("site") or "").upper()] if x)
+    f3, t3 = T.fit_tracked(d, meta, T.MEDIUM, W - 170,
+                           [pt(5), pt(4.6), pt(4.2)], [1.0, 0.5, 0.2])
+    mw = T.tracked_width(d, meta, f3, t3)
+    T.tracked(img, ((W - mw) / 2, y), meta, f3, ink, t3)
 
     if rec.get("country"):
-        flag.draw(d, rec["country"], M, H - 78, 50, 32)
-
-    # The previous launch, kept deliberately quiet at the very bottom -- it is
-    # context, not the subject.
+        flag.draw(d, rec["country"], 30, H - 40, 40, 25)
     if previous:
-        prev = " · ".join(x for x in [
-            "LAST",
+        prev = "LAST · " + " · ".join(x for x in [
             (previous.get("rocket_short") or previous.get("rocket") or "").upper(),
-            previous.get("mission") or "",
             fmt_when(previous.get("t0_utc")).split(" · ")[0]] if x)
-        f, tr = T.fit_tracked(d, prev, T.MEDIUM, W - M - 250, [10, 9, 8], [1.2, 0.6, 0.2])
-        T.tracked(img, (M + 62, H - 62), prev, f, acc, tr)
+        f4, t4 = T.fit_tracked(d, prev, T.MEDIUM, 300, [pt(4.2), pt(4)], [0.9, 0.4])
+        pw = T.tracked_width(d, prev, f4, t4)
+        T.tracked(img, (W - 30 - pw, H - 34), prev, f4, sub, t4)
     return img
 
 

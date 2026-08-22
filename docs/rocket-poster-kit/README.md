@@ -68,6 +68,40 @@ painted art; it is the only style this hardware renders *exactly as designed*.
 Generated art is still supported — `poster.py --art painting.png` uses a
 painting as the sky and dithers it, which is the one place dithering is wanted.
 
+## The generated scene
+
+The background is a flat travel-poster launch scene generated per
+`(destination, country)` and cached in `scenes/`. Everything in front of it is
+deterministic: the rocket is a committed asset, the type is real text, the
+palette is enforced, the band is painted regardless of what the model drew.
+
+```bash
+python3 scene.py --plan     # what would be generated, and what is cached
+python3 scene.py --all      # generate every missing plate
+python3 scene_qa.py         # structural check on every cached plate
+```
+
+**The lesson that made it work.** The first version let the destination mood
+change how light or dark the plate was — "night launch, deep dark sky", "cold
+morning, pale sky". Three of the first seven plates came back unusable: a black
+slab, a 96% blank, and a rust desert that snapped to green.
+
+That was not the model drifting. It was this palette. Six inks with no greys
+and no dark blue means a dark sky has nowhere to land but solid black and a
+pale sky nowhere but solid white. **Luminance is the one dimension these inks
+cannot express, so the prompt must not ask it to vary.** Every mood now shares
+one tonal recipe — dark band top, saturated mid bands, light band above the
+horizon, dark ground — and differs only in motif. Night is told by a crescent
+moon on a *blue* sky, not by darkness.
+
+**The QA metric was wrong too, and that mattered more.** The first drift check
+measured palette-histogram distance and reported the series getting *worse* as
+it visibly got better — because the palette is keyed to destination on purpose,
+so a blue lunar plate and a red Mars plate *should* differ. `scene_qa.py` now
+measures structure instead: banding, horizon position, gantry mass, and whether
+any single ink has swallowed the plate. That separates cleanly — all four
+current plates pass, all six earlier ones fail.
+
 ## Files
 
 | | |

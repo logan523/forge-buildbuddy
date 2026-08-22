@@ -41,3 +41,9 @@ _provenance.png
 _bleed-compare.png
 _4k-before-after.png
 falcon-4k-poster.png
+scenes/raw/
+_scene*.png
+_plate*.png
+_plates*.png
+_ref-test.png
+_final-*.png
