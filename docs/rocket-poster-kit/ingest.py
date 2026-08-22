@@ -35,6 +35,7 @@ from palette import INKS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "vehicles")
+TONAL = os.path.join(HERE, "vehicles-tonal")
 MANIFEST = os.path.join(ASSETS, "manifest.json")
 
 TARGET_H = 900                  # authored tall; the poster scales down with NEAREST
@@ -133,6 +134,29 @@ def normalize(img, target_h=TARGET_H):
     return img.resize((max(1, round(img.width * scale)), target_h), Image.LANCZOS)
 
 
+def ingest_tonal(src, family, target_h=1400):
+    """Keyed, but NOT posterized -- greyscale detail preserved.
+
+    The flat two-ink asset is lossless but throws away every panel line and
+    highlight in the render, which only matters once the rocket is small. When
+    it is the hero of the composition, that detail IS the design, and error
+    diffusion is the right tool: a shaded metal cylinder keeps its roundness
+    through six-ink quantization. Dithering happens at composite time, against
+    the finished background, so the rocket is never quantized twice.
+    """
+    art = largest_blob(key_out(Image.open(src)))
+    bbox = art.getbbox()
+    if not bbox:
+        raise ValueError("nothing left after keying")
+    art = art.crop(bbox)
+    s = target_h / art.height
+    art = art.resize((max(1, round(art.width * s)), target_h), Image.LANCZOS)
+    os.makedirs(TONAL, exist_ok=True)
+    out = os.path.join(TONAL, f"{family.lower().replace(' ', '-')}.png")
+    art.save(out)
+    return out
+
+
 def ingest(src, family, seed=None, prompt=None, lit="white", shadow="black", cut=0.52):
     raw = Image.open(src)
     art = normalize(largest_blob(posterize_two_tone(key_out(raw), lit, shadow, cut)))
@@ -180,9 +204,16 @@ def ingest(src, family, seed=None, prompt=None, lit="white", shadow="black", cut
     man = {}
     if os.path.exists(MANIFEST):
         man = json.load(open(MANIFEST))
+    entry["tonal"] = os.path.basename(ingest_tonal(src, family))
     man[family] = entry
     json.dump(man, open(MANIFEST, "w"), indent=1, sort_keys=True)
     return out, entry
+
+
+def load_tonal(family):
+    """The detailed render, keyed and scaled, tone intact. None if absent."""
+    p = os.path.join(TONAL, f"{family.lower().replace(' ', '-')}.png")
+    return Image.open(p).convert("RGBA") if os.path.exists(p) else None
 
 
 def load(family):

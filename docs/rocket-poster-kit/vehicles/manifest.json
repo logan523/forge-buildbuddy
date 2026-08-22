@@ -12,6 +12,7 @@
   ],
   "source": "angara.png",
   "source_sha256": "875b0bea703fb437",
+  "tonal": "angara.png",
   "warning": null
  },
  "Ariane": {
@@ -27,6 +28,7 @@
   ],
   "source": "ariane.png",
   "source_sha256": "6c63ecf05ede394e",
+  "tonal": "ariane.png",
   "warning": null
  },
  "Atlas": {
@@ -42,6 +44,7 @@
   ],
   "source": "atlas.png",
   "source_sha256": "3c697c1ec9502b69",
+  "tonal": "atlas.png",
   "warning": null
  },
  "Electron": {
@@ -57,6 +60,7 @@
   ],
   "source": "electron.png",
   "source_sha256": "020c9e8325b3d113",
+  "tonal": "electron.png",
   "warning": null
  },
  "Falcon": {
@@ -72,6 +76,7 @@
   ],
   "source": "falcon-nb.png",
   "source_sha256": "1c1d092c49326fd9",
+  "tonal": "falcon.png",
   "warning": null
  },
  "GSLV": {
@@ -87,6 +92,7 @@
   ],
   "source": "gslv.png",
   "source_sha256": "bcaec6bf490800e5",
+  "tonal": "gslv.png",
   "warning": null
  },
  "H3": {
@@ -102,6 +108,7 @@
   ],
   "source": "h3.png",
   "source_sha256": "ca1933dffff3cd77",
+  "tonal": "h3.png",
   "warning": null
  },
  "Long March": {
@@ -117,6 +124,7 @@
   ],
   "source": "long-march.png",
   "source_sha256": "2dd0f57f6e747f90",
+  "tonal": "long-march.png",
   "warning": null
  },
  "New Glenn": {
@@ -132,6 +140,7 @@
   ],
   "source": "new-glenn.png",
   "source_sha256": "2e11eb2a781c2e93",
+  "tonal": "new-glenn.png",
   "warning": null
  },
  "Soyuz": {
@@ -147,6 +156,7 @@
   ],
   "source": "soyuz.png",
   "source_sha256": "d10270446d99ed8a",
+  "tonal": "soyuz.png",
   "warning": null
  },
  "Starship": {
@@ -162,6 +172,7 @@
   ],
   "source": "starship.png",
   "source_sha256": "9423c8cdd607cd85",
+  "tonal": "starship.png",
   "warning": null
  },
  "Vega": {
@@ -177,6 +188,7 @@
   ],
   "source": "vega.png",
   "source_sha256": "012cd242008b77cb",
+  "tonal": "vega.png",
   "warning": null
  }
 }
