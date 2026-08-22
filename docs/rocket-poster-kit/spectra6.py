@@ -66,6 +66,36 @@ def dither(img, kernel="atkinson"):
                     a[ny, nx] += err * wt
     return idx, PAL[idx].astype(np.uint8)
 
+def verify(img):
+    """Colors in `img` that are not one of the six inks. Empty set == the panel
+    will show this image EXACTLY as authored, with no dithering and no
+    re-quantization by the driver.
+
+    This is the gate the whole flat-poster direction rests on. Flat art built
+    only from ink values is lossless here; a single stray color (an
+    antialiased glyph edge, an interpolating resize) breaks that guarantee and
+    the region around it fragments into dither noise on the wall.
+    """
+    allowed = {c for _, c in INKS}
+    return {c for _, c in img.convert("RGB").getcolors(img.width * img.height) or []
+            if c not in allowed}
+
+
+def index_map(img):
+    """Exact-ink image -> palette indices, no quantization. Raises if the image
+    is not already legal, rather than silently snapping colors: a poster that
+    needs snapping has a bug upstream and should be fixed there."""
+    bad = verify(img)
+    if bad:
+        raise ValueError(f"image carries {len(bad)} off-ink colors; run verify() first")
+    lut = {c: i for i, (_, c) in enumerate(INKS)}
+    a = np.asarray(img.convert("RGB"))
+    out = np.zeros(a.shape[:2], np.uint8)
+    for c, i in lut.items():
+        out[(a[:, :, 0] == c[0]) & (a[:, :, 1] == c[1]) & (a[:, :, 2] == c[2])] = i
+    return out
+
+
 def pack(idx):
     """4 bits/px, two pixels per byte -- the panel's wire format."""
     h, w = idx.shape

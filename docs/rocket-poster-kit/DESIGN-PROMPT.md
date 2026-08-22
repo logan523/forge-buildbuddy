@@ -1,3 +1,23 @@
+> **Status: reference only.**
+>
+> The shipped poster is rendered by `poster.py` from a template, not generated.
+> Four rounds of prompting settled it: an image model drifts on composition
+> between runs, cannot be held to exactly six colors, and misspelled the launch
+> site on essentially every generation. It also cannot be reproducible, which is
+> the whole requirement for a piece that re-renders on every launch.
+>
+> The deciding measurement is in `README.md`: flat art built only from ink values
+> passes through the quantizer **unchanged**, while anything else dithers. So the
+> flat-vs-painted argument below resolves as *flat vehicle, accurate silhouette* —
+> realism lives in the silhouette being right for the family, not in airbrushed
+> metal. `vehicle.py` draws them; `test_poster.py` enforces the palette.
+>
+> Everything below is kept for offline concept ideation and for the
+> `poster.py --art` path, where a generated painting becomes the sky and IS
+> dithered.
+
+---
+
 # Design prompt — rocket launch poster series (e-ink)
 
 Paste the block below into Higgsfield / Claude Design / whatever you're generating in.
