@@ -168,3 +168,54 @@ Useful flags:
 - `--bin` — writes the packed bytes the ESP32 streams to the panel
 
 Takes about 6 seconds per image. Run it server-side, never on the ESP32.
+
+---
+
+# Type: composited, not generated
+
+Never ask the image model for the text. Two reasons, both hard:
+
+1. **Generated lettering is unreliable and unverifiable.** Misspelled provider
+   names and invented mission numbers are worse than no text on a piece that
+   claims to report real launches.
+2. **The data changes every refresh.** The art is a backdrop; the type is a
+   live view of Launch Library 2. They cannot be baked together.
+
+`compose.py` does the composite, from the real API fields.
+
+```bash
+python3 compose.py --index 3                     # a sample record, stand-in art
+python3 compose.py --index 3 --art render.png    # with your Higgsfield art
+python3 compose.py --all                         # sweep all 24 samples
+```
+
+## The ordering that matters
+
+    art  ->  dither to 6 inks  ->  THEN draw type in exact ink values
+
+Type composited BEFORE quantization gets shredded — error diffusion turns an
+11px label into a field of speckle. Drawn after, in literal ink values with a
+hard-thresholded glyph mask (no antialiasing), every letter is a solid block of
+one ink and stays crisp at the panel's native resolution.
+
+The same logic makes the left type panel a **solid** field rather than a
+dithered one. There is no tone in a flat background to preserve, so dithering
+it buys nothing and costs visible speckle behind small text.
+
+`compose.py` asserts the finished composite contains only the six inks. If that
+check ever fails, something is antialiasing that shouldn't be.
+
+## What the layout survives
+
+Checked against all 24 sample records, including every worst-case string:
+
+| Field | Longest real value | Handling |
+|---|---|---|
+| rocket | 35 — `Launch Vehicle Mark-3 (GSLV Mk III)` | ladder: full name → LL2's own `rocket_short` → wrap to 2 lines. Never clips. |
+| provider | 50 — `China Aerospace Science and Technology Corporation` | sheds letter-spacing first, then size (13→9px) |
+| site | 59 — `Jiuquan Satellite Launch Center, People's Republic of China` | shrinks to fit, 12→9px |
+| mission | 49 | wraps to 2 lines, then truncates |
+| status | `To Be Determined` — 86% of records | green chip for Go/Success, red otherwise |
+
+Art occupies the right 330px; type owns the left 470px with a 40px margin.
+Change `art_w` in `compose.py` to move the split.
