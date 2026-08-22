@@ -8,6 +8,8 @@ import { applyTrustPipeline } from "@/lib/trust";
 import { BuildSession } from "@/components/build-session";
 import demoPlan from "@/data/sat-line.json";
 import weatherClockPlan from "@/data/solar-weather-clock.json";
+import rocketArtPlan from "@/data/rocket-launch-art.json";
+import homelabPlan from "@/data/homelab-adblock-media.json";
 
 function BuildByIdInner() {
   const params = useParams();
@@ -34,6 +36,16 @@ function BuildByIdInner() {
     // at the prep screen (safety + parts) because it isn't flagged as a demo.
     if (id === "solar-weather-clock") {
       const trusted = applyTrustPipeline(weatherClockPlan as unknown as BuildPlan);
+      savePlan(trusted);
+      touchPlan(trusted.id);
+      setPlan(trusted);
+      return;
+    }
+
+    // Researched builds — authored source of truth, same pattern as above.
+    if (id === "rocket-launch-art" || id === "homelab-adblock-media") {
+      const src = id === "rocket-launch-art" ? rocketArtPlan : homelabPlan;
+      const trusted = applyTrustPipeline(src as unknown as BuildPlan);
       savePlan(trusted);
       touchPlan(trusted.id);
       setPlan(trusted);

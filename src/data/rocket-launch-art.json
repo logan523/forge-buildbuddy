@@ -1,0 +1,431 @@
+{
+  "id": "rocket-launch-art",
+  "title": "Rocket Launch Wall Art",
+  "description": "A framed e-ink poster that watches every rocket launch on Earth. It pulls the next launch from a free public API and prints a vintage travel-poster style card: the rocket, where it's going, and why. Holds the image on zero power, runs months on a battery, and looks like a print rather than a screen.",
+  "difficulty": "intermediate",
+  "estimatedTime": "4-6 hours (plus art pipeline time)",
+  "estimatedCost": "$95-115",
+  "buildModes": [
+    "quick_test",
+    "full_build"
+  ],
+  "activeMode": "full_build",
+  "hazardTags": [
+    "LIPO",
+    "ESD_SENSITIVE"
+  ],
+  "generatedAt": "2026-08-22T00:00:00Z",
+  "modelUsed": "researched-build",
+  "warnings": [
+    "E-ink panels must be put to SLEEP after every refresh. Leaving the driver energized on a static image can permanently damage the electrophoretic layer \u2014 the image persists BECAUSE power is off, not despite it.",
+    "Write the image in a warm room. Below ~18C the colors lock in washed out (greys instead of blacks) and stay that way until you re-refresh warm."
+  ],
+  "hazardAssessment": [
+    {
+      "category": "chemical",
+      "severity": "HIGH",
+      "description": "Lithium polymer battery. Fire risk if shorted, punctured, or reverse-connected.",
+      "mitigation": "Use the board's own JST/MX1.25 battery header and its onboard charge IC. Never reverse polarity. Check the connector's pinout against the silkscreen before plugging in \u2014 cell polarity is NOT standardized across vendors."
+    },
+    {
+      "category": "mechanical",
+      "severity": "MEDIUM",
+      "description": "The panel's flat flex ribbon is fragile and not repairable.",
+      "mitigation": "Never crease it, never pull the panel by the ribbon, and open the connector latch fully before inserting."
+    }
+  ],
+  "tools": [
+    {
+      "name": "Computer with USB-C cable",
+      "required": true
+    },
+    {
+      "name": "Small Phillips screwdriver",
+      "required": true
+    },
+    {
+      "name": "Craft knife or mat cutter (for the window mat)",
+      "required": false
+    },
+    {
+      "name": "Multimeter (to verify sleep current)",
+      "required": false
+    }
+  ],
+  "parts": [
+    {
+      "id": "photopainter",
+      "name": "Waveshare ESP32-S3-PhotoPainter",
+      "specification": "7.3 inch E Ink Spectra 6 (E6) 800x480 6-color panel + ESP32-S3 + RTC + LiPo header, in a solid wood photo frame",
+      "quantity": 1,
+      "notes": "All-in-one. This is the whole display half of the build \u2014 panel, MCU, frame and charge circuit in one part. ~$83."
+    },
+    {
+      "id": "lipo-2000",
+      "name": "LiPo battery 3.7V 2000mAh",
+      "specification": "103450 pouch cell, 3.7V 2000mAh, WITH built-in protection PCB (PCM), MX1.25/PH2.0 connector",
+      "quantity": 1,
+      "notes": "Buy a PROTECTED cell \u2014 one with the small protection board bonded under the kapton tape at the terminals. Forge's electrical check flags this build for lithium protection because it cannot verify from the outside that the PhotoPainter's onboard charge circuit protects the cell. A protected cell answers that regardless, and is the right call on any battery you leave charging unattended on a wall."
+    },
+    {
+      "id": "usb-c-cable",
+      "name": "USB-C cable",
+      "specification": "Data-capable (not charge-only)",
+      "quantity": 1,
+      "notes": "Charge-only cables are the #1 cause of 'my board won't show up as a serial port'."
+    },
+    {
+      "id": "matte-glazing",
+      "name": "Matte or anti-reflective glazing (optional)",
+      "specification": "Museum/AR glass or no glass at all",
+      "quantity": 1,
+      "notes": "E-ink's matte, glare-free surface is its main advantage over an LCD. Standard glossy frame glass throws that away and re-introduces reflections."
+    }
+  ],
+  "wiringConnections": [
+    {
+      "from": "LiPo battery +",
+      "to": "PhotoPainter battery header +",
+      "wireColor": "red"
+    },
+    {
+      "from": "LiPo battery -",
+      "to": "PhotoPainter battery header -",
+      "wireColor": "black"
+    }
+  ],
+  "structuredNets": [
+    {
+      "name": "VBAT",
+      "netClass": "power",
+      "members": [
+        {
+          "ref": "photopainter",
+          "pin": "BAT+"
+        },
+        {
+          "ref": "lipo-2000",
+          "pin": "+"
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "netClass": "gnd",
+      "members": [
+        {
+          "ref": "photopainter",
+          "pin": "BAT-"
+        },
+        {
+          "ref": "lipo-2000",
+          "pin": "-"
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "stepNumber": 1,
+      "title": "Know what you're building (and what it will look like)",
+      "quickSummary": "Set expectations before you unbox \u2014 e-ink is paper, not a screen.",
+      "description": "This piece prints a launch card on electronic paper. Two things to know now so you are not disappointed later. First: e-ink white is not paper white. It reflects about 35-45% of light where real paper reflects 80-85%, so it reads like matte newsprint or a risograph print. Hung next to a real photo print, the difference is obvious. Second: it does not glow. In a dark room it is invisible, exactly like a print. Both of those are the POINT \u2014 they are why it reads as art instead of as a monitor.",
+      "goal": "Understand the medium before you commit parts to it.",
+      "whyThisWorks": "Vintage travel posters were screen-printed with a handful of flat spot inks. That is almost exactly the constraint a 6-color e-ink panel imposes. You are not degrading the art to fit the panel \u2014 you are returning it to roughly the production limits it was designed under. Flat color fields, bold shapes and heavy type are the best case for this technology; photographs are the worst case.",
+      "doneWhen": "You can say out loud what this will look like at night (dark) and next to a print (greyer).",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 2,
+      "title": "Unbox and inspect the panel before anything else",
+      "quickSummary": "Check the ribbon and the connector latch while everything is still returnable.",
+      "description": "Unpack the PhotoPainter. Look at the flat flexible cable (FFC/FPC) joining the panel to the board. It should be flat, uncreased, and fully seated with its latch closed. This ribbon is the most fragile part of the entire build and it cannot be repaired \u2014 a crease is a dead panel.",
+      "goal": "Confirm the panel and ribbon arrived intact.",
+      "youNeed": [
+        "The PhotoPainter",
+        "Good light"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Unpack and lay the unit face-up on a soft surface."
+        },
+        {
+          "n": 2,
+          "text": "Inspect the flex ribbon for creases, kinks, or tears.",
+          "caution": "Never pull the panel by the ribbon."
+        },
+        {
+          "n": 3,
+          "text": "Confirm the connector latch is fully closed and the ribbon is square in it."
+        },
+        {
+          "n": 4,
+          "text": "Check the panel glass for cracks or delamination at the corners."
+        }
+      ],
+      "doneWhen": "Ribbon is flat and seated, latch closed, glass undamaged.",
+      "commonMistakes": [
+        "Forcing a ribbon into a closed latch \u2014 open the latch FIRST, insert with zero force, then close it."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 3,
+      "title": "Connect the battery",
+      "quickSummary": "One connector \u2014 but check polarity first.",
+      "description": "The board has an onboard charge IC and a battery header. Before plugging the cell in, compare the battery connector's wire order against the silkscreen marking on the board. LiPo pouch cell connector polarity is NOT standardized between vendors \u2014 a reversed cell can destroy the board and, in the worst case, the cell.",
+      "goal": "Power the frame from a battery so it can hang cordless.",
+      "youNeed": [
+        "LiPo 2000mAh cell",
+        "The PhotoPainter"
+      ],
+      "safetyNotes": [
+        "If the connector's red and black are opposite to the board's markings, STOP. Do not 'just try it' \u2014 re-pin the connector or source a matching cell.",
+        "Use a cell with its own protection PCB. Forge flags this build for lithium charge protection: the board has an onboard charge circuit, but that cannot be verified externally, and an unprotected cell on a wall-mounted frame is the wrong risk to take.",
+        "Never charge a bare unprotected cell from USB."
+      ],
+      "doneWhen": "Battery is seated in the header, and the board's charge LED lights when USB-C is connected.",
+      "commonMistakes": [
+        "Assuming red = positive on the board side. Trust the silkscreen, not the wire color.",
+        "Buying an unprotected 'raw' pouch cell because it was cheaper."
+      ],
+      "mediaKind": "battery_id_poles"
+    },
+    {
+      "stepNumber": 4,
+      "title": "First flash: prove the panel before you write any real code",
+      "quickSummary": "Push a test image over USB and watch it refresh.",
+      "description": "Install the ESP32 board support and flash the vendor's demo, or a minimal GxEPD2 sketch, over USB-C. Watch a full refresh happen. It will cycle the panel through several color passes for roughly 25-30 seconds and it looks broken while it does that \u2014 that is normal for 6-color e-ink, not a fault.",
+      "goal": "Confirm the toolchain, the board, and the panel all work together before adding WiFi, an API, or an art pipeline.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Install Arduino IDE (or ESP-IDF) and the ESP32-S3 board package."
+        },
+        {
+          "n": 2,
+          "text": "Flash the vendor demo image sketch over USB-C."
+        },
+        {
+          "n": 3,
+          "text": "Watch a full refresh complete \u2014 expect ~25-30s of flashing color passes."
+        },
+        {
+          "n": 4,
+          "text": "Add a display sleep/hibernate call at the end of your sketch.",
+          "caution": "This is mandatory, not an optimization."
+        }
+      ],
+      "doneWhen": "A test image is on the panel and the code puts the display to sleep afterward.",
+      "whyThisWorks": "E-ink is bistable: the pigment physically stays where it was pushed, so the image survives with power completely removed. That is why hibernating after each refresh is safe AND required \u2014 leaving the driver energized on a static image can permanently damage the panel.",
+      "commonMistakes": [
+        "Panicking during the refresh flash and pulling power mid-cycle.",
+        "Leaving the panel driven after the update \u2014 this is the #1 way people kill e-ink panels."
+      ],
+      "mediaKind": "usb_upload"
+    },
+    {
+      "stepNumber": 5,
+      "title": "Get on WiFi, and set the clock BEFORE the first secure connection",
+      "quickSummary": "NTP first, HTTPS second \u2014 order matters here.",
+      "description": "Connect to WiFi, then sync the clock over NTP, and only then attempt an HTTPS request. TLS certificate validation checks the certificate's validity dates against the device's clock \u2014 and an ESP32 boots believing it is 1970. Without an NTP sync first, every secure request fails on a cold boot with an error that looks like a network problem but isn't.",
+      "goal": "A network stack that can actually complete a TLS handshake.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Connect to WiFi and confirm you get an IP."
+        },
+        {
+          "n": 2,
+          "text": "Sync time over NTP and print the result to serial."
+        },
+        {
+          "n": 3,
+          "text": "Only after the clock is right, make a test HTTPS request."
+        },
+        {
+          "n": 4,
+          "text": "Add a retry loop for WiFi \u2014 a router reboot must not brick the frame."
+        }
+      ],
+      "doneWhen": "Serial shows a correct current date/time and a successful HTTPS status line.",
+      "commonMistakes": [
+        "Debugging a TLS failure as a certificate problem when the real cause is an unset clock."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 6,
+      "title": "Fetch the next launch from Launch Library 2",
+      "quickSummary": "One keyless request gives you rocket, destination, and purpose.",
+      "description": "Request https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=1&hide_recent_previous=true with Accept-Encoding: gzip. Use API version 2.2.0 specifically \u2014 not 2.3.0 \u2014 because 2.2.0 returns the complete field set in about 4.5KB (1.8KB gzipped), while 2.3.0 inflates the same data to 15-50KB with agency statistics you will never display. Parse with an ArduinoJson filter so you deserialize only the handful of fields you need instead of buffering the whole document.",
+      "goal": "Pull the four facts the poster is made of: rocket, destination, purpose, and time.",
+      "youNeed": [
+        "WiFi working",
+        "ArduinoJson library"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "GET the 2.2.0 upcoming-launch endpoint with hide_recent_previous=true.",
+          "caution": "Without that flag the 'next' launch is often one that already flew."
+        },
+        {
+          "n": 2,
+          "text": "Pin the ROOT CA, never the leaf certificate.",
+          "caution": "The host is Cloudflare-fronted and rotates leaf certs \u2014 a pinned leaf bricks the frame within weeks."
+        },
+        {
+          "n": 3,
+          "text": "Parse rocket.configuration.full_name, mission.orbit.name, mission.type, mission.description, and net."
+        },
+        {
+          "n": 4,
+          "text": "Handle the empty cases: status is 'TBD' for most launches, and orbit can be 'N/A' on classified payloads."
+        }
+      ],
+      "doneWhen": "Serial prints something like: Falcon 9 Block 5 / Low Earth Orbit / Communications.",
+      "whyThisWorks": "Launch Library 2 is the only free keyless API that carries destination and purpose as STRUCTURED fields rather than buried in prose. Across a 100-launch sample, mission type, orbit, and description were each populated about 99% of the time.",
+      "commonMistakes": [
+        "Using mode=list to save bandwidth \u2014 it strips out mission, rocket and pad entirely, which is every field this project exists to show.",
+        "Treating status 'TBD' as an error. About 86% of upcoming launches are TBD; it is the normal state, not a fault.",
+        "String-concatenating rocket variant without a check \u2014 it is an empty string, not null, on base models, so you get a trailing space."
+      ],
+      "verification": "Compare the rocket name your device prints against the same URL opened in a browser.",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 7,
+      "title": "Poll on a budget: 15 requests per hour, shared per IP",
+      "quickSummary": "Adaptive intervals keep you under a third of the free limit.",
+      "description": "The free tier allows 15 requests per hour PER IP ADDRESS \u2014 not per device. Poll adaptively rather than on a fixed timer: hourly when the next launch is more than a day out, every 30 minutes inside 24 hours, every 15 minutes inside 6 hours, and every 5 minutes in the final hour. That peaks at 12 requests/hour, leaving headroom for retries. Only refresh the panel when the content actually changed.",
+      "goal": "Stay well inside the free tier while still being live near a launch.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Implement the four polling tiers based on time-to-launch."
+        },
+        {
+          "n": 2,
+          "text": "Compare the fetched launch id against the last one; skip the panel refresh if unchanged."
+        },
+        {
+          "n": 3,
+          "text": "Optionally query /2.3.0/api-throttle/ to read your remaining budget."
+        },
+        {
+          "n": 4,
+          "text": "Deep-sleep between polls \u2014 this is what buys you months of battery."
+        }
+      ],
+      "doneWhen": "The device wakes, polls, decides whether anything changed, and sleeps again.",
+      "whyThisWorks": "Sleep current dominates the power budget \u2014 the wake and the panel refresh are almost free by comparison. Skipping unnecessary refreshes is both a rate-limit win and a battery win.",
+      "commonMistakes": [
+        "Polling every minute 'to be safe' \u2014 that exceeds the limit and gets your whole household's IP throttled."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 8,
+      "title": "Build the art pipeline on a computer, not on the ESP32",
+      "quickSummary": "Generate, saturate, dither, pack \u2014 then send bytes the panel can clock straight out.",
+      "description": "Do the image work server-side. Generate the poster at the panel's native resolution, boost saturation about 2.5x (Spectra 6 sits near 80% of print saturation, so an uncorrected image comes out visibly washed out), quantize to the 6-color palette with dithering, and pack to the driver's color-index order. The ESP32 then downloads pre-packed bytes and streams them to the panel. Never send it a PNG \u2014 decoding costs RAM and awake time, which is your battery budget.",
+      "goal": "A repeatable image chain that produces panel-ready bytes.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Author the poster at native resolution \u2014 do NOT design large and downscale; thin type turns to mush."
+        },
+        {
+          "n": 2,
+          "text": "Boost saturation ~2.5x and contrast slightly before quantizing."
+        },
+        {
+          "n": 3,
+          "text": "Posterize gradient skies into 3-4 flat bands before dithering.",
+          "caution": "Letting the dither algorithm interpret a smooth gradient produces visible noise."
+        },
+        {
+          "n": 4,
+          "text": "Quantize to the 6-color palette and dither."
+        },
+        {
+          "n": 5,
+          "text": "Pack to the driver's color index order \u2014 verify against the datasheet, it differs from your palette order."
+        }
+      ],
+      "doneWhen": "A packed binary renders on the panel with colors that look intentional rather than faded.",
+      "whyThisWorks": "Vintage posters use flat color fields and heavy type \u2014 exactly what survives palette reduction. Photos do not.",
+      "commonMistakes": [
+        "Skipping the saturation boost and concluding the panel is broken.",
+        "Assuming your palette index order matches the driver's \u2014 the symptom is correct-looking dithering in completely wrong colors."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 9,
+      "title": "Rocket silhouettes: bake them into flash, don't fetch them",
+      "quickSummary": "Public-domain outlines, ~256 bytes each.",
+      "description": "The launch API returns photo URLs, but do not use them: about 62% carry an 'Unknown' license and roughly 10% are CC BY-NC, which forbids commercial use. They are also full-size JPEGs \u2014 one measured at 250KB, which will not decode in the RAM you have. Instead, trace public-domain and CC0 rocket side profiles from Wikimedia Commons into small monochrome bitmaps compiled into firmware. A 32x64 bitmap is about 256 bytes, so twenty rockets costs roughly 5KB of flash.",
+      "goal": "Rocket artwork you have a clear right to use, at a size the device can actually hold.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Collect PD/CC0 rocket side-profile outlines from Wikimedia Commons.",
+          "caution": "Filter to PD and CC0 only \u2014 CC BY-SA would make your traced bitmap ShareAlike."
+        },
+        {
+          "n": 2,
+          "text": "Convert each to a small bitmap array."
+        },
+        {
+          "n": 3,
+          "text": "Key the lookup on rocket.configuration.name."
+        },
+        {
+          "n": 4,
+          "text": "Add a generic-rocket fallback \u2014 the API has hundreds of configurations and adds new ones."
+        }
+      ],
+      "doneWhen": "A known rocket draws its own silhouette and an unknown one draws the fallback.",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 10,
+      "title": "Frame it, hang it, and schedule the refresh for the middle of the night",
+      "quickSummary": "Matte glazing, a mat that overlaps the bezel, and a 4 AM update.",
+      "description": "Mount the panel in the frame with the mat window cut about 2mm INSIDE the active area so it overlaps and hides the inactive border. Use matte or anti-reflective glazing, or no glazing at all \u2014 glossy glass destroys the one advantage e-ink has over an LCD. Finally, schedule refreshes for the small hours: a Spectra 6 update flashes through several full-panel color passes for roughly half a minute and looks broken to anyone watching.",
+      "goal": "An object that reads as a framed print.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Cut the mat window ~2mm smaller than the active area on each side."
+        },
+        {
+          "n": 2,
+          "text": "Route the flex ribbon so nothing presses on it and it isn't forced into a tight bend."
+        },
+        {
+          "n": 3,
+          "text": "Fit matte/AR glazing, or leave the glazing out entirely."
+        },
+        {
+          "n": 4,
+          "text": "Schedule the daily refresh for ~4 AM."
+        },
+        {
+          "n": 5,
+          "text": "Verify deep-sleep current with a multimeter in series with the battery.",
+          "caution": "Boards commonly idle 10-40x worse than the datasheet suggests. Measure before you trust any battery estimate."
+        }
+      ],
+      "doneWhen": "It hangs on the wall, updates overnight, and a visitor has to be told it is a display.",
+      "whyThisWorks": "Every choice here is about removing the tells: reflections, a visible bezel, a cable, and a refresh someone can watch.",
+      "commonMistakes": [
+        "Using the frame's original glossy glass \u2014 it re-introduces exactly the glare e-ink avoids."
+      ],
+      "mediaKind": "final_assembly"
+    }
+  ]
+}

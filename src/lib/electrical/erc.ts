@@ -185,7 +185,15 @@ export function runErc(
         nets: ["GND"],
       });
     }
-    if (gndNets.length === 0 && active.length >= 2) {
+    // A plan with NO wiring intent at all (no nets, no wiringConnections) is
+    // not a miswired circuit — it's a software/networking build, or a set of
+    // pre-assembled boxes that plug together with off-the-shelf cables. ERC
+    // has nothing to check there, and firing a hard error on it is a false
+    // positive that teaches builders to ignore ERC. Found by authoring the
+    // homelab plan (Pi + mini PC + drive, zero solder joints).
+    const hasWiringIntent =
+      model.nets.length > 0 || (plan?.wiringConnections?.length ?? 0) > 0;
+    if (gndNets.length === 0 && active.length >= 2 && hasWiringIntent) {
       push(errors, {
         id: "gnd-missing",
         severity: "error",

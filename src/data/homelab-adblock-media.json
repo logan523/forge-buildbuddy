@@ -1,0 +1,354 @@
+{
+  "id": "homelab-adblock-media",
+  "title": "Homelab: Network Ad Blocker + Media Server",
+  "description": "Block ads and smart-TV tracking for every device in the house, then run your own media server for the discs and files you already own \u2014 paired with the genuinely free legal streaming most people never use. No subscriptions, no piracy, about $40 to start.",
+  "difficulty": "beginner",
+  "estimatedTime": "3 evenings + a weekend",
+  "estimatedCost": "$40 (frugal) to $700 (full)",
+  "buildModes": [
+    "quick_test",
+    "full_build"
+  ],
+  "activeMode": "full_build",
+  "hazardTags": [],
+  "generatedAt": "2026-08-22T00:00:00Z",
+  "modelUsed": "researched-build",
+  "warnings": [
+    "This becomes the DNS server for your entire house. If it goes down, the internet appears broken for everyone \u2014 and it will not look like a DNS problem to anybody else. Do the sticky-note step; it is not optional.",
+    "DNS blocking cannot block YouTube ads. No setting changes this. See step 1 before you build anything."
+  ],
+  "hazardAssessment": [],
+  "tools": [
+    {
+      "name": "Computer for flashing the SD card",
+      "required": true
+    },
+    {
+      "name": "Access to your router's admin page",
+      "required": true
+    },
+    {
+      "name": "A library card (free, and the highest-value item here)",
+      "required": false
+    }
+  ],
+  "parts": [
+    {
+      "id": "pi-zero-2w",
+      "name": "Raspberry Pi Zero 2 W",
+      "specification": "512MB RAM, quad-core \u2014 plenty for DNS blocking",
+      "quantity": 1,
+      "notes": "About $17. Notably the one board the 2026 memory-price crisis did NOT hit, because Raspberry Pi holds years of older-generation RAM stock."
+    },
+    {
+      "id": "usb-ethernet",
+      "name": "USB-OTG Ethernet adapter",
+      "specification": "Micro-USB OTG to 10/100 Ethernet",
+      "quantity": 1,
+      "notes": "Strongly recommended. This box is your whole network's resolver; putting it on WiFi means every device's DNS depends on a WiFi link."
+    },
+    {
+      "id": "microsd",
+      "name": "microSD card 32GB",
+      "specification": "A2/U3 rated",
+      "quantity": 1
+    },
+    {
+      "id": "pi-psu",
+      "name": "USB power supply for the Pi",
+      "specification": "5V 2.5A micro-USB",
+      "quantity": 1
+    },
+    {
+      "id": "pi-case",
+      "name": "Case for the Pi Zero",
+      "specification": "Any",
+      "quantity": 1
+    },
+    {
+      "id": "mini-pc",
+      "name": "Intel N100 or N150 mini PC (Tier 2 only)",
+      "specification": "16GB RAM, 500GB NVMe \u2014 the media server half",
+      "quantity": 1,
+      "notes": "Buy on price; N100 and N150 are within 1% of each other. Check Amazon/AliExpress before buying direct \u2014 vendor-direct was ~$375 in Aug 2026."
+    },
+    {
+      "id": "media-hdd",
+      "name": "Hard drive for media (Tier 2 only)",
+      "specification": "14-18TB, CMR not SMR",
+      "quantity": 1,
+      "notes": "Best value in 2026 is renewed enterprise drives at roughly $22/TB. Prices are up ~2x from 2024 for the same reason as RAM."
+    }
+  ],
+  "wiringConnections": [],
+  "structuredNets": [],
+  "steps": [
+    {
+      "stepNumber": 1,
+      "title": "Read this before buying anything: what ad blocking will and will not do",
+      "quickSummary": "It will not block YouTube ads. Know that now, not after you build it.",
+      "description": "A network-wide DNS blocker works by refusing to look up known ad-server domains. That means it can only block ads that live on their OWN domain. YouTube serves its ads and its video from the SAME rotating googlevideo.com subdomains, so a DNS blocker's only choices are to allow both or to block both and break playback. There is no third option, and this is identical across Pi-hole, AdGuard Home, NextDNS, and AdGuard's own paid DNS product. The same applies to Twitch, Facebook/Instagram sponsored posts, and the ad breaks inside free streaming apps like Tubi and Pluto.\n\nWhat it DOES fix is substantial: ads inside mobile apps, ads on websites across every device including ones that cannot run browser extensions, malware and phishing domains, and \u2014 the one most people underestimate \u2014 smart TV tracking. One hands-on measurement found roughly two thirds of all DNS lookups from a Roku TV were ads and telemetry. For many TVs this is the only opt-out that actually works, because the setting in the menu often does not stop the data.",
+      "goal": "Decide whether this project is worth it to you, with accurate expectations.",
+      "whyThisWorks": "Understanding the mechanism tells you exactly where the boundary is: first-party ads survive, third-party ads die.",
+      "doneWhen": "You can explain to a housemate why YouTube still has ads, without sounding like the setup is broken.",
+      "commonMistakes": [
+        "Promising the household that all ads are gone. They will test it on YouTube within the hour."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 2,
+      "title": "Flash the Pi and give it a fixed address",
+      "quickSummary": "Pi OS Lite, SSH on, static IP.",
+      "description": "Write Raspberry Pi OS Lite (no desktop) to the microSD with Raspberry Pi Imager, using its settings menu to preset the hostname, your user, WiFi (as a fallback) and SSH BEFORE the first boot. Then give the Pi a fixed address \u2014 either statically on the Pi or, better, as a DHCP reservation in your router so the router itself knows the address is spoken for.",
+      "goal": "A reachable, permanently-addressed little server.",
+      "youNeed": [
+        "Pi Zero 2 W",
+        "microSD",
+        "power supply",
+        "Ethernet adapter"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Flash Raspberry Pi OS Lite with Imager; preset SSH, user, and WiFi in its settings."
+        },
+        {
+          "n": 2,
+          "text": "Boot the Pi with the Ethernet adapter attached."
+        },
+        {
+          "n": 3,
+          "text": "SSH in and run apt update && apt upgrade."
+        },
+        {
+          "n": 4,
+          "text": "Set a DHCP reservation for it in your router.",
+          "caution": "A DNS server that changes IP takes the house offline."
+        }
+      ],
+      "doneWhen": "You can SSH to the Pi at an address that will not change.",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 3,
+      "title": "Install AdGuard Home",
+      "quickSummary": "One install script, then a setup wizard.",
+      "description": "Install AdGuard Home rather than Pi-hole. Two concrete reasons: it speaks encrypted DNS (DoH/DoT) upstream natively, where Pi-hole cannot and its long-recommended workaround stopped working in February 2026 \u2014 most tutorials online are now silently wrong. And its per-client rules are far better, which matters because per-client policy is the escape hatch when a blocked ad SDK breaks an app.",
+      "goal": "A working DNS blocker, tested on one device only.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Run AdGuard Home's install script from its GitHub."
+        },
+        {
+          "n": 2,
+          "text": "Open the setup wizard on port 3000 and finish it."
+        },
+        {
+          "n": 3,
+          "text": "Set the upstream to encrypted DNS: https://dns.quad9.net/dns-query"
+        },
+        {
+          "n": 4,
+          "text": "Enable a few blocklists from the built-in catalog: AdGuard DNS filter, OISD Big, HaGeZi Normal.",
+          "caution": "Do not enable everything \u2014 overlapping lists buy nothing and multiply breakage."
+        },
+        {
+          "n": 5,
+          "text": "Point ONE device at it manually and live with that for 48 hours."
+        }
+      ],
+      "doneWhen": "One device is filtering, and the query log shows real blocked domains.",
+      "whyThisWorks": "Testing on one device first means a bad blocklist inconveniences you, not the whole household.",
+      "commonMistakes": [
+        "Enabling 15 blocklists on day one and then spending a week bisecting which one broke the doorbell."
+      ],
+      "verification": "Load a news site on the test device and watch the query log fill with blocked ad domains.",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 4,
+      "title": "Cut the whole network over \u2014 and write the sticky note",
+      "quickSummary": "One DNS entry at the router. No secondary. Then the note.",
+      "description": "In your router's DHCP settings, set the DNS server to the Pi's address as the ONLY entry. Do not add 1.1.1.1 as a 'backup'. This is the single most common mistake and it silently defeats the whole project: DHCP has no concept of primary versus secondary, so clients round-robin between them and re-order after any timeout. The result is not failover \u2014 it is a random fraction of queries bypassing the blocker entirely, worst on the chattiest ad-heavy devices. Leave DHCP itself running on the router, so a dead Pi does not also stop handing out addresses.",
+      "goal": "Every device filtered, with a recovery path a non-technical person can follow.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Router \u2192 DHCP \u2192 DNS server = the Pi's IP. One entry only."
+        },
+        {
+          "n": 2,
+          "text": "Leave DHCP itself on the router, not on the Pi."
+        },
+        {
+          "n": 3,
+          "text": "Reboot a device and confirm its DNS server is now the Pi."
+        },
+        {
+          "n": 4,
+          "text": "Write a sticky note where a housemate will find it: 'Internet broken? Set DNS to 1.1.1.1 in WiFi settings.'",
+          "caution": "Do this step. When this box dies while you are away, nobody else will guess it is DNS."
+        }
+      ],
+      "doneWhen": "Every device resolves through the Pi, and the recovery note is physically on the fridge or the router.",
+      "commonMistakes": [
+        "Adding a public DNS as secondary 'just in case' \u2014 it does not fail over, it leaks."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 5,
+      "title": "Whitelist the free streaming apps before they break",
+      "quickSummary": "Tubi, Pluto, and Roku need their ads to play at all.",
+      "description": "Ad-supported streaming services stitch their ads into the same video stream as the content. Blocking their domains does not remove the ads \u2014 it breaks playback entirely. Whitelist them now, proactively, rather than losing an evening bisecting blocklists after someone complains the TV stopped working.",
+      "goal": "Free streaming keeps working.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Add allow-rules for Tubi, Pluto TV, and the Roku Channel."
+        },
+        {
+          "n": 2,
+          "text": "Test each app on the TV."
+        },
+        {
+          "n": 3,
+          "text": "Tell the household these apps still have ads, and that this is correct."
+        }
+      ],
+      "doneWhen": "Every free streaming app plays normally.",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 6,
+      "title": "Set up the media server (Tier 2)",
+      "quickSummary": "Jellyfin on an N100 mini PC, with hardware transcoding actually enabled.",
+      "description": "Use Jellyfin, not Plex. Plex now charges for streaming your OWN files remotely, and its lifetime pass went from $119.99 to $749.99 in under two years. Jellyfin gives hardware transcoding away free, and the old objections are gone \u2014 it is now an official Roku channel and in the Samsung TV store.\n\nUse an Intel N100/N150 mini PC, not a Raspberry Pi 5. The Pi 5 has no hardware video encoder at all \u2014 not a weak one, none \u2014 so it cannot transcode anything. The N100's QuickSync does HEVC 10-bit, which is what 4K HDR needs, at 3-4 concurrent streams under 10 watts.",
+      "goal": "Your own media, playable on any TV in the house.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Install Debian or Ubuntu Server + Docker on the mini PC."
+        },
+        {
+          "n": 2,
+          "text": "Check the render device exists: ls -la /dev/dri/ and note your render group id."
+        },
+        {
+          "n": 3,
+          "text": "Run Jellyfin in Docker, passing /dev/dri/renderD128 AND setting group_add to YOUR render GID.",
+          "caution": "Copying someone else's GID from a blog is the classic failure \u2014 the container then cannot open the device."
+        },
+        {
+          "n": 4,
+          "text": "Dashboard \u2192 Playback \u2192 enable Intel QuickSync, hardware encoding, and tone mapping."
+        },
+        {
+          "n": 5,
+          "text": "Point the transcode temp path at the SSD, not the media drive."
+        },
+        {
+          "n": 6,
+          "text": "Play a 4K file to a 1080p client and confirm the dashboard says 'Transcode (hw)'.",
+          "caution": "If it says software, you have a permissions problem, not a settings problem."
+        }
+      ],
+      "doneWhen": "A hardware transcode is confirmed in the Jellyfin dashboard.",
+      "commonMistakes": [
+        "Passing the GPU device but forgetting group_add.",
+        "Buying a Pi 5 for this \u2014 it physically cannot transcode."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 7,
+      "title": "Organize the library so the metadata does not humiliate you",
+      "quickSummary": "Four separate libraries, and IDs in the folder names from day one.",
+      "description": "Create four libraries, not one: Movies, Shows, Home Videos and Photos, and Public Domain/Archive. Separation is what stops bad metadata spreading. Embed the database id in folder names from the very first disc \u2014 'Movie Name (2021) [imdbid-tt1234567]' \u2014 because retrofitting 400 files later is miserable and it eliminates matcher ambiguity for remakes and common titles entirely.\n\nThe one everyone gets wrong: put family video in the 'Home Videos and Photos' library type and DISABLE its metadata downloaders. In a Movies library, the matcher will confidently attach a real film's poster and cast to your kid's birthday party.",
+      "goal": "A library that identifies itself correctly without manual fixing.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Create the four libraries with the correct content types."
+        },
+        {
+          "n": 2,
+          "text": "Rip discs with MakeMKV; keep the lossless remux if you have space."
+        },
+        {
+          "n": 3,
+          "text": "Name files to convention with embedded [imdbid-...] or [tmdbid-...]."
+        },
+        {
+          "n": 4,
+          "text": "On the Home Videos library, uncheck every metadata and image downloader."
+        },
+        {
+          "n": 5,
+          "text": "Install Immich alongside for photos \u2014 all media servers treat photos as an afterthought."
+        }
+      ],
+      "doneWhen": "A scan produces correct posters for films and NO posters for family video.",
+      "commonMistakes": [
+        "Using the 'Mixed' library type \u2014 Jellyfin's own docs discourage it as unreliable."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 8,
+      "title": "Remote access without opening a port",
+      "quickSummary": "Tailscale, not port forwarding.",
+      "description": "Install Tailscale on the server and on your phone/laptop, then reach Jellyfin at its Tailscale address. Nothing is exposed to the public internet. Jellyfin officially recommends this when port forwarding is not feasible, which is increasingly the default on residential connections behind carrier NAT.\n\nThe honest limit: this requires Tailscale ON EVERY CLIENT. That is fine for phones, laptops, Apple TV and Android TV \u2014 but it is not possible on Roku or most Samsung/LG TVs. Sharing with a relative on their Roku needs a reverse proxy with a real domain, which is a bigger project.",
+      "goal": "Your library from anywhere, with no public attack surface.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Install Tailscale on the server and run tailscale up."
+        },
+        {
+          "n": 2,
+          "text": "Install Tailscale on your phone and laptop."
+        },
+        {
+          "n": 3,
+          "text": "Connect to Jellyfin at the server's Tailscale IP, port 8096."
+        }
+      ],
+      "doneWhen": "You can watch your own library on mobile data with nothing port-forwarded.",
+      "commonMistakes": [
+        "Plain port-forwarding Jellyfin \u2014 that puts a login page on the open internet with no TLS."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 9,
+      "title": "Get the actually-free content (this is the best step)",
+      "quickSummary": "A library card beats a subscription.",
+      "description": "Get a library card, then install Kanopy and Hoopla. Kanopy is the standout of this whole project: completely free with a library card, ZERO advertising, and its catalog is the Criterion Collection, A24, PBS and the Great Courses \u2014 programming you would otherwise pay a Criterion Channel subscription for. Hoopla adds comics, audiobooks and music.\n\nThen Tubi, Pluto TV and the Roku Channel for ad-supported free, and mine the Internet Archive and the Library of Congress National Screening Room for public domain films you can actually DOWNLOAD into your Jellyfin archive library.\n\nTwo honest notes: Kanopy moved to a monthly 'ticket' allowance that does not roll over, and it costs your library money per play, so do not burn tickets casually. And a public domain film does not mean every VERSION is public domain \u2014 modern restorations carry their own rights, so source from the Internet Archive or LoC rather than ripping a recent restoration.",
+      "goal": "A genuinely good watchlist that costs nothing and involves no piracy.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Get a library card (many systems issue them online in minutes)."
+        },
+        {
+          "n": 2,
+          "text": "Install Kanopy and Hoopla and sign in with the card."
+        },
+        {
+          "n": 3,
+          "text": "Install Tubi, Pluto TV, and the Roku Channel."
+        },
+        {
+          "n": 4,
+          "text": "Download public domain films from the Internet Archive into the Archive library."
+        }
+      ],
+      "doneWhen": "Kanopy plays a Criterion film on the TV, for free, with no ads.",
+      "whyThisWorks": "The free-but-legal tier is genuinely large and almost nobody uses it. Kanopy alone is worth more than most paid services.",
+      "mediaKind": "generic_checklist"
+    }
+  ]
+}

@@ -98,7 +98,13 @@ export function PrepScreen({
           {/* Whole-circuit wiring sheet — one picture of how everything
               connects, before the first solder joint. Ink on paper,
               native-pixel (scrolls instead of squishing), netlist-derived. */}
-          {plan.electrical && plan.electrical.components.length > 1 && (
+          {/* Gate on NETS, not components: a software/networking build (homelab,
+              pre-assembled boxes) has parts but no wiring, and rendering a
+              wire-color legend for wires that don't exist is a false surface.
+              Found by authoring the homelab plan. */}
+          {plan.electrical &&
+            plan.electrical.components.length > 1 &&
+            plan.electrical.nets.length > 0 && (
             <div className="mb-6 rounded-xl border border-border-subtle overflow-hidden shadow-card">
               <div className="px-4 py-2.5 bg-surface-raised border-b border-border-subtle">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
