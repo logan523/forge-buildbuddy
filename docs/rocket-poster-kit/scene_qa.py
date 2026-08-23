@@ -40,6 +40,12 @@ def measure(img):
     idx = _idx(img)
     h, w = idx.shape
     counts = np.bincount(idx.ravel(), minlength=6) / idx.size
+    # How many inks carry real weight. A plate can pass every structural check
+    # -- banded, horizon in place, gantry present -- and still read as empty if
+    # it is essentially two colours. polar-usa did exactly that: 7 bands, a
+    # correct horizon, 53% dominant, and visibly washed out. Measured across
+    # the nineteen plates, the good ones run 4-5 inks and the thin ones 2-3.
+    inks_used = int((counts >= 0.08).sum())
 
     # bands: how many times the dominant ink of a row changes going down
     row_mode = [np.bincount(r, minlength=6).argmax() for r in idx]
@@ -54,7 +60,8 @@ def measure(img):
     gantry = float((left == 0).mean())
 
     return {"bands": bands, "horizon": horizon, "gantry_left": round(gantry, 3),
-            "dominant_ink_share": round(float(counts.max()), 3)}
+            "dominant_ink_share": round(float(counts.max()), 3),
+            "inks_used": inks_used}
 
 
 def check(img):
@@ -75,19 +82,21 @@ def check(img):
         bad.append(f"horizon at y={m['horizon']} is too high -- no ground band")
     if m["gantry_left"] < 0.04:
         bad.append("no gantry mass in the left third")
+    if m["inks_used"] < 3:
+        bad.append(f"only {m['inks_used']} inks carry weight -- the plate reads empty")
     return bad, m
 
 
 if __name__ == "__main__":
     plates = sorted(glob.glob(os.path.join(HERE, "scenes", "*.png")))
-    print(f"{'plate':32s} {'bands':>6s} {'horiz':>6s} {'gantry':>7s} {'domin':>6s}  verdict")
+    print(f"{'plate':32s} {'bands':>6s} {'horiz':>6s} {'gantry':>7s} {'domin':>6s} {'inks':>5s}  verdict")
     horizons, ok = [], 0
     for p in plates:
         bad, m = check(Image.open(p))
         horizons.append(m["horizon"])
         ok += not bad
         print(f"{os.path.basename(p)[:32]:32s} {m['bands']:6d} {m['horizon']:6d} "
-              f"{m['gantry_left']:7.3f} {m['dominant_ink_share']:6.2f}  "
+              f"{m['gantry_left']:7.3f} {m['dominant_ink_share']:6.2f} {m['inks_used']:5d}  "
               f"{'PASS' if not bad else 'FAIL: ' + '; '.join(bad)}")
     if horizons:
         print(f"\n{ok}/{len(plates)} pass · horizon stdev {np.std(horizons):.1f}px "

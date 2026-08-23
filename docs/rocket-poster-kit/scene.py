@@ -86,7 +86,10 @@ TONAL_RECIPE = (
 MOODS = {
     "low earth":       "a large pale sun disc at the horizon, warm mustard and brick-red sky bands",
     "sun-synchronous": "a low sun disc, cool green and cream sky bands, a distant flat ridgeline",
-    "polar":           "a low sun disc, cool green and cream sky bands, a distant flat ridgeline",
+    # Polar had been sharing sun-synchronous's motif verbatim, and inherited
+    # its washed-out result. Its own now, asking explicitly for saturated
+    # bands rather than "cool" ones, which the generator reads as pale.
+    "polar":           "a low sun disc, THREE strongly saturated sky bands in DEEP BLUE, FOREST GREEN and BRICK RED, a narrow cream band at the horizon, and a jagged dark ridgeline",
     "geostationary":   "a high sun disc, mustard and cream sky bands, flat palm silhouettes",
     "medium earth":    "a small high sun, blue and cream sky bands, simplified flat plains",
     "lunar":           "a large pale CRESCENT MOON disc low over the horizon, deep BLUE sky bands with a scatter of cream stars",
@@ -206,6 +209,35 @@ def generate(rec, force=False):
     raw = os.path.join(RAW, f"{key}.png")
     urllib.request.urlretrieve(url, raw)
     return ingest_plate(raw, key, prompt)
+
+
+def generate_until_good(rec, attempts=4, min_inks=4):
+    """Generate, check, keep the BEST -- not the last.
+
+    The naive loop regenerates on failure and stops when it runs out of tries,
+    which means a passing attempt can be overwritten by a failing one that
+    happens to come after it. That happened on the first polar run: attempt 2
+    passed and attempts 3 and 4 replaced it with collapsed plates. Score every
+    attempt, keep the winner, and only then write it to the cache.
+    """
+    import scene_qa
+    key = plate_key(rec)
+    best, best_score, log = None, -1, []
+    for i in range(attempts):
+        generate(rec, force=True)
+        img = load(rec)
+        bad, m = scene_qa.check(img)
+        # Passing is the first thing that matters; ink variety breaks ties,
+        # then a lower dominant share, since both track "reads as a picture".
+        score = (0 if bad else 100) + m["inks_used"] * 5 + (1 - m["dominant_ink_share"]) * 10
+        log.append((i + 1, m, bad, score))
+        if score > best_score:
+            best, best_score = img.copy(), score
+        if not bad and m["inks_used"] >= min_inks:
+            break
+    if best is not None:
+        best.save(os.path.join(PLATES, f"{key}.png"))
+    return best, log
 
 
 if __name__ == "__main__":
