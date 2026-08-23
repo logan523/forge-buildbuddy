@@ -5,11 +5,40 @@ Spectra 6 panel in the **Rocket Launch Wall Art** build
 (`src/data/rocket-launch-art.json`).
 
 ```bash
-python3 launch.py                          # fetch the next launch and render it
-python3 export_bmp.py next-launch.png --out pic/001.bmp   # what goes on the SD card
-python3 poster.py --all                    # render all 24 offline fixtures
-python3 -m unittest discover .             # the gates
+python3 serve.py                    # THE ONE TO RUN: render + serve for the frame
+python3 serve.py --once             # render once and exit, no server
+python3 poster.py --all             # render all 24 offline fixtures
+python3 -m unittest discover .      # the gates
 ```
+
+## With the kit in your hands
+
+The frame pulls its image from this server over WiFi. Nothing goes on an SD
+card in this path.
+
+1. **Start the server** on a machine that stays awake -- a Pi, a spare laptop,
+   anything on the same network. `python3 serve.py --port 8080`. It restores
+   the last poster from disk before it touches the network, so a reboot never
+   shows a blank panel.
+2. **Check it from another machine** on the LAN: `curl -I http://<host>:8080/panel.bmp`
+   should return `200` and an `ETag`. If that fails from another machine but
+   works locally, it is a firewall, not this code.
+3. **Give the host a fixed address.** A DHCP lease change silently strands the
+   frame -- it will keep polling an address that now belongs to a toaster.
+4. **Flash the frame** with `aitjcize/esp32-photoframe`, battery DISCONNECTED
+   (see the PMIC bug below), and point its image URL at `http://<host>:8080/panel.bmp`.
+5. **Watch `/status`** for what it is showing and what it has spent.
+
+| Endpoint | Cost | For |
+|---|---|---|
+| `/panel.bmp` | free | what the frame polls; returns `304` unchanged |
+| `/status` | free | current record, render age, API budget |
+| `/refresh` | free | redraw from cached data |
+| `/refresh?upstream=1` | **2 of 15 per hour** | go get fresh launch data |
+
+That budget is per IP and shared with every device in the house, so `/refresh`
+defaults to the free path and the server refuses an upstream call it cannot
+afford rather than letting you collect a 429.
 
 ## Getting it onto the panel
 
@@ -120,8 +149,17 @@ current plates pass, all six earlier ones fail.
 - **The white is grey.** Spectra 6 "white" reflects 35–45% of light — newsprint,
   not paper. Design against the measured values in `palette.py` or it looks
   correct on screen and washed out on the wall.
-- **Never resample with interpolation.** `NEAREST` everywhere. Bilinear invents
-  in-between colors and puts off-palette pixels straight onto the panel.
+- **Resample however you like, then snap back.** An earlier version of this
+  file said "`NEAREST` everywhere" because interpolation invents in-between
+  colours. True, but the cure was worse: `NEAREST` and `LANCZOS` both destroy
+  the thin dark lines that make a rocket read as a rocket. The kit now scales
+  with `LANCZOS` and calls `scene.snap_to_inks` afterwards, which is the only
+  thing that actually has to be true. Two plates were leaking 3,802 and 8,955
+  off-ink pixels from resamples that skipped that step.
+- **Shrinking line art is its own problem.** Averaging a 2px dark line inside a
+  5px cell dilutes it into the surrounding white, so downscaled vehicles came
+  out mushy. `poster.shrink_keeping_lines` takes the darkest pixel in each cell
+  instead: 3,788 dark pixels survive where `LANCZOS` left 1,180.
 - **Type is composited last, through a hard threshold.** PIL's default
   antialiasing smuggled ~800 off-palette colors into one early render.
 - **15 requests/hour, per IP — not per device.** A whole household shares it.

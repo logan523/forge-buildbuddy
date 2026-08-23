@@ -38,7 +38,7 @@ ASSETS = os.path.join(HERE, "vehicles")
 TONAL = os.path.join(HERE, "vehicles-tonal")
 MANIFEST = os.path.join(ASSETS, "manifest.json")
 
-TARGET_H = 900                  # authored tall; the poster scales down with NEAREST
+TARGET_H = 900                  # authored tall; the poster scales down and re-snaps
 
 # Real proportions, for the sanity check. Filled from LL2 `length`/`diameter`.
 KNOWN_RATIO = {
