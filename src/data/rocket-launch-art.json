@@ -56,26 +56,32 @@
     {
       "id": "photopainter",
       "name": "Waveshare ESP32-S3-PhotoPainter",
-      "specification": "7.3 inch E Ink Spectra 6 (E6) 800x480 6-color panel + ESP32-S3 + RTC + LiPo header, in a solid wood photo frame",
+      "specification": "7.3 inch E Ink Spectra 6 (E6), 800x480, six colours. Active area 160.0 x 96.0 mm (6.30 x 3.78 in). ESP32-S3-WROOM-1-N16R8 with WiFi + BLE, PCF85063 RTC, SHTC3, MX1.25 LiPo header, 16GB TF card and reader included, in a solid wood frame. 25s full refresh.",
       "quantity": 1,
-      "notes": "All-in-one. This is the whole display half of the build \u2014 panel, MCU, frame and charge circuit in one part. ~$83."
+      "notes": "All-in-one. This is the whole display half of the build \u2014 panel, MCU, frame and charge circuit in one part. ~$83.",
+      "estimatedPrice": "$83 direct / $109 Amazon",
+      "whyThisPart": "Buy the 'with BAT' SKU. It is $1 more than the no-battery version and includes a 3.7V 1500mAh cell already terminated with the correct connector, which removes a separate battery purchase and its polarity risk entirely.",
+      "commonMistake": "Buying PhotoPainter (B). It is RP2350-based with NO radio at all -- SD card only. On Amazon the tell is a title mentioning 'Raspberry Pi Zero' or '7.3inch ACeP 7-Color'; both appear in the 'customers also viewed' strip on the correct listing."
     },
     {
       "id": "microsd",
-      "name": "microSD card, 8-32GB",
-      "specification": "Class 10 / U1, 8-32GB. Formatted FAT32 -- NOT exFAT, which the firmware cannot read. Larger cards often ship exFAT and must be reformatted.",
+      "name": "microSD card (INCLUDED -- spare only)",
+      "specification": "A 16GB TF card and reader ship in the box. A spare must be microSDHC (32GB or under), which the SD spec makes FAT32. microSDXC (64GB+) is exFAT and the firmware cannot enumerate it.",
       "quantity": 1,
-      "estimatedPrice": "$7-10",
-      "whyThisPart": "The PhotoPainter loads images from the card, not over the wire. Even the WiFi firmware stages downloads through it. Nothing displays without one.",
+      "estimatedPrice": "$0 (included) / ~$23 spare",
+      "whyThisPart": "Included in the kit -- verified in Waveshare's package contents. Listed here so nobody buys one thinking it is missing, and so the FAT32 constraint is written down.",
       "searchQuery": "microSD card 16GB Class 10 U1",
-      "commonMistake": "Buying a 128GB+ card. They arrive exFAT, the firmware silently fails to enumerate, and the frame looks dead. Small cards are cheaper and more likely to be FAT32 already."
+      "commonMistake": "Buying a 128GB card because it costs nearly the same. The constraint is structural, not arbitrary: SDHC (<=32GB) is FAT32, SDXC (>=64GB) is exFAT. Look for microSDHC on the label."
     },
     {
       "id": "lipo-2000",
-      "name": "LiPo battery 3.7V 2000mAh",
-      "specification": "103450 pouch cell, 3.7V 2000mAh, WITH built-in protection PCB (PCM), MX1.25/PH2.0 connector",
+      "name": "LiPo battery (INCLUDED with the 'with BAT' SKU)",
+      "specification": "3.7V 1500mAh, pre-terminated MX1.25 2-pin. NOT PH2.0 -- MX1.25 is a 1.25mm pitch and PH2.0 is 2.0mm; a PH2.0 cell physically will not plug in. Most 103450 cells sold on Amazon are PH2.0.",
       "quantity": 1,
-      "notes": "Buy a PROTECTED cell \u2014 one with the small protection board bonded under the kapton tape at the terminals. Forge's electrical check flags this build for lithium protection because it cannot verify from the outside that the PhotoPainter's onboard charge circuit protects the cell. A protected cell answers that regardless, and is the right call on any battery you leave charging unattended on a wall."
+      "notes": "Buy a PROTECTED cell \u2014 one with the small protection board bonded under the kapton tape at the terminals. Forge's electrical check flags this build for lithium protection because it cannot verify from the outside that the PhotoPainter's onboard charge circuit protects the cell. A protected cell answers that regardless, and is the right call on any battery you leave charging unattended on a wall.",
+      "estimatedPrice": "$1 (the SKU upgrade)",
+      "whyThisPart": "Waveshare's own board table specifies an MX1.25 2PIN header. Taking the bundled cell avoids both the connector mismatch and the polarity risk, since no listing states which pin is positive.",
+      "commonMistake": "Buying a PH2.0 103450 cell because the pitch was not checked. It will not fit."
     },
     {
       "id": "usb-c-cable",
@@ -87,9 +93,11 @@
     {
       "id": "matte-glazing",
       "name": "Matte or anti-reflective glazing (optional)",
-      "specification": "Museum/AR glass or no glass at all",
+      "specification": "Non-glare acrylic, cut to 160 x 96 mm. An 8x10 sheet is the cheapest source and cuts down easily.",
       "quantity": 1,
-      "notes": "E-ink's matte, glare-free surface is its main advantage over an LCD. Standard glossy frame glass throws that away and re-introduces reflections."
+      "notes": "E-ink's matte, glare-free surface is its main advantage over an LCD. Standard glossy frame glass throws that away and re-introduces reflections.",
+      "whyThisPart": "OPTIONAL, and try the build without it first. E Ink Spectra 6 already has a matte, non-specular front surface and ships with a protective film.",
+      "commonMistake": "Mounting non-glare acrylic with an air gap. Its matte finish diffuses light and only works pressed directly against the artwork -- with a gap it visibly softens the image, which on a 0.2mm pixel pitch costs more in sharpness than it buys in glare reduction."
     }
   ],
   "wiringConnections": [
