@@ -132,6 +132,22 @@ def outline_mask(layer, weight=3):
     return a.filter(ImageFilter.MaxFilter(weight * 2 + 1))
 
 
+def _is_dark_vehicle(layer, frac=0.55):
+    """True when most of the vehicle is already dark.
+
+    Electron's airframe is bare carbon fibre -- it is genuinely black. A cut
+    tuned for a white rocket sends the whole body to one ink and takes every
+    panel line with it, which is why it came out a featureless slab while the
+    white vehicles gained detail. A dark vehicle needs its linework LIGHT.
+    """
+    a = np.asarray(layer.convert("RGB")).astype(int)
+    alpha = np.asarray(layer.split()[3]) > 140
+    if not alpha.any():
+        return False
+    lum = (0.299 * a[:, :, 0] + 0.587 * a[:, :, 1] + 0.114 * a[:, :, 2])[alpha]
+    return float((lum < 110).mean()) > frac
+
+
 def posterize_vehicle(layer, cut=118, contrast=1.35):
     """Hard-threshold the vehicle into two flat inks. NO dithering.
 
@@ -153,12 +169,20 @@ def posterize_vehicle(layer, cut=118, contrast=1.35):
     two of noise would flip large areas.
     """
     from PIL import ImageEnhance
+    dark = _is_dark_vehicle(layer)
     rgb = ImageEnhance.Contrast(layer.convert("RGB")).enhance(contrast)
     a = np.asarray(rgb).astype(np.int16)
     lum = 0.299 * a[:, :, 0] + 0.587 * a[:, :, 1] + 0.114 * a[:, :, 2]
     out = np.empty((a.shape[0], a.shape[1], 3), np.uint8)
-    out[lum > cut] = INKS["white"]
-    out[lum <= cut] = INKS["black"]
+    if dark:
+        # Body black, marks white, and the cut moves down into the dark end of
+        # the histogram where a black vehicle's detail actually lives.
+        c = max(18, np.percentile(lum[np.asarray(layer.split()[3]) > 140], 72))
+        out[lum > c] = INKS["white"]
+        out[lum <= c] = INKS["black"]
+    else:
+        out[lum > cut] = INKS["white"]
+        out[lum <= cut] = INKS["black"]
     return Image.fromarray(out, "RGB")
 
 
@@ -220,7 +244,10 @@ def _vehicle(img, rec, box, h):
     x = int(x0 + (x1 - x0) * 0.58)
     # Keyline first, vehicle over it: the fuselage dissolves against a cream
     # band without one, and flat colour has no tonal separation to fall back on.
-    img.paste(Image.new("RGB", v.size, INKS["black"]), (x, y0 - 8), outline_mask(v))
+    # A dark vehicle needs a LIGHT keyline; a black outline round a black body
+    # is invisible and the silhouette dissolves into a night sky.
+    key = INKS["white"] if _is_dark_vehicle(v) else INKS["black"]
+    img.paste(Image.new("RGB", v.size, key), (x, y0 - 8), outline_mask(v))
     img.paste(posterize_vehicle(v), (x, y0 - 8),
               v.split()[3].point(lambda p: 255 if p > 140 else 0))
 

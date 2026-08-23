@@ -8,19 +8,27 @@ flags is reported for a reroll rather than silently committed.
 
     python3 generate_fleet.py "Long March" Electron Soyuz Ariane
 
-Model: nano_banana_2_lite with thinking=HIGH. Chosen on evidence -- the cheap
-model (z_image, 0.15cr) produces excellent composition but drew strap-on
-boosters onto a Falcon 9 twice, including after an explicit instruction not
-to. None of the image models here expose a negative prompt, and diffusion
-handles negation poorly without one, so the model that actually reasons about
-the description is worth ~2.5 credits a vehicle. That cost is paid once per
-family and amortized over every launch that family ever flies.
+Model: nano_banana_pro at 4K. Chosen on evidence twice over.
+
+First, on accuracy: the cheap model (z_image, 0.15cr) produces excellent
+composition but drew strap-on boosters onto a Falcon 9 twice, including after
+an explicit instruction not to. None of these models expose a negative prompt
+and diffusion handles negation poorly without one, so a model that reasons
+about the description is worth the credits.
+
+Second, on RESOLUTION -- and this reversed. A 4K regeneration was measured as
+worthless earlier: at the same display size it retained no more detail than a
+1K source. The cause was the downsampler, not the generation. LANCZOS averaged
+every thin panel line out of existence before anything else saw it. With
+area-minimum downsampling (poster.shrink_keeping_lines) the same comparison
+runs 3,809 dark pixels retained against 2,496 -- 53% more. Source resolution
+only pays once the resampler stops destroying it.
 """
 
 import json, os, subprocess, sys, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MODEL = "nano_banana_2_lite"
+MODEL = "nano_banana_pro"     # 4K; see note below
 
 FRAME = ("Perfectly vertical, flat to camera, strict orthographic side elevation, "
          "no perspective, no tilt, no angle. Solid uniform bright magenta background, "
@@ -103,7 +111,7 @@ def run(family):
     print(f"\n--- {family} ---", flush=True)
     out = subprocess.run(
         ["higgsfield", "generate", "create", MODEL, "--aspect_ratio", "9:16",
-         "--thinking", "HIGH", "--wait", "--prompt", prompt],
+         "--resolution", "4k", "--wait", "--prompt", prompt],
         capture_output=True, text=True)
     url = next((l.strip() for l in reversed(out.stdout.splitlines())
                 if l.strip().startswith("http")), None)
