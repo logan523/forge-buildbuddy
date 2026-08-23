@@ -154,83 +154,127 @@ def pt(points):
     return max(6, round(points * PPI / 72))
 
 
-def render(rec, previous=None, art=None):
-    """Scene on top, type in a band below -- the structure of the alpine travel
-    posters this is modelled on. The scene is generated; the vehicle, the type,
-    the palette and the band are not.
+BAND_H, BAND_W = 144, 268
+BANDS = ("bottom", "left", "right")     # `top` was cut: the eye hits data
+                                        # before image, which inverts the
+                                        # poster's own logic.
+
+
+def _plate(rec, w, h, keep):
+    """Scene scaled to COVER w x h, cropped from the side that keeps the
+    gantry. Re-snapped after resampling: LANCZOS interpolates, which puts
+    colours BETWEEN the inks back into the plate -- that leaked thousands of
+    off-ink pixels before this existed. A scaled plate is never assumed legal.
     """
-    pal = palette_for(rec.get("destination"))
-    BAND = H - scene.SCENE_H          # 144px
+    p = scene.load(rec)
+    if p is None:
+        return None
+    sc = max(w / p.width, h / p.height)
+    p = p.resize((max(1, round(p.width * sc)), max(1, round(p.height * sc))), Image.LANCZOS)
+    x = 0 if keep == "left" else p.width - w
+    return scene.snap_to_inks(p.crop((x, 0, x + w, min(h, p.height))))
 
-    plate = None if art else scene.load(rec)
-    img = Image.new("RGB", (W, H), pal.field)
-    if plate is not None:
-        img.paste(plate, (0, 0))
-    elif art:
-        import subprocess, tempfile
-        with tempfile.TemporaryDirectory() as td:
-            p = os.path.join(td, "a.png")
-            Image.open(art).convert("RGB").save(p)
-            subprocess.run([sys.executable, os.path.join(HERE, "spectra6.py"), p,
-                            "--out", os.path.join(td, "a"), "--size", f"{W}x{scene.SCENE_H}"],
-                           check=True, capture_output=True)
-            img.paste(Image.open(os.path.join(td, "a.panel.png")).convert("RGB"), (0, 0))
 
-    # The vehicle stands IN the scene, its base meeting the band.
-    veh, _ = vehicle_layer(rec, scene.SCENE_H + 40)
-    if veh is not None:
-        sc = (scene.SCENE_H + 34) / veh.height
-        v = veh.resize((max(1, round(veh.width * sc)), scene.SCENE_H + 34), Image.LANCZOS)
-        x = int(W * 0.56)
-        img.paste(Image.new("RGB", v.size, INKS["black"]), (x, -8), outline_mask(v))
-        img.paste(posterize_vehicle(v), (x, -8),
-                  v.split()[3].point(lambda p: 255 if p > 140 else 0))
+def _vehicle(img, rec, box, h):
+    veh, _ = vehicle_layer(rec, h + 40)
+    if veh is None:
+        return
+    sc = (h + 30) / veh.height
+    v = veh.resize((max(1, round(veh.width * sc)), h + 30), Image.LANCZOS)
+    x0, y0, x1, _ = box
+    x = int(x0 + (x1 - x0) * 0.58)
+    # Keyline first, vehicle over it: the fuselage dissolves against a cream
+    # band without one, and flat colour has no tonal separation to fall back on.
+    img.paste(Image.new("RGB", v.size, INKS["black"]), (x, y0 - 8), outline_mask(v))
+    img.paste(posterize_vehicle(v), (x, y0 - 8),
+              v.split()[3].point(lambda p: 255 if p > 140 else 0))
 
-    # The band is painted regardless of what the model did down there -- the
-    # prompt asks for it to be left plain, but it is never trusted to comply.
-    d = ImageDraw.Draw(img)
-    band_ink = INKS["white"] if plate is None else INKS["white"]
-    d.rectangle([0, scene.SCENE_H, W, H], fill=band_ink)
-    d.rectangle([0, scene.SCENE_H, W, scene.SCENE_H + 4], fill=INKS["black"])
+
+def _band_text(img, d, rec, box, centred, previous=None):
+    x0, y0, x1, y1 = box
+    colw = x1 - x0 - 48
     ink, sub = INKS["black"], INKS["red"]
 
-    # Destination is the headline in the band, the way the resort name is on a
-    # ski poster; the mission carries the line beneath it.
+    def put(t, f, tr, y, col):
+        w = T.tracked_width(d, t, f, tr)
+        x = x0 + (x1 - x0 - w) / 2 if centred else x0 + 24
+        T.tracked(img, (x, y), t, f, col, tr)
+
     dest = (rec.get("destination") or "UNKNOWN").upper()
-    lines, fh = T.fit_wrap(d, dest, T.XCONDENSED, W - 120, pt(23), pt(11), 2.0, 1)
-    hw = T.tracked_width(d, lines[0], fh, 2.0)
-    T.tracked(img, ((W - hw) / 2, scene.SCENE_H + 22), lines[0], fh, ink, 2.0)
-    y = scene.SCENE_H + 22 + fh.size + 12
+    lines, fh = T.fit_wrap(d, dest, T.XCONDENSED, colw, pt(23), pt(10), 2.0,
+                           1 if centred else 3)
+    y = y0 + (18 if centred else 26)
+    for ln in lines:
+        put(ln, fh, 2.0, y, ink)
+        y += fh.size + 3
+    y += 10
 
-    mission = (rec.get("mission") or "").strip()
-    bits = [x for x in [mission, rec.get("rocket"), rec.get("provider")] if x]
-    line = "  ·  ".join(bits).upper()
-    f2, t2 = T.fit_tracked(d, line, T.MEDIUM, W - 150,
-                           [pt(7), pt(6.5), pt(6), pt(5.5), pt(5)], [1.6, 0.9, 0.4])
-    lw = T.tracked_width(d, line, f2, t2)
-    d.rectangle([(W - lw) / 2 - 28, y + f2.size / 2, (W - lw) / 2 - 10,
-                 y + f2.size / 2 + 2], fill=sub)
-    d.rectangle([(W + lw) / 2 + 10, y + f2.size / 2, (W + lw) / 2 + 28,
-                 y + f2.size / 2 + 2], fill=sub)
-    T.tracked(img, ((W - lw) / 2, y), line, f2, sub, t2)
-    y += f2.size + 10
+    # Mission and vehicle only. Adding provider (50 chars) and site (59) forced
+    # this line to 7px, which is about five pixels of letterform on a 128 PPI
+    # panel -- fewer words at a legible size beats more words as texture.
+    line = "  ·  ".join(x for x in [rec.get("mission"), rec.get("rocket")] if x).upper()
+    f2, t2 = T.fit_tracked(d, line, T.MEDIUM, colw,
+                           [pt(8), pt(7.5), pt(7), pt(6.5)], [1.6, 0.9, 0.3])
+    if centred:
+        put(line, f2, t2, y, sub); y += f2.size + 10
+    else:
+        for ln in T.wrap(d, line, f2, colw)[:3]:
+            put(ln, f2, t2, y, sub); y += f2.size + 4
+        y += 6
 
-    meta = "  ·  ".join(x for x in [fmt_when(rec.get("t0_utc")),
-                                    (rec.get("site") or "").upper()] if x)
-    f3, t3 = T.fit_tracked(d, meta, T.MEDIUM, W - 170,
-                           [pt(5), pt(4.6), pt(4.2)], [1.0, 0.5, 0.2])
-    mw = T.tracked_width(d, meta, f3, t3)
-    T.tracked(img, ((W - mw) / 2, y), meta, f3, ink, t3)
+    meta = fmt_when(rec.get("t0_utc"))
+    f3, t3 = T.fit_tracked(d, meta, T.MEDIUM, colw,
+                           [pt(6.5), pt(6), pt(5.5)], [1.2, 0.6, 0.3])
+    put(meta, f3, t3, y, ink)
+    y += f3.size + 8
 
-    if rec.get("country"):
-        flag.draw(d, rec["country"], 30, H - 40, 40, 25)
     if previous:
         prev = "LAST · " + " · ".join(x for x in [
             (previous.get("rocket_short") or previous.get("rocket") or "").upper(),
             fmt_when(previous.get("t0_utc")).split(" · ")[0]] if x)
-        f4, t4 = T.fit_tracked(d, prev, T.MEDIUM, 300, [pt(4.2), pt(4)], [0.9, 0.4])
-        pw = T.tracked_width(d, prev, f4, t4)
-        T.tracked(img, (W - 30 - pw, H - 34), prev, f4, sub, t4)
+        f4, t4 = T.fit_tracked(d, prev, T.MEDIUM, colw, [pt(5.5), pt(5)], [1.0, 0.5])
+        put(prev, f4, t4, y, sub)
+
+
+def render(rec, previous=None, art=None, band="bottom"):
+    """Scene above, type in a band -- the structure of the alpine travel
+    posters this is modelled on. The scene is generated; the vehicle, the type,
+    the palette and the band are not.
+    """
+    if band not in BANDS:
+        raise ValueError(f"band must be one of {BANDS}, got {band!r}")
+    pal = palette_for(rec.get("destination"))
+    img = Image.new("RGB", (W, H), pal.field)
+    d = ImageDraw.Draw(img)
+
+    if band == "bottom":
+        sbox, bbox, keep = (0, 0, W, H - BAND_H), (0, H - BAND_H, W, H), "left"
+    elif band == "left":
+        sbox, bbox, keep = (BAND_W, 0, W, H), (0, 0, BAND_W, H), "right"
+    else:
+        sbox, bbox, keep = (0, 0, W - BAND_W, H), (W - BAND_W, 0, W, H), "left"
+
+    sw, sh = sbox[2] - sbox[0], sbox[3] - sbox[1]
+    p = _plate(rec, sw, sh, keep)
+    if p is not None:
+        img.paste(p, (sbox[0], sbox[1]))
+    _vehicle(img, rec, sbox, sh)
+
+    # The band is painted regardless of what the model drew there. The prompt
+    # asks for that region to be left plain; it is never trusted to comply.
+    d.rectangle(list(bbox), fill=INKS["white"])
+    if band == "bottom":
+        d.rectangle([0, bbox[1], W, bbox[1] + 4], fill=INKS["black"])
+    elif band == "left":
+        d.rectangle([bbox[2] - 4, 0, bbox[2], H], fill=INKS["black"])
+    else:
+        d.rectangle([bbox[0], 0, bbox[0] + 4, H], fill=INKS["black"])
+
+    _band_text(img, d, rec, bbox, centred=(band == "bottom"), previous=previous)
+    if rec.get("country"):
+        fx, fy = (30, H - 44) if band == "bottom" else \
+                 (24, H - 48) if band == "left" else (bbox[0] + 24, H - 48)
+        flag.draw(d, rec["country"], fx, fy, 40, 25)
     return img
 
 
@@ -241,6 +285,7 @@ def main():
     p.add_argument("--art", help="use a generated painting as the sky (dithered)")
     p.add_argument("--out")
     p.add_argument("--bin", action="store_true", help="also write the packed panel bytes")
+    p.add_argument("--band", default="bottom", choices=BANDS)
     a = p.parse_args()
 
     from spectra6 import verify
@@ -248,7 +293,7 @@ def main():
     picks = list(enumerate(samples)) if a.all else [(a.index, samples[a.index])]
     for i, rec in picks:
         prev = samples[(i - 1) % len(samples)]      # stand-in until launch.py runs
-        img = render(rec, previous=prev, art=a.art)
+        img = render(rec, previous=prev, art=a.art, band=a.band)
         out = a.out if (a.out and not a.all) else os.path.join(
             HERE, f"poster-{i:02d}-{(rec['rocket_short'] or 'x').replace('/', '-')}.png")
         img.save(out)
