@@ -3,7 +3,7 @@
   "title": "Rocket Launch Wall Art",
   "description": "A framed e-ink poster that watches every rocket launch on Earth. It pulls the next launch from a free public API and prints a vintage travel-poster style card: the rocket, where it's going, and why. Holds the image on zero power, runs months on a battery, and looks like a print rather than a screen.",
   "difficulty": "intermediate",
-  "estimatedTime": "4-6 hours (plus art pipeline time)",
+  "estimatedTime": "2-3 hours (the art pipeline is already built)",
   "estimatedCost": "$95-115",
   "buildModes": [
     "quick_test",
@@ -182,227 +182,203 @@
     },
     {
       "stepNumber": 3,
-      "title": "Connect the battery",
-      "quickSummary": "One connector \u2014 but check polarity first.",
-      "description": "The board has an onboard charge IC and a battery header. Before plugging the cell in, compare the battery connector's wire order against the silkscreen marking on the board. LiPo pouch cell connector polarity is NOT standardized between vendors \u2014 a reversed cell can destroy the board and, in the worst case, the cell.",
-      "goal": "Power the frame from a battery so it can hang cordless.",
+      "title": "Prove the panel with your own image before anything talks to the network",
+      "quickSummary": "Format a card FAT32, drop one BMP on it, watch your picture appear.",
+      "description": "The PhotoPainter loads images from a microSD card, not over the wire. Prove that path works with a file you made before adding WiFi, a server, or an API to the list of things that could be wrong. If your own BMP appears on the panel, every remaining problem is a network problem.",
+      "goal": "Your own 800x480 image on the panel, from the card.",
       "youNeed": [
-        "LiPo 2000mAh cell",
-        "The PhotoPainter"
+        "microSD card",
+        "computer",
+        "USB-C cable"
       ],
-      "safetyNotes": [
-        "If the connector's red and black are opposite to the board's markings, STOP. Do not 'just try it' \u2014 re-pin the connector or source a matching cell.",
-        "Use a cell with its own protection PCB. Forge flags this build for lithium charge protection: the board has an onboard charge circuit, but that cannot be verified externally, and an unprotected cell on a wall-mounted frame is the wrong risk to take.",
-        "Never charge a bare unprotected cell from USB."
-      ],
-      "doneWhen": "Battery is seated in the header, and the board's charge LED lights when USB-C is connected.",
-      "commonMistakes": [
-        "Assuming red = positive on the board side. Trust the silkscreen, not the wire color.",
-        "Buying an unprotected 'raw' pouch cell because it was cheaper."
-      ],
-      "mediaKind": "battery_id_poles"
-    },
-    {
-      "stepNumber": 4,
-      "title": "First flash: prove the panel before you write any real code",
-      "quickSummary": "Push a test image over USB and watch it refresh.",
-      "description": "Install the ESP32 board support and flash the vendor's demo, or a minimal GxEPD2 sketch, over USB-C. Watch a full refresh happen. It will cycle the panel through several color passes for roughly 25-30 seconds and it looks broken while it does that \u2014 that is normal for 6-color e-ink, not a fault.",
-      "goal": "Confirm the toolchain, the board, and the panel all work together before adding WiFi, an API, or an art pipeline.",
       "actions": [
         {
           "n": 1,
-          "text": "Install Arduino IDE (or ESP-IDF) and the ESP32-S3 board package."
+          "text": "Format the card as FAT32. Not exFAT.",
+          "caution": "128GB+ cards arrive exFAT and the firmware cannot enumerate them. The frame looks dead with no error. This is the single most common way this build appears broken."
         },
         {
           "n": 2,
-          "text": "Flash the vendor demo image sketch over USB-C."
+          "text": "Create a folder called pic in the card's root (06_user_Foundation_img on the ESP32-S3 build) and copy in one 24-bit BMP at exactly 800x480."
         },
         {
           "n": 3,
-          "text": "Watch a full refresh complete \u2014 expect ~25-30s of flashing color passes."
+          "text": "Generate that BMP with the kit rather than exporting from an image editor: python3 export_bmp.py next-launch.png --out pic/001.bmp",
+          "caution": "The firmware matches every pixel against six EXACT RGB triples with no nearest-colour fallback, and its colour variable lives outside the pixel loop -- so a pixel matching none of them inherits the previous pixel and smears across the row. An editor's colour management will silently break this. export_bmp.py maps to the nominal triples and refuses to write anything else."
         },
         {
           "n": 4,
-          "text": "Add a display sleep/hibernate call at the end of your sketch.",
-          "caution": "This is mandatory, not an optimization."
+          "text": "On macOS, delete the dot-underscore files Finder leaves behind, plus any fileList.txt and index.txt in the card root.",
+          "caution": "Waveshare documents this: the firmware enumerates those files and hangs."
+        },
+        {
+          "n": 5,
+          "text": "Insert the card, power on, and watch a full refresh. It cycles through several colour passes for 25-30 seconds and looks broken while it does. That is normal for 6-colour e-ink."
         }
       ],
-      "doneWhen": "A test image is on the panel and the code puts the display to sleep afterward.",
-      "whyThisWorks": "E-ink is bistable: the pigment physically stays where it was pushed, so the image survives with power completely removed. That is why hibernating after each refresh is safe AND required \u2014 leaving the driver energized on a static image can permanently damage the panel.",
+      "doneWhen": "Your own poster is on the panel and stays there with the power off.",
+      "whyThisWorks": "The SD path is the firmware's native input and has no dependencies. Proving it first means any later failure is definitely upstream.",
       "commonMistakes": [
-        "Panicking during the refresh flash and pulling power mid-cycle.",
-        "Leaving the panel driven after the update \u2014 this is the #1 way people kill e-ink panels."
+        "Formatting exFAT because the card came that way.",
+        "Exporting the BMP from Photoshop or Preview -- colour management shifts the values off the six exact triples and the image smears.",
+        "Assuming the long multi-colour flashing sequence is a fault."
       ],
+      "verification": "The image is visible, correct, and survives unplugging.",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 4,
+      "title": "Flash firmware that already does the network work",
+      "quickSummary": "Don't write WiFi, NTP and TLS from scratch -- flash esp32-photoframe.",
+      "description": "The hard parts of the device side are solved. aitjcize/esp32-photoframe (MIT, actively developed) targets this exact board and adds URL-based auto-fetch with ETag caching, a REST API and a web UI. Writing your own WiFi retry loop, NTP-before-TLS ordering and certificate pinning is real work with real traps, and none of it is differentiated.",
+      "goal": "Firmware on the board that can fetch an image from a URL.",
+      "youNeed": [
+        "computer",
+        "USB-C cable"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Clone github.com/aitjcize/esp32-photoframe and build for this board: ./build.py --board waveshare_photopainter_73"
+        },
+        {
+          "n": 2,
+          "text": "Flash over USB-C with the battery DISCONNECTED.",
+          "caution": "Shipping boards use the AXP2101 PMIC and restart unpredictably when USB-C and battery are connected at once. Waveshare has confirmed this. Use one or the other, never both."
+        },
+        {
+          "n": 3,
+          "text": "Join it to your WiFi through its setup flow, then confirm it can pull a static image from any URL before pointing it at your own server."
+        },
+        {
+          "n": 4,
+          "text": "Check that the firmware sleeps the panel after each refresh.",
+          "caution": "Mandatory, not an optimisation. The image persists BECAUSE power is off. Leaving the driver energised on a static image damages the electrophoretic layer permanently."
+        }
+      ],
+      "doneWhen": "The frame fetches an image from a URL you control and displays it.",
+      "whyThisWorks": "NTP before TLS, WiFi retry, and root-CA pinning are all traps someone else has already hit and fixed. An ESP32 boots believing it is 1970, so certificate date validation fails on a cold boot with an error that looks like a network fault.",
+      "commonMistakes": [
+        "Flashing with the battery plugged in and chasing phantom resets.",
+        "Writing your own TLS stack and pinning the LEAF certificate -- the host is Cloudflare-fronted and rotates leaves, so a pinned leaf bricks the frame within weeks. Pin the ROOT CA.",
+        "Skipping the panel sleep call."
+      ],
+      "verification": "A URL change on your side shows up on the panel after the next wake.",
       "mediaKind": "usb_upload"
     },
     {
       "stepNumber": 5,
-      "title": "Get on WiFi, and set the clock BEFORE the first secure connection",
-      "quickSummary": "NTP first, HTTPS second \u2014 order matters here.",
-      "description": "Connect to WiFi, then sync the clock over NTP, and only then attempt an HTTPS request. TLS certificate validation checks the certificate's validity dates against the device's clock \u2014 and an ESP32 boots believing it is 1970. Without an NTP sync first, every secure request fails on a cold boot with an error that looks like a network problem but isn't.",
-      "goal": "A network stack that can actually complete a TLS handshake.",
+      "title": "Run the server that renders the poster",
+      "quickSummary": "python3 serve.py --port 8080 on any always-on machine.",
+      "description": "All the real work happens off the device: fetch the next launch, render an 800x480 poster from the six inks, pack it as a BMP, and serve it with an ETag. The ESP32 never decodes an image or talks to a launch API. Decoding costs RAM and awake time, and awake time is the battery budget.",
+      "goal": "An HTTP endpoint serving a current, panel-legal BMP.",
+      "youNeed": [
+        "a Raspberry Pi, spare machine, or always-on computer"
+      ],
       "actions": [
         {
           "n": 1,
-          "text": "Connect to WiFi and confirm you get an IP."
+          "text": "Run python3 docs/rocket-poster-kit/serve.py --port 8080 on a machine that stays awake."
         },
         {
           "n": 2,
-          "text": "Sync time over NTP and print the result to serial."
+          "text": "Check http://<host>:8080/status -- it reports the current launch, render age and whether the last fetch came from cache or network."
         },
         {
           "n": 3,
-          "text": "Only after the clock is right, make a test HTTPS request."
+          "text": "Fetch http://<host>:8080/panel.bmp twice. The second should return 304 Not Modified with an empty body.",
+          "caution": "That 304 is the point of the whole design. It means the frame skips a 25-second panel refresh when nothing has changed."
         },
         {
           "n": 4,
-          "text": "Add a retry loop for WiFi \u2014 a router reboot must not brick the frame."
+          "text": "Leave it running. It polls Launch Library 2 adaptively -- hourly when the launch is far out, every five minutes in the final hour."
         }
       ],
-      "doneWhen": "Serial shows a correct current date/time and a successful HTTPS status line.",
+      "doneWhen": "curl returns a 1,152,054-byte BMP, and 304 on the repeat request.",
+      "whyThisWorks": "The free API tier allows 15 requests per hour PER IP ADDRESS -- not per device, so a whole household shares it. The server polls once and caches; the frame only ever talks to the server.",
       "commonMistakes": [
-        "Debugging a TLS failure as a certificate problem when the real cause is an unset clock."
+        "Letting the ESP32 poll the launch API directly -- several devices or a tight loop will throttle your whole household's IP.",
+        "Serving a PNG. The firmware reads 24-bit BMP only.",
+        "Rebuilding the image on every request instead of on a real data change, which burns a panel refresh for nothing."
       ],
+      "verification": "Two curls: 200 with an ETag, then 304.",
       "mediaKind": "generic_checklist"
     },
     {
       "stepNumber": 6,
-      "title": "Fetch the next launch from Launch Library 2",
-      "quickSummary": "One keyless request gives you rocket, destination, and purpose.",
-      "description": "Request https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=1&hide_recent_previous=true with Accept-Encoding: gzip. Use API version 2.2.0 specifically \u2014 not 2.3.0 \u2014 because 2.2.0 returns the complete field set in about 4.5KB (1.8KB gzipped), while 2.3.0 inflates the same data to 15-50KB with agency statistics you will never display. Parse with an ArduinoJson filter so you deserialize only the handful of fields you need instead of buffering the whole document.",
-      "goal": "Pull the four facts the poster is made of: rocket, destination, purpose, and time.",
+      "title": "Point the frame at your server",
+      "quickSummary": "One URL in the firmware config, then watch a real launch appear.",
+      "description": "Connect the two halves. The frame polls your endpoint on its own wake schedule; the ETag decides whether it redraws.",
+      "goal": "The frame showing the real next launch, updating itself.",
       "youNeed": [
-        "WiFi working",
-        "ArduinoJson library"
+        "the frame on WiFi",
+        "the server running"
       ],
       "actions": [
         {
           "n": 1,
-          "text": "GET the 2.2.0 upcoming-launch endpoint with hide_recent_previous=true.",
-          "caution": "Without that flag the 'next' launch is often one that already flew."
+          "text": "Set the firmware's image URL to http://<your-host>:8080/panel.bmp"
         },
         {
           "n": 2,
-          "text": "Pin the ROOT CA, never the leaf certificate.",
-          "caution": "The host is Cloudflare-fronted and rotates leaf certs \u2014 a pinned leaf bricks the frame within weeks."
+          "text": "Use a fixed IP or hostname for the server. A DHCP lease change silently strands the frame."
         },
         {
           "n": 3,
-          "text": "Parse rocket.configuration.full_name, mission.orbit.name, mission.type, mission.description, and net."
+          "text": "Force a refresh and confirm the current launch appears, matching what /status reports."
         },
         {
           "n": 4,
-          "text": "Handle the empty cases: status is 'TBD' for most launches, and orbit can be 'N/A' on classified payloads."
+          "text": "Hit /refresh on the server and confirm the frame picks up the change on its next wake."
         }
       ],
-      "doneWhen": "Serial prints something like: Falcon 9 Block 5 / Low Earth Orbit / Communications.",
-      "whyThisWorks": "Launch Library 2 is the only free keyless API that carries destination and purpose as STRUCTURED fields rather than buried in prose. Across a 100-launch sample, mission type, orbit, and description were each populated about 99% of the time.",
+      "doneWhen": "The panel shows the real next launch, and updates on its own when the launch changes.",
+      "whyThisWorks": "ETag caching means the expensive operation -- the refresh -- only happens on a genuine content change.",
       "commonMistakes": [
-        "Using mode=list to save bandwidth \u2014 it strips out mission, rocket and pad entirely, which is every field this project exists to show.",
-        "Treating status 'TBD' as an error. About 86% of upcoming launches are TBD; it is the normal state, not a fault.",
-        "String-concatenating rocket variant without a check \u2014 it is an empty string, not null, on base models, so you get a trailing space."
+        "Using the server's DHCP address and losing it on the next lease.",
+        "Expecting an instant update. The frame only checks when it wakes."
       ],
-      "verification": "Compare the rocket name your device prints against the same URL opened in a browser.",
+      "verification": "Change the data, wait for a wake, see the panel follow.",
       "mediaKind": "generic_checklist"
     },
     {
       "stepNumber": 7,
-      "title": "Poll on a budget: 15 requests per hour, shared per IP",
-      "quickSummary": "Adaptive intervals keep you under a third of the free limit.",
-      "description": "The free tier allows 15 requests per hour PER IP ADDRESS \u2014 not per device. Poll adaptively rather than on a fixed timer: hourly when the next launch is more than a day out, every 30 minutes inside 24 hours, every 15 minutes inside 6 hours, and every 5 minutes in the final hour. That peaks at 12 requests/hour, leaving headroom for retries. Only refresh the panel when the content actually changed.",
-      "goal": "Stay well inside the free tier while still being live near a launch.",
+      "title": "Connect the battery and go wireless",
+      "quickSummary": "Check polarity against the silkscreen, then unplug USB for good.",
+      "description": "Last, because everything above is easier with USB power and because the PMIC bug means you should never have both connected.",
+      "goal": "The frame running on battery, on the wall, with no cable.",
+      "youNeed": [
+        "LiPo battery with protection PCB",
+        "multimeter (optional)"
+      ],
       "actions": [
         {
           "n": 1,
-          "text": "Implement the four polling tiers based on time-to-launch."
+          "text": "UNPLUG USB-C first.",
+          "caution": "USB-C and battery connected simultaneously restarts the board unpredictably -- confirmed AXP2101 behaviour."
         },
         {
           "n": 2,
-          "text": "Compare the fetched launch id against the last one; skip the panel refresh if unchanged."
+          "text": "Check the battery connector's polarity against the board's silkscreen before plugging it in.",
+          "caution": "JST wiring is NOT standardised across vendors. If the connector's red and black are opposite to the board's markings, STOP. Do not 'just try it'. Reversed polarity kills the board."
         },
         {
           "n": 3,
-          "text": "Optionally query /2.3.0/api-throttle/ to read your remaining budget."
-        },
-        {
-          "n": 4,
-          "text": "Deep-sleep between polls \u2014 this is what buys you months of battery."
+          "text": "Optional: measure deep-sleep current with a multimeter. Boards commonly idle 10-40x worse than the datasheet suggests -- measure before trusting any battery-life estimate."
         }
       ],
-      "doneWhen": "The device wakes, polls, decides whether anything changed, and sleeps again.",
-      "whyThisWorks": "Sleep current dominates the power budget \u2014 the wake and the panel refresh are almost free by comparison. Skipping unnecessary refreshes is both a rate-limit win and a battery win.",
+      "doneWhen": "The frame runs on battery and refreshes overnight.",
+      "whyThisWorks": "Sleep current dominates the power budget. The wake and the panel refresh are almost free by comparison.",
       "commonMistakes": [
-        "Polling every minute 'to be safe' \u2014 that exceeds the limit and gets your whole household's IP throttled."
+        "Assuming red equals positive on the board side. Trust the silkscreen, not the wire colour.",
+        "Leaving USB-C plugged in 'just to be safe'.",
+        "Using a bare cell with no protection PCB."
       ],
-      "mediaKind": "generic_checklist"
+      "verification": "Unplugged, on the wall, still updating a day later.",
+      "mediaKind": "battery_id_poles"
     },
     {
       "stepNumber": 8,
-      "title": "Build the art pipeline on a computer, not on the ESP32",
-      "quickSummary": "Generate, saturate, dither, pack \u2014 then send bytes the panel can clock straight out.",
-      "description": "Do the image work server-side. Generate the poster at the panel's native resolution, boost saturation about 2.5x (Spectra 6 sits near 80% of print saturation, so an uncorrected image comes out visibly washed out), quantize to the 6-color palette with dithering, and pack to the driver's color-index order. The ESP32 then downloads pre-packed bytes and streams them to the panel. Never send it a PNG \u2014 decoding costs RAM and awake time, which is your battery budget.",
-      "goal": "A repeatable image chain that produces panel-ready bytes.",
-      "actions": [
-        {
-          "n": 1,
-          "text": "Author the poster at native resolution \u2014 do NOT design large and downscale; thin type turns to mush."
-        },
-        {
-          "n": 2,
-          "text": "Boost saturation ~2.5x and contrast slightly before quantizing."
-        },
-        {
-          "n": 3,
-          "text": "Posterize gradient skies into 3-4 flat bands before dithering.",
-          "caution": "Letting the dither algorithm interpret a smooth gradient produces visible noise."
-        },
-        {
-          "n": 4,
-          "text": "Quantize to the 6-color palette and dither."
-        },
-        {
-          "n": 5,
-          "text": "Pack to the driver's color index order \u2014 verify against the datasheet, it differs from your palette order."
-        }
-      ],
-      "doneWhen": "A packed binary renders on the panel with colors that look intentional rather than faded.",
-      "whyThisWorks": "Vintage posters use flat color fields and heavy type \u2014 exactly what survives palette reduction. Photos do not.",
-      "commonMistakes": [
-        "Skipping the saturation boost and concluding the panel is broken.",
-        "Assuming your palette index order matches the driver's \u2014 the symptom is correct-looking dithering in completely wrong colors."
-      ],
-      "mediaKind": "generic_checklist"
-    },
-    {
-      "stepNumber": 9,
-      "title": "Rocket silhouettes: bake them into flash, don't fetch them",
-      "quickSummary": "Public-domain outlines, ~256 bytes each.",
-      "description": "The launch API returns photo URLs, but do not use them: about 62% carry an 'Unknown' license and roughly 10% are CC BY-NC, which forbids commercial use. They are also full-size JPEGs \u2014 one measured at 250KB, which will not decode in the RAM you have. Instead, trace public-domain and CC0 rocket side profiles from Wikimedia Commons into small monochrome bitmaps compiled into firmware. A 32x64 bitmap is about 256 bytes, so twenty rockets costs roughly 5KB of flash.",
-      "goal": "Rocket artwork you have a clear right to use, at a size the device can actually hold.",
-      "actions": [
-        {
-          "n": 1,
-          "text": "Collect PD/CC0 rocket side-profile outlines from Wikimedia Commons.",
-          "caution": "Filter to PD and CC0 only \u2014 CC BY-SA would make your traced bitmap ShareAlike."
-        },
-        {
-          "n": 2,
-          "text": "Convert each to a small bitmap array."
-        },
-        {
-          "n": 3,
-          "text": "Key the lookup on rocket.configuration.name."
-        },
-        {
-          "n": 4,
-          "text": "Add a generic-rocket fallback \u2014 the API has hundreds of configurations and adds new ones."
-        }
-      ],
-      "doneWhen": "A known rocket draws its own silhouette and an unknown one draws the fallback.",
-      "mediaKind": "generic_checklist"
-    },
-    {
-      "stepNumber": 10,
       "title": "Frame it, hang it, and schedule the refresh for the middle of the night",
       "quickSummary": "Matte glazing, a mat that overlaps the bezel, and a 4 AM update.",
       "description": "Mount the panel in the frame with the mat window cut about 2mm INSIDE the active area so it overlaps and hides the inactive border. Use matte or anti-reflective glazing, or no glazing at all \u2014 glossy glass destroys the one advantage e-ink has over an LCD. Finally, schedule refreshes for the small hours: a Spectra 6 update flashes through several full-panel color passes for roughly half a minute and looks broken to anyone watching.",
