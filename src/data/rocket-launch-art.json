@@ -61,6 +61,16 @@
       "notes": "All-in-one. This is the whole display half of the build \u2014 panel, MCU, frame and charge circuit in one part. ~$83."
     },
     {
+      "id": "microsd",
+      "name": "microSD card, 8-32GB",
+      "specification": "Class 10 / U1, 8-32GB. Formatted FAT32 -- NOT exFAT, which the firmware cannot read. Larger cards often ship exFAT and must be reformatted.",
+      "quantity": 1,
+      "estimatedPrice": "$7-10",
+      "whyThisPart": "The PhotoPainter loads images from the card, not over the wire. Even the WiFi firmware stages downloads through it. Nothing displays without one.",
+      "searchQuery": "microSD card 16GB Class 10 U1",
+      "commonMistake": "Buying a 128GB+ card. They arrive exFAT, the firmware silently fails to enumerate, and the frame looks dead. Small cards are cheaper and more likely to be FAT32 already."
+    },
+    {
       "id": "lipo-2000",
       "name": "LiPo battery 3.7V 2000mAh",
       "specification": "103450 pouch cell, 3.7V 2000mAh, WITH built-in protection PCB (PCM), MX1.25/PH2.0 connector",
