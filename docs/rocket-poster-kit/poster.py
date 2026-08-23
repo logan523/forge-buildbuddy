@@ -81,6 +81,21 @@ def vehicle_layer(rec, h):
     return out, -12
 
 
+def outline_mask(layer, weight=3):
+    """A black keyline around the vehicle.
+
+    Without it the white fuselage dissolves wherever it crosses a light sky
+    band -- the silhouette simply stops existing against cream. Every one of
+    the reference posters outlines its subject for exactly this reason: flat
+    colour has no tonal separation to fall back on, so the edge has to be
+    drawn. Dilating the alpha and painting under the vehicle keeps the outline
+    outside the artwork rather than eating into it.
+    """
+    from PIL import ImageFilter
+    a = layer.split()[3].point(lambda v: 255 if v > 140 else 0)
+    return a.filter(ImageFilter.MaxFilter(weight * 2 + 1))
+
+
 def posterize_vehicle(layer, cut=118, contrast=1.35):
     """Hard-threshold the vehicle into two flat inks. NO dithering.
 
@@ -166,7 +181,9 @@ def render(rec, previous=None, art=None):
     if veh is not None:
         sc = (scene.SCENE_H + 34) / veh.height
         v = veh.resize((max(1, round(veh.width * sc)), scene.SCENE_H + 34), Image.LANCZOS)
-        img.paste(posterize_vehicle(v), (int(W * 0.56), -8),
+        x = int(W * 0.56)
+        img.paste(Image.new("RGB", v.size, INKS["black"]), (x, -8), outline_mask(v))
+        img.paste(posterize_vehicle(v), (x, -8),
                   v.split()[3].point(lambda p: 255 if p > 140 else 0))
 
     # The band is painted regardless of what the model did down there -- the
