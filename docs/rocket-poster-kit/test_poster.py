@@ -385,3 +385,79 @@ class PanelExport(unittest.TestCase):
         silent no-display, so catch it here."""
         with self.assertRaises(ValueError):
             export_bmp.to_panel_bmp(Image.new("RGB", (640, 400), INKS["black"]))
+
+
+class Server(unittest.TestCase):
+    """The half that has to survive months on a shelf.
+
+    A frame on a wall outlives this process -- power cuts, reboots, a router
+    that comes up slower than the Pi. Every one of these is a real failure the
+    device will hit, not a hypothetical.
+    """
+
+    def setUp(self):
+        import shutil, tempfile
+        import serve
+        self.serve = serve
+        self._tmp = tempfile.mkdtemp()
+        # Point the module at a scratch directory. An earlier version of these
+        # tests wrote a deliberately-truncated file straight over the real
+        # .last-panel.bmp and left it there, which silently broke the next cold
+        # start -- a test corrupting production state is worse than no test.
+        self._paths = (serve.LAST, serve.LAST_META)
+        serve.LAST = os.path.join(self._tmp, "panel.bmp")
+        serve.LAST_META = os.path.join(self._tmp, "panel.json")
+        self._rmtree = shutil.rmtree
+        with serve.LOCK:
+            self._saved = dict(serve.STATE)
+
+    def tearDown(self):
+        self.serve.LAST, self.serve.LAST_META = self._paths
+        self._rmtree(self._tmp, ignore_errors=True)
+        with self.serve.LOCK:
+            self.serve.STATE.clear()
+            self.serve.STATE.update(self._saved)
+
+    def test_a_restart_serves_the_last_poster_instead_of_a_blank_panel(self):
+        """The whole reason persistence exists. Without it a reboot throws away
+        a poster that cost an API call and leaves the frame on a 503 until the
+        next successful fetch -- indefinitely, if the network is still down."""
+        img = render(SAMPLES[3], previous=SAMPLES[2])
+        bmp = export_bmp.to_panel_bmp(img)
+        import io
+        buf = io.BytesIO(); bmp.save(buf, "BMP")
+        with self.serve.LOCK:
+            self.serve.STATE.update(bmp=buf.getvalue(), etag="deadbeef",
+                                    record=SAMPLES[3], rendered_at=1.0)
+        self.serve._persist()
+
+        with self.serve.LOCK:                      # simulate a cold process
+            self.serve.STATE.update(bmp=None, etag=None, record=None,
+                                    rendered_at=0, restored=False)
+        self.assertTrue(self.serve.restore(), "restore() found nothing on disk")
+        with self.serve.LOCK:
+            self.assertEqual(self.serve.STATE["etag"], "deadbeef")
+            self.assertEqual(len(self.serve.STATE["bmp"]), 1152054)
+            self.assertTrue(self.serve.STATE["restored"])
+
+    def test_a_truncated_file_is_ignored_rather_than_served(self):
+        """A power cut mid-write must not leave a half-BMP the frame renders as
+        garbage. Writes are atomic, but a partial file from any other cause is
+        rejected on size."""
+        with open(self.serve.LAST, "wb") as f:
+            f.write(b"\x00" * 500)
+        with open(self.serve.LAST_META, "w") as f:
+            json.dump({"etag": "x", "record": None, "rendered_at": 0}, f)
+        self.assertFalse(self.serve.restore())
+
+    def test_missing_state_files_are_not_an_error(self):
+        self.assertFalse(self.serve.restore())       # returns False, never raises
+
+    def test_the_etag_tracks_only_what_is_drawn(self):
+        """An upstream description edit must not burn a 25-second refresh --
+        that is the most expensive thing the device does."""
+        a = dict(SAMPLES[3])
+        b = dict(SAMPLES[3], description="rewritten upstream", lat="1.23")
+        self.assertEqual(launch.digest(a), launch.digest(b))
+        c = dict(SAMPLES[3], mission="Something Else")
+        self.assertNotEqual(launch.digest(a), launch.digest(c))

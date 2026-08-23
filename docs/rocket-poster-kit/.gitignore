@@ -65,3 +65,7 @@ _polar-old.png
 _polar-fix.png
 _polar-posters.png
 next-launch.json
+# Runtime state: the last poster served, so a reboot doesn't blank the frame.
+# Regenerated on every poll; 1.1MB per write. Not source.
+.last-panel.bmp
+.last-panel.json
