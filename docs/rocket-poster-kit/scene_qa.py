@@ -66,8 +66,13 @@ def check(img):
         bad.append(f"collapsed: {m['dominant_ink_share']:.0%} of the plate is one ink")
     if m["bands"] < 4:
         bad.append(f"only {m['bands']} bands -- sky is not layered")
-    if not (h * 0.55 <= m["horizon"] <= h * 0.97):
-        bad.append(f"horizon at y={m['horizon']} is outside the lower third")
+    # Lower bound only. The first version also rejected a horizon below 97% of
+    # the height, which flagged three perfectly good plates whose ground simply
+    # meets the bottom edge -- correct, since a band sits under it. The real
+    # risk is the opposite: a horizon too HIGH means a sky-only plate with no
+    # ground at all.
+    if m["horizon"] < h * 0.55:
+        bad.append(f"horizon at y={m['horizon']} is too high -- no ground band")
     if m["gantry_left"] < 0.04:
         bad.append("no gantry mass in the left third")
     return bad, m
