@@ -17,7 +17,7 @@
   "generatedAt": "2026-08-22T00:00:00Z",
   "modelUsed": "researched-build",
   "warnings": [
-    "E-ink panels must be put to SLEEP after every refresh. Leaving the driver energized on a static image can permanently damage the electrophoretic layer \u2014 the image persists BECAUSE power is off, not despite it.",
+    "E-ink panels must be put to SLEEP after every refresh. Leaving the driver energized on a static image can permanently damage the electrophoretic layer — the image persists BECAUSE power is off, not despite it.",
     "Write the image in a warm room. Below ~18C the colors lock in washed out (greys instead of blacks) and stay that way until you re-refresh warm."
   ],
   "hazardAssessment": [
@@ -25,7 +25,7 @@
       "category": "chemical",
       "severity": "HIGH",
       "description": "Lithium polymer battery. Fire risk if shorted, punctured, or reverse-connected.",
-      "mitigation": "Use the board's own JST/MX1.25 battery header and its onboard charge IC. Never reverse polarity. Check the connector's pinout against the silkscreen before plugging in \u2014 cell polarity is NOT standardized across vendors."
+      "mitigation": "Use the board's own JST/MX1.25 battery header and its onboard charge IC. Never reverse polarity. Check the connector's pinout against the silkscreen before plugging in — cell polarity is NOT standardized across vendors."
     },
     {
       "category": "mechanical",
@@ -58,7 +58,7 @@
       "name": "Waveshare ESP32-S3-PhotoPainter",
       "specification": "7.3 inch E Ink Spectra 6 (E6), 800x480, six colours. Active area 160.0 x 96.0 mm (6.30 x 3.78 in). ESP32-S3-WROOM-1-N16R8 with WiFi + BLE, PCF85063 RTC, SHTC3, MX1.25 LiPo header, 16GB TF card and reader included, in a solid wood frame. 25s full refresh.",
       "quantity": 1,
-      "notes": "All-in-one. This is the whole display half of the build \u2014 panel, MCU, frame and charge circuit in one part. ~$83.",
+      "notes": "All-in-one. This is the whole display half of the build — panel, MCU, frame and charge circuit in one part. ~$83.",
       "estimatedPrice": "$83 direct / $109 Amazon",
       "whyThisPart": "Buy the 'with BAT' SKU. It is $1 more than the no-battery version and includes a 3.7V 1500mAh cell already terminated with the correct connector, which removes a separate battery purchase and its polarity risk entirely.",
       "commonMistake": "Buying PhotoPainter (B). It is RP2350-based with NO radio at all -- SD card only. On Amazon the tell is a title mentioning 'Raspberry Pi Zero' or '7.3inch ACeP 7-Color'; both appear in the 'customers also viewed' strip on the correct listing."
@@ -78,7 +78,7 @@
       "name": "LiPo battery (INCLUDED with the 'with BAT' SKU)",
       "specification": "3.7V 1500mAh, pre-terminated MX1.25 2-pin. NOT PH2.0 -- MX1.25 is a 1.25mm pitch and PH2.0 is 2.0mm; a PH2.0 cell physically will not plug in. Most 103450 cells sold on Amazon are PH2.0.",
       "quantity": 1,
-      "notes": "Buy a PROTECTED cell \u2014 one with the small protection board bonded under the kapton tape at the terminals. Forge's electrical check flags this build for lithium protection because it cannot verify from the outside that the PhotoPainter's onboard charge circuit protects the cell. A protected cell answers that regardless, and is the right call on any battery you leave charging unattended on a wall.",
+      "notes": "Buy a PROTECTED cell — one with the small protection board bonded under the kapton tape at the terminals. Forge's electrical check flags this build for lithium protection because it cannot verify from the outside that the PhotoPainter's onboard charge circuit protects the cell. A protected cell answers that regardless, and is the right call on any battery you leave charging unattended on a wall.",
       "estimatedPrice": "$1 (the SKU upgrade)",
       "whyThisPart": "Waveshare's own board table specifies an MX1.25 2PIN header. Taking the bundled cell avoids both the connector mismatch and the polarity risk, since no listing states which pin is positive.",
       "commonMistake": "Buying a PH2.0 103450 cell because the pitch was not checked. It will not fit."
@@ -146,10 +146,10 @@
     {
       "stepNumber": 1,
       "title": "Know what you're building (and what it will look like)",
-      "quickSummary": "Set expectations before you unbox \u2014 e-ink is paper, not a screen.",
-      "description": "This piece prints a launch card on electronic paper. Two things to know now so you are not disappointed later. First: e-ink white is not paper white. It reflects about 35-45% of light where real paper reflects 80-85%, so it reads like matte newsprint or a risograph print. Hung next to a real photo print, the difference is obvious. Second: it does not glow. In a dark room it is invisible, exactly like a print. Both of those are the POINT \u2014 they are why it reads as art instead of as a monitor.",
+      "quickSummary": "Set expectations before you unbox — e-ink is paper, not a screen.",
+      "description": "This piece prints a launch card on electronic paper. Two things to know now so you are not disappointed later. First: e-ink white is not paper white. It reflects about 35-45% of light where real paper reflects 80-85%, so it reads like matte newsprint or a risograph print. Hung next to a real photo print, the difference is obvious. Second: it does not glow. In a dark room it is invisible, exactly like a print. Both of those are the POINT — they are why it reads as art instead of as a monitor.",
       "goal": "Understand the medium before you commit parts to it.",
-      "whyThisWorks": "Vintage travel posters were screen-printed with a handful of flat spot inks. That is almost exactly the constraint a 6-color e-ink panel imposes. You are not degrading the art to fit the panel \u2014 you are returning it to roughly the production limits it was designed under. Flat color fields, bold shapes and heavy type are the best case for this technology; photographs are the worst case.",
+      "whyThisWorks": "Vintage travel posters were screen-printed with a handful of flat spot inks. That is almost exactly the constraint a 6-color e-ink panel imposes. You are not degrading the art to fit the panel — you are returning it to roughly the production limits it was designed under. Flat color fields, bold shapes and heavy type are the best case for this technology; photographs are the worst case.",
       "doneWhen": "You can say out loud what this will look like at night (dark) and next to a print (greyer).",
       "mediaKind": "generic_checklist"
     },
@@ -157,7 +157,7 @@
       "stepNumber": 2,
       "title": "Unbox and inspect the panel before anything else",
       "quickSummary": "Check the ribbon and the connector latch while everything is still returnable.",
-      "description": "Unpack the PhotoPainter. Look at the flat flexible cable (FFC/FPC) joining the panel to the board. It should be flat, uncreased, and fully seated with its latch closed. This ribbon is the most fragile part of the entire build and it cannot be repaired \u2014 a crease is a dead panel.",
+      "description": "Unpack the PhotoPainter. Look at the flat flexible cable (FFC/FPC) joining the panel to the board. It should be flat, uncreased, and fully seated with its latch closed. This ribbon is the most fragile part of the entire build and it cannot be repaired — a crease is a dead panel.",
       "goal": "Confirm the panel and ribbon arrived intact.",
       "youNeed": [
         "The PhotoPainter",
@@ -184,7 +184,7 @@
       ],
       "doneWhen": "Ribbon is flat and seated, latch closed, glass undamaged.",
       "commonMistakes": [
-        "Forcing a ribbon into a closed latch \u2014 open the latch FIRST, insert with zero force, then close it."
+        "Forcing a ribbon into a closed latch — open the latch FIRST, insert with zero force, then close it."
       ],
       "mediaKind": "generic_checklist"
     },
@@ -337,14 +337,16 @@
         },
         {
           "n": 4,
-          "text": "Hit /refresh on the server and confirm the frame picks up the change on its next wake."
+          "text": "Hit /refresh to redraw the poster from cached data and confirm the frame picks it up on its next wake. This is free. Add ?upstream=1 only when you want fresh launch data.",
+          "caution": "An upstream refresh costs 2 of your 15 requests per hour, and that limit is per IP -- shared with every other device in the house. The server refuses the call rather than let you get throttled, and /status shows what you've spent."
         }
       ],
       "doneWhen": "The panel shows the real next launch, and updates on its own when the launch changes.",
       "whyThisWorks": "ETag caching means the expensive operation -- the refresh -- only happens on a genuine content change.",
       "commonMistakes": [
         "Using the server's DHCP address and losing it on the next lease.",
-        "Expecting an instant update. The frame only checks when it wakes."
+        "Expecting an instant update. The frame only checks when it wakes.",
+        "Hammering /refresh?upstream=1 while debugging. Eight hits exhausts the hourly budget and the 429 blocks your whole network, not just the frame."
       ],
       "verification": "Change the data, wait for a wake, see the panel follow.",
       "mediaKind": "generic_checklist"
@@ -389,7 +391,7 @@
       "stepNumber": 8,
       "title": "Frame it, hang it, and schedule the refresh for the middle of the night",
       "quickSummary": "Matte glazing, a mat that overlaps the bezel, and a 4 AM update.",
-      "description": "Mount the panel in the frame with the mat window cut about 2mm INSIDE the active area so it overlaps and hides the inactive border. Use matte or anti-reflective glazing, or no glazing at all \u2014 glossy glass destroys the one advantage e-ink has over an LCD. Finally, schedule refreshes for the small hours: a Spectra 6 update flashes through several full-panel color passes for roughly half a minute and looks broken to anyone watching.",
+      "description": "Mount the panel in the frame with the mat window cut about 2mm INSIDE the active area so it overlaps and hides the inactive border. Use matte or anti-reflective glazing, or no glazing at all — glossy glass destroys the one advantage e-ink has over an LCD. Finally, schedule refreshes for the small hours: a Spectra 6 update flashes through several full-panel color passes for roughly half a minute and looks broken to anyone watching.",
       "goal": "An object that reads as a framed print.",
       "actions": [
         {
@@ -417,7 +419,7 @@
       "doneWhen": "It hangs on the wall, updates overnight, and a visitor has to be told it is a display.",
       "whyThisWorks": "Every choice here is about removing the tells: reflections, a visible bezel, a cable, and a refresh someone can watch.",
       "commonMistakes": [
-        "Using the frame's original glossy glass \u2014 it re-introduces exactly the glare e-ink avoids."
+        "Using the frame's original glossy glass — it re-introduces exactly the glare e-ink avoids."
       ],
       "mediaKind": "final_assembly"
     }

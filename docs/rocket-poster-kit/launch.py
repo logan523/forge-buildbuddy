@@ -106,6 +106,49 @@ def _read_cache(key):
         return None
 
 
+# The 15/hr cap is PER IP and shared with everything else on the household
+# network, so the only safe assumption is that we are not the only spender.
+# Persisted, because a server restart that forgot its spending would be free
+# to blow the whole budget again immediately.
+HOURLY_CAP = 15
+_SPEND = os.path.join(CACHE_DIR, "spend.json")
+
+
+def _spent(window=3600):
+    """Upstream requests issued in the last hour."""
+    try:
+        with open(_SPEND) as f:
+            stamps = json.load(f)
+    except (OSError, ValueError):
+        stamps = []
+    cut = time.time() - window
+    return [t for t in stamps if t > cut]
+
+
+def _record_spend():
+    stamps = _spent() + [time.time()]
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    tmp = _SPEND + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(stamps, f)
+    os.replace(tmp, _SPEND)
+
+
+def budget():
+    """(spent, cap, seconds until the oldest request ages out)."""
+    stamps = _spent()
+    frees_in = int(stamps[0] + 3600 - time.time()) if stamps else 0
+    return len(stamps), HOURLY_CAP, max(0, frees_in)
+
+
+class BudgetExhausted(RuntimeError):
+    """Raised instead of issuing a request that would tip us into a 429.
+
+    Being throttled is worse than being stale: a 429 blocks the household IP
+    for everything, and the poll loop then cannot recover on its own schedule.
+    """
+
+
 def _write_cache(key, payload):
     os.makedirs(CACHE_DIR, exist_ok=True)
     tmp = _cache_path(key) + ".tmp"
@@ -133,7 +176,18 @@ def fetch(kind="upcoming", force=False):
 
     url = (f"{BASE}/upcoming/?limit=1&hide_recent_previous=true"
            if kind == "upcoming" else f"{BASE}/previous/?limit=1")
+    spent, cap, frees_in = budget()
+    if spent >= cap:
+        if cached:
+            return cached["record"], {"source": "stale", "budget_exhausted": True,
+                                      "error": f"{spent}/{cap} requests used this hour; "
+                                               f"budget frees up in {frees_in//60}min"}
+        raise BudgetExhausted(f"{spent}/{cap} requests used this hour, and nothing "
+                              f"cached to fall back on; retry in {frees_in//60}min")
+
     req = urllib.request.Request(url, headers={"Accept-Encoding": "gzip", "User-Agent": UA})
+    _record_spend()          # count the attempt, not the success -- a request
+                             # that 500s or times out still cost us a slot
     try:
         import gzip, io
         with urllib.request.urlopen(req, timeout=20) as r:

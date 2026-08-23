@@ -21,7 +21,7 @@ Stdlib only, deliberately -- no framework for two routes, and nothing new to
 install on whatever Pi or spare machine this ends up on.
 """
 
-import argparse, http.server, io, json, os, threading, time
+import argparse, hashlib, http.server, io, json, os, threading, time
 
 from PIL import Image
 
@@ -35,7 +35,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # coming up: the frame would get an error and show nothing indefinitely.
 LAST = os.path.join(HERE, ".last-panel.bmp")
 LAST_META = os.path.join(HERE, ".last-panel.json")
-STATE = {"bmp": None, "etag": None, "record": None, "rendered_at": 0,
+STATE = {"bmp": None, "etag": None, "record_digest": None, "record": None, "rendered_at": 0,
          "source": "never", "error": None, "restored": False}
 LOCK = threading.Lock()
 
@@ -45,6 +45,7 @@ def _persist():
     BMP that the frame would then render as garbage."""
     with LOCK:
         bmp, etag, rec, at = STATE["bmp"], STATE["etag"], STATE["record"], STATE["rendered_at"]
+        rdig = STATE["record_digest"]
     if not bmp:
         return
     tmp = LAST + ".tmp"
@@ -53,7 +54,8 @@ def _persist():
     os.replace(tmp, LAST)
     tmp = LAST_META + ".tmp"
     with open(tmp, "w") as f:
-        json.dump({"etag": etag, "record": rec, "rendered_at": at}, f)
+        json.dump({"etag": etag, "record_digest": rdig, "record": rec,
+                   "rendered_at": at}, f)
     os.replace(tmp, LAST_META)
 
 
@@ -72,13 +74,18 @@ def restore():
         return False                      # truncated; ignore rather than serve
     with LOCK:
         STATE.update(bmp=bmp, etag=meta.get("etag"), record=meta.get("record"),
+                     record_digest=meta.get("record_digest"),
                      rendered_at=meta.get("rendered_at", 0),
                      source="restored", restored=True)
     return True
 
 
-def rebuild(force=False):
-    """Fetch, render, pack. Returns True when the image actually changed."""
+def rebuild(force=False, rerender=False):
+    """Fetch, render, pack. Returns True when the image actually changed.
+
+    `force` goes upstream (costs 2 of 15 requests/hour). `rerender` redraws
+    from whatever data is already cached, which is free.
+    """
     try:
         up, meta = launch.fetch("upcoming", force=force)
         prev, _ = launch.fetch("previous", force=force)
@@ -87,10 +94,13 @@ def rebuild(force=False):
             STATE["error"] = f"{type(e).__name__}: {e}"
         return False
 
-    etag = launch.digest(up)
+    # Skip the render when the drawn fields have not moved -- the common case
+    # on the poll loop, and rendering is the only expensive thing left once the
+    # network call is cached.
+    record_digest = launch.digest(up)
     with LOCK:
-        unchanged = etag == STATE["etag"] and STATE["bmp"] is not None
-    if unchanged and not force:
+        settled = record_digest == STATE["record_digest"] and STATE["bmp"] is not None
+    if settled and not (force or rerender):
         with LOCK:
             STATE["source"], STATE["error"] = meta.get("source", "?"), None
         return False
@@ -99,12 +109,21 @@ def rebuild(force=False):
     stray = export_bmp.to_panel_bmp(img)          # raises if any pixel is off-ink
     buf = io.BytesIO()
     stray.save(buf, "BMP")
+    bmp = buf.getvalue()
+
+    # The ETag is over the BYTES, not just the record. Same drawn fields render
+    # to the same bytes, so this still cannot be moved by an upstream
+    # description edit -- but it now also catches a change to the artwork or
+    # the renderer, which a record-only digest silently swallowed: new art
+    # would sit on the server forever while the frame kept getting a 304.
+    etag = hashlib.sha256(bmp).hexdigest()[:12]
     with LOCK:
-        STATE.update(bmp=buf.getvalue(), etag=etag, record=up,
+        changed = etag != STATE["etag"]
+        STATE.update(bmp=bmp, etag=etag, record_digest=record_digest, record=up,
                      rendered_at=time.time(), source=meta.get("source", "?"),
                      error=None, restored=False)
     _persist()
-    return True
+    return changed
 
 
 def poll_loop(stop):
@@ -169,11 +188,38 @@ class Handler(http.server.BaseHTTPRequestHandler):
             snap["record"] = {k: rec.get(k) for k in
                               ("rocket", "mission", "destination", "t0_utc", "status")} if rec else None
             snap["age_s"] = int(time.time() - snap["rendered_at"]) if snap["rendered_at"] else None
+            spent, cap, frees_in = launch.budget()
+            snap["api_budget"] = {"spent_this_hour": spent, "cap": cap,
+                                  "frees_up_in_s": frees_in}
             return self._send(200, json.dumps(snap, indent=1).encode(), "application/json")
 
         if path == "/refresh":
-            changed = rebuild(force=True)
-            return self._send(200, json.dumps({"changed": changed}).encode(), "application/json")
+            # Two different costs behind one word, so they get two behaviours.
+            #
+            # Re-rendering from the cached record is free, and it is what you
+            # actually want while wiring the frame up: force the poster to be
+            # rebuilt and re-served so the panel redraws. Going upstream costs
+            # TWO requests out of fifteen per hour, shared with every other
+            # device on the same IP -- so eight idle browser refreshes of this
+            # URL would throttle the household. GET is a safe method by
+            # convention and gets prefetched, link-previewed and retried by
+            # things that never meant to spend anything, so the expensive path
+            # is opt-in and budget-checked rather than the default.
+            want_upstream = "upstream=1" in (self.path.split("?", 1) + [""])[1]
+            spent, cap, frees_in = launch.budget()
+            if want_upstream and spent + 2 > cap:
+                return self._send(429, json.dumps({
+                    "refreshed": False, "spent": spent, "cap": cap,
+                    "detail": f"an upstream refresh costs 2 requests and only "
+                              f"{cap - spent} remain this hour; frees up in "
+                              f"{frees_in // 60}min. Drop ?upstream=1 to redraw "
+                              f"from cached data for free."}).encode(),
+                    "application/json")
+            changed = rebuild(force=want_upstream, rerender=True)
+            spent, cap, _ = launch.budget()
+            return self._send(200, json.dumps({
+                "changed": changed, "went_upstream": want_upstream,
+                "budget": f"{spent}/{cap} this hour"}).encode(), "application/json")
 
         self._send(404, b"not found")
 

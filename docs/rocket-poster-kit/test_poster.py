@@ -461,3 +461,88 @@ class Server(unittest.TestCase):
         self.assertEqual(launch.digest(a), launch.digest(b))
         c = dict(SAMPLES[3], mission="Something Else")
         self.assertNotEqual(launch.digest(a), launch.digest(c))
+
+
+class Budget(unittest.TestCase):
+    """The 15/hr cap is per IP and shared with the whole house. Going over does
+    not degrade gracefully -- a 429 throttles every device on the network, and
+    the poll loop cannot recover on its own schedule."""
+
+    def setUp(self):
+        import shutil, tempfile
+        self._tmp = tempfile.mkdtemp()
+        self._saved = launch._SPEND
+        launch._SPEND = os.path.join(self._tmp, "spend.json")
+        self._rmtree = shutil.rmtree
+
+    def tearDown(self):
+        launch._SPEND = self._saved
+        self._rmtree(self._tmp, ignore_errors=True)
+
+    def test_spending_survives_a_restart(self):
+        """A server that forgot its spending on restart would be free to blow
+        the entire budget again immediately -- and a crash-loop would do it
+        every few seconds."""
+        for _ in range(4):
+            launch._record_spend()
+        self.assertEqual(launch.budget()[0], 4)     # re-read from disk each call
+
+    def test_old_requests_age_out_of_the_window(self):
+        import time as _t
+        with open(launch._SPEND, "w") as f:
+            json.dump([_t.time() - 3700, _t.time() - 10], f)   # one stale, one live
+        self.assertEqual(launch.budget()[0], 1)
+
+    def test_an_exhausted_budget_serves_stale_rather_than_getting_throttled(self):
+        import time as _t
+        with open(launch._SPEND, "w") as f:
+            json.dump([_t.time()] * launch.HOURLY_CAP, f)
+        saved = launch.BASE
+        launch.BASE = "https://127.0.0.1:9/must-not-be-called"   # refused if reached
+        try:
+            rec, meta = launch.fetch("upcoming", force=True)
+        finally:
+            launch.BASE = saved
+        self.assertEqual(meta["source"], "stale")
+        self.assertTrue(meta["budget_exhausted"])
+        self.assertIsNotNone(rec)
+        self.assertEqual(launch.budget()[0], launch.HOURLY_CAP)  # spent nothing more
+
+    def test_a_failed_request_still_costs_a_slot(self):
+        """Counting successes would let a flapping endpoint issue unlimited
+        requests -- the upstream counts attempts, so we must too."""
+        saved = launch.BASE
+        launch.BASE = "https://127.0.0.1:9/nope"
+        try:
+            launch.fetch("upcoming", force=True)     # fails, falls back to cache
+        except Exception:
+            pass
+        finally:
+            launch.BASE = saved
+        self.assertEqual(launch.budget()[0], 1)
+
+
+class RefreshCost(unittest.TestCase):
+    def setUp(self):
+        import serve
+        self.serve = serve
+        with serve.LOCK:
+            self._saved = dict(serve.STATE)
+
+    def tearDown(self):
+        with self.serve.LOCK:
+            self.serve.STATE.clear()
+            self.serve.STATE.update(self._saved)
+
+    def test_the_etag_moves_when_the_artwork_changes(self):
+        """A record-only digest meant new art sat on the server forever while
+        the frame kept getting 304s. The ETag is over the rendered bytes."""
+        a = export_bmp.to_panel_bmp(render(SAMPLES[3], previous=SAMPLES[2]))
+        b = export_bmp.to_panel_bmp(render(SAMPLES[3], previous=SAMPLES[2], band="left"))
+        import io, hashlib
+        def tag(img):
+            buf = io.BytesIO(); img.save(buf, "BMP")
+            return hashlib.sha256(buf.getvalue()).hexdigest()[:12]
+        self.assertNotEqual(tag(a), tag(b), "same tag for visibly different posters")
+        self.assertEqual(tag(a), tag(export_bmp.to_panel_bmp(
+            render(SAMPLES[3], previous=SAMPLES[2]))), "tag is not deterministic")
