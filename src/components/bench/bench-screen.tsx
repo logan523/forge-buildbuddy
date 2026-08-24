@@ -36,6 +36,7 @@ import { planCostClaim } from "@/lib/cost";
 import { Fact } from "@/components/claim/fact";
 import { ActionCard } from "./action-card";
 import { ProofStrip } from "./proof-strip";
+import { DeclareColor } from "./declare-color";
 import { ChapterSheet } from "./chapter-sheet";
 import { PartsSheet } from "./parts-sheet";
 
@@ -119,6 +120,8 @@ export function BenchScreen({
               Wire {a.index + 1} of {a.total} · {a.stepTitle}
             </p>
             <ActionCard action={a} reality={reality} />
+            {/* Inline, under the sentence it corrects — not behind a drawer. */}
+            <DeclareColor action={a} reality={reality} />
             <ProofStrip action={a} reality={reality} canGoLive={canGoLive} />
             <div
               className="rounded-lg border border-border-subtle overflow-x-auto bg-surface-raised p-2"
