@@ -24,9 +24,10 @@ import {
   subscribeReality,
   type BuildReality,
 } from "@/lib/build-reality";
-import { savePlan, touchPlan } from "@/lib/storage";
+import { loadMeta, savePlan, touchPlan } from "@/lib/storage";
 import type { SymptomId } from "@/lib/unstick";
 import { FlashConsole } from "@/components/flash/flash-console";
+import { needsSafetyAck, SafetyGate } from "./safety-gate";
 import { BenchScreen } from "./bench-screen";
 import { StuckSheet } from "./stuck-sheet";
 
@@ -63,6 +64,9 @@ export function BenchSession({ plan: rawPlan }: BenchSessionProps) {
 function BenchSessionInner({ plan: rawPlan, reality }: { plan: BuildPlan; reality: BuildReality }) {
   const router = useRouter();
   const [liveOpen, setLiveOpen] = useState(false);
+  // Asked once per build, then never again. A gate that re-interrupts someone
+  // who already read it trains them to click through it.
+  const [ackedNow, setAckedNow] = useState(false);
   const [stuck, setStuck] = useState<{ symptomId?: SymptomId } | null>(null);
 
   const plan = useMemo(
@@ -89,6 +93,24 @@ function BenchSessionInner({ plan: rawPlan, reality }: { plan: BuildPlan; realit
         trustPipelineRuns.count;
     }
   }, [plan]);
+
+  const mustAck =
+    needsSafetyAck(plan.safetyReport?.hazardTags ?? plan.hazardTags) &&
+    !ackedNow &&
+    !loadMeta(plan.id)?.safetyAckAt;
+
+  if (mustAck) {
+    return (
+      <SafetyGate
+        plan={plan}
+        onHome={() => router.push("/")}
+        onAcknowledge={() => {
+          touchPlan(plan.id, { safetyAckAt: new Date().toISOString() });
+          setAckedNow(true);
+        }}
+      />
+    );
+  }
 
   return (
     <>

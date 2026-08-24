@@ -13,6 +13,13 @@ export interface PlanMeta {
   cartStrategy?: CartStrategy;
   buildMode?: "quick" | "full";
   detailLevel?: "quick" | "standard" | "deep";
+  /**
+   * ISO timestamp of when the builder acknowledged this build's blocking
+   * hazards. Recorded rather than a boolean so the record says WHEN someone
+   * was told a lithium cell can vent — a bare `true` is not evidence of
+   * anything.
+   */
+  safetyAckAt?: string;
 }
 
 function browser(): boolean {
