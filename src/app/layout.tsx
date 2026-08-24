@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import "./themes/blueprint-evolved.css";
-import "./themes/field-notebook.css";
-import "./themes/kit-box.css";
-import { ThemeSwitcher } from "@/components/dev/theme-switcher";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -41,7 +37,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
         <main className="flex-1">{children}</main>
-        {process.env.NODE_ENV !== "production" && <ThemeSwitcher />}
         <script
           dangerouslySetInnerHTML={{
             __html: `

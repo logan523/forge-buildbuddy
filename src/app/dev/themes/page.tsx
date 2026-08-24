@@ -6,9 +6,19 @@
  * the CSS-variable overrides to descendants). Not linked from the app.
  *
  * The body-level paper texture can't retint per column (it lives on <body>),
- * so each column carries its own bg swatch. For full-app immersion use the
- * "Open the app in this theme" links — the dev pill keeps working everywhere.
+ * so each column carries its own bg swatch.
+ *
+ * There used to be "open the app in this theme" links here, driven by a
+ * floating dev pill that read ?theme= and stamped data-theme on the root. The
+ * pill was removed 2026-08-24 — it sat in the corner of every screen, and the
+ * rebrand it served has been parked since July. This board is the record of
+ * that exploration; it is not a way to run the app in another skin.
  */
+// These live here now rather than in the root layout: the rebrand is parked,
+// and every production page was shipping three themes it had no way to apply.
+import "../../themes/blueprint-evolved.css";
+import "../../themes/field-notebook.css";
+import "../../themes/kit-box.css";
 import { Button, Card, Badge, Icon } from "@/components/ui";
 
 const DIRECTIONS: { id: string | null; name: string; note: string }[] = [
@@ -98,14 +108,6 @@ export default function ThemesJudgingBoard() {
               <p className="text-2xs text-text-muted">{d.note}</p>
             </div>
             <Sample />
-            <div className="bg-surface px-4 py-3 border-t border-border-subtle mt-auto">
-              <a
-                className="text-sm text-accent font-medium no-underline hover:underline"
-                href={`/build/sat-line-smart-clock?theme=${d.id ?? ""}`}
-              >
-                Open the app in this theme →
-              </a>
-            </div>
           </section>
         ))}
       </div>
