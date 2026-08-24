@@ -50,8 +50,22 @@ NOMINAL = {
 
 MEASURED_TO_NOMINAL = {INKS[k]: NOMINAL[k] for k in INKS}
 
-# Panel index order. spectra6.pack() writes 4bpp against this ordering; the
-# driver's own order is a separate thing to verify against the datasheet.
+# The nibble each ink occupies in the panel's 4bpp framebuffer.
+#
+# VERIFIED against the firmware this build flashes, not guessed:
+# aitjcize/esp32-photoframe, components/epaper_src/GUI_ColorMap.h,
+# GUI_RGBToSpectra6() -- black 0, white 1, yellow 2, red 3, blue 5, green 6.
+#
+# Note 4 is SKIPPED. The ordering is also not alphabetical, not the order the
+# inks are listed anywhere else, and puts yellow before red. Deriving it by
+# enumerating a list of ink names -- which is what this file used to do -- gets
+# red and yellow swapped and blue and green each shifted down one. Nothing
+# catches that until a poster is on the wall with the wrong colours.
+PANEL_NIBBLE = {"black": 0, "white": 1, "yellow": 2, "red": 3, "blue": 5, "green": 6}
+
+# Order used for internal indexing and nearest-ink math. Compact 0..5, and
+# deliberately NOT the panel's order -- see PANEL_NIBBLE, which is the only
+# thing that may be written into a framebuffer.
 INK_ORDER = ["black", "white", "red", "yellow", "blue", "green"]
 INK_LIST = [(n, INKS[n]) for n in INK_ORDER]
 INK_RGB = set(INKS.values())

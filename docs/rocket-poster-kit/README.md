@@ -67,6 +67,26 @@ would miss all six triples. You need both, in that order.
 `export_bmp.py` refuses to write a file containing anything else, and re-reads
 the result to confirm.
 
+### What the firmware actually does with our BMP (verified, not assumed)
+
+Read from the source this build flashes, `aitjcize/esp32-photoframe`:
+
+* `docs/API.md` -- **"BMP: displayed directly (must be pre-processed)"**, versus
+  "JPEG/PNG: decoded, dithered to e-paper palette, displayed". So sending a BMP
+  bypasses the device's own Floyd-Steinberg pass entirely. Send a PNG instead
+  and the firmware re-dithers our already-flat six-ink art against its own
+  calibrated palette -- speckle on every flat field, and all the palette work
+  in this kit thrown away. **Serve BMP. Never PNG.**
+* `components/epaper_src/GUI_ColorMap.h`, `GUI_RGBToSpectra6()` -- exact match
+  against the *nominal* triples, which is exactly what `export_bmp.py` writes.
+  Unknown colours return white (index 1) rather than inheriting the previous
+  pixel, so this fork has fixed the stock smear bug described above. Ours are
+  all exact matches regardless, which is the point of the two-palette split.
+
+The panel's 4bpp nibbles are **black 0, white 1, yellow 2, red 3, blue 5,
+green 6** -- yellow before red, and 4 unused. `palette.PANEL_NIBBLE` carries
+that, and `spectra6.pack()` remaps on the way out so no caller can forget.
+
 **Buy the ESP32-S3 version, not PhotoPainter (B).** The (B) is RP2350-based and
 has **no radio at all** — SD card only. The ESP32-S3-PhotoPainter is cheaper
 *and* has WiFi. For automated fetch, `aitjcize/esp32-photoframe` (MIT, active)

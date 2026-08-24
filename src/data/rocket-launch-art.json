@@ -262,6 +262,11 @@
           "n": 4,
           "text": "Check that the firmware sleeps the panel after each refresh.",
           "caution": "Mandatory, not an optimisation. The image persists BECAUSE power is off. Leaving the driver energised on a static image damages the electrophoretic layer permanently."
+        },
+        {
+          "n": 5,
+          "text": "Set the image URL to the .bmp endpoint, not a .png one.",
+          "caution": "The firmware displays a BMP directly but DECODES AND RE-DITHERS a PNG or JPEG against its own palette. Our poster is already flat six-ink art, so re-dithering only adds speckle to every flat field. Verified in the firmware's docs/API.md."
         }
       ],
       "doneWhen": "The frame fetches an image from a URL you control and displays it.",
@@ -269,7 +274,8 @@
       "commonMistakes": [
         "Flashing with the battery plugged in and chasing phantom resets.",
         "Writing your own TLS stack and pinning the LEAF certificate -- the host is Cloudflare-fronted and rotates leaves, so a pinned leaf bricks the frame within weeks. Pin the ROOT CA.",
-        "Skipping the panel sleep call."
+        "Skipping the panel sleep call.",
+        "Serving the poster as PNG because it is smaller. The device re-dithers PNG and undoes the colour work; BMP is passed straight to the panel."
       ],
       "verification": "A URL change on your side shows up on the panel after the next wake.",
       "mediaKind": "usb_upload"

@@ -17,6 +17,7 @@ import export_bmp
 import launch
 import typeset as T
 from palette import INKS, INK_RGB, CANVAS, NOMINAL, MEASURED_TO_NOMINAL, palette_for, FALLBACK
+import palette
 from poster import render, M, on
 from spectra6 import verify, pack, index_map
 import flag
@@ -283,12 +284,19 @@ class WireFormat(unittest.TestCase):
         self.assertEqual(len(pack(index_map(img))), W * H // 2)   # 4bpp
 
     def test_pack_round_trips(self):
+        """Unpacking now has to invert the panel-nibble remap that pack()
+        applies. Before that remap existed this test passed while the bytes
+        going to the panel had red and yellow swapped -- an identity round
+        trip proves the packing, never the mapping."""
         import numpy as np
         idx = index_map(render(SAMPLES[3], previous=SAMPLES[2]))
         b = np.frombuffer(pack(idx), dtype=np.uint8).reshape(H, W // 2)
         back = np.zeros((H, W), np.uint8)
         back[:, 0::2], back[:, 1::2] = b >> 4, b & 0x0F
-        self.assertTrue(np.array_equal(back, idx))
+        from_nibble = {palette.PANEL_NIBBLE[n]: i
+                       for i, n in enumerate(palette.INK_ORDER)}
+        undone = np.vectorize(from_nibble.get)(back).astype(np.uint8)
+        self.assertTrue(np.array_equal(undone, idx))
 
     def test_index_map_refuses_an_illegal_image(self):
         """Snapping stray colors silently would hide the bug that produced
@@ -546,3 +554,38 @@ class RefreshCost(unittest.TestCase):
         self.assertNotEqual(tag(a), tag(b), "same tag for visibly different posters")
         self.assertEqual(tag(a), tag(export_bmp.to_panel_bmp(
             render(SAMPLES[3], previous=SAMPLES[2]))), "tag is not deterministic")
+
+
+class PanelWireFormat(unittest.TestCase):
+    """The 4bpp nibble each ink occupies.
+
+    Verified against the firmware this build actually flashes:
+    aitjcize/esp32-photoframe, components/epaper_src/GUI_ColorMap.h,
+    GUI_RGBToSpectra6(). Pinned here because getting it wrong produces a
+    poster that looks plausible and is wrong -- red rendering as yellow --
+    which no amount of staring at the PNG would catch.
+    """
+
+    def test_every_ink_packs_to_the_nibble_the_firmware_expects(self):
+        for name, rgb in palette.INKS.items():
+            with self.subTest(ink=name):
+                got = pack(index_map(Image.new("RGB", (2, 1), rgb)))[0] >> 4
+                self.assertEqual(got, palette.PANEL_NIBBLE[name])
+
+    def test_the_panel_order_is_not_the_internal_order(self):
+        """Guards the assumption that broke this: enumerating INK_ORDER does
+        NOT yield panel nibbles. If someone 'simplifies' PANEL_NIBBLE away by
+        deriving it from the list order, this fails."""
+        derived = {n: i for i, n in enumerate(palette.INK_ORDER)}
+        self.assertNotEqual(derived, palette.PANEL_NIBBLE)
+        self.assertEqual(palette.PANEL_NIBBLE["yellow"], 2)   # before red
+        self.assertEqual(palette.PANEL_NIBBLE["red"], 3)
+        self.assertNotIn(4, palette.PANEL_NIBBLE.values())     # 4 is unused
+
+    def test_a_packed_poster_carries_only_legal_nibbles(self):
+        import numpy as np
+        idx = index_map(render(SAMPLES[3], previous=SAMPLES[2]))
+        b = np.frombuffer(pack(idx), dtype=np.uint8)
+        nibbles = set((b >> 4).tolist()) | set((b & 0x0F).tolist())
+        self.assertTrue(nibbles <= set(palette.PANEL_NIBBLE.values()),
+                        f"illegal nibbles on the wire: {nibbles - set(palette.PANEL_NIBBLE.values())}")

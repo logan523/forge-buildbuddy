@@ -21,14 +21,11 @@ import numpy as np
 
 # Measured-ish Spectra 6 ink values. NOT sRGB primaries -- the panel's gamut is
 # closer to CMYK print, and "white" reflects only 35-45% (newsprint, not paper).
-INKS = [
-    ("black",  (26, 26, 24)),
-    ("white",  (214, 211, 200)),
-    ("red",    (168, 57, 47)),
-    ("yellow", (212, 174, 42)),
-    ("blue",   (53, 84, 138)),
-    ("green",  (74, 117, 80)),
-]
+#
+# Imported, not redeclared. This file used to carry its own copy, which is how
+# palette.py's stated panel ordering and this file's actual ordering drifted
+# apart without anything failing.
+from palette import INK_LIST as INKS, INK_ORDER, PANEL_NIBBLE
 PAL = np.array([c for _, c in INKS], dtype=np.float64)
 
 # Error-diffusion kernels: (dx, dy, weight) with the divisor folded in.
@@ -133,8 +130,20 @@ def index_map(img):
     return out
 
 
+# compact index (INK_ORDER) -> the nibble the panel expects.
+_TO_NIBBLE = np.array([PANEL_NIBBLE[n] for n in INK_ORDER], dtype=np.uint8)
+
+
 def pack(idx):
-    """4 bits/px, two pixels per byte -- the panel's wire format."""
+    """4 bits/px, two pixels per byte -- the panel's wire format.
+
+    Remaps to the panel's nibbles on the way out, so no caller can forget.
+    The panel's order is not our internal order (it puts yellow before red and
+    skips 4 entirely), and packing raw internal indices renders red as yellow,
+    yellow as red, and green as blue -- a poster that looks plausible and is
+    wrong, which is the worst kind.
+    """
+    idx = _TO_NIBBLE[idx]
     h, w = idx.shape
     if w % 2:
         idx = np.pad(idx, ((0,0),(0,1)))
