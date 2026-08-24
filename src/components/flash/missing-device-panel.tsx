@@ -23,7 +23,7 @@ import {
 import { diagnose } from "@/lib/unstick";
 import { svgCircuitDiagram } from "@/lib/step-media/circuit-diagram";
 import { netColorFor } from "@/lib/wire-colors";
-import { DiagnosisCard } from "@/components/build/diagnosis-card";
+import { DiagnosisCard } from "./diagnosis-card";
 
 export function MissingDeviceDebugPanel({
   plan,

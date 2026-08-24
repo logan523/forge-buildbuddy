@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { BuildPlan } from "@/lib/types";
 import { getPlan, savePlan, touchPlan } from "@/lib/storage";
-import { BuildSession } from "@/components/build-session";
+import { BenchSession } from "@/components/bench/bench-session";
 import demoPlan from "@/data/sat-line.json";
 import weatherClockPlan from "@/data/solar-weather-clock.json";
 import rocketArtPlan from "@/data/rocket-launch-art.json";
@@ -22,8 +22,8 @@ function BuildByIdInner() {
     if (!id) return;
 
     // Resolve only. The route used to run applyTrustPipeline here as well as
-    // in BuildSession, which compiled the whole plan twice before anything
-    // rendered; BuildSession re-saves with derived data anyway, so the saved
+    // in the session, which compiled the whole plan twice before anything
+    // rendered; the session re-saves with derived data anyway, so the saved
     // copy loses nothing.
     const load = (p: BuildPlan) => {
       savePlan(p);
@@ -117,12 +117,7 @@ function BuildByIdInner() {
   }
 
   return (
-    <BuildSession
-      plan={plan}
-      startAtPrep={!isDemo && initialStepIndex == null}
-      initialStepIndex={initialStepIndex}
-      jumpToWiring={isDemo}
-    />
+    <BenchSession plan={plan} />
   );
 }
 

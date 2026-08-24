@@ -46,7 +46,7 @@ import {
   isolatePartIds,
 } from "@/lib/stage/step-isolation";
 import { solveShot, type ShotId, type StageShot } from "@/lib/stage/shots";
-import { ConformanceSeal } from "@/components/build/conformance-seal";
+import { ConformanceSeal } from "./conformance-seal";
 import { StageCanvas } from "./stage-canvas";
 import { CameraRig } from "./camera-rig";
 import { PartsLayer } from "./parts-layer";
