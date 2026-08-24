@@ -162,6 +162,9 @@ current plates pass, all six earlier ones fail.
 | `launch.py` | Fetch, cache, normalize. Implements the same polling policy the build plan puts in firmware. |
 | `spectra6.py` | Panel simulator, legality check (`verify`), and the 4bpp packer. |
 | `launch-samples.json` | 24 real records chosen to span the design space — rare destinations, worst-case string lengths, classified and sparse records, and the everyday Falcon-to-LEO case. Offline fixtures. |
+| `scene.py` | Generated backgrounds, cached per (destination, country). `snap_to_inks` is the post-resample legality guarantee everything else depends on. |
+| `serve.py` | The render-and-serve loop the frame polls. Persists the last poster so a reboot is never a blank wall. |
+| `variants*.py`, `lineart.py` | **Design record, not production.** The shotgun scripts that produced the rejected rounds. Kept so the reasoning is auditable; nothing imports them. |
 | `DESIGN-PROMPT.md` | Reference only now. Prompts for offline concept ideation; the shipped art is templated. |
 
 ## Things that will bite you

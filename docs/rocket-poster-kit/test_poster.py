@@ -589,3 +589,51 @@ class PanelWireFormat(unittest.TestCase):
         nibbles = set((b >> 4).tolist()) | set((b & 0x0F).tolist())
         self.assertTrue(nibbles <= set(palette.PANEL_NIBBLE.values()),
                         f"illegal nibbles on the wire: {nibbles - set(palette.PANEL_NIBBLE.values())}")
+
+
+class SnapToInks(unittest.TestCase):
+    """scene.snap_to_inks is the whole post-resample legality guarantee.
+
+    Every scaled plate and every scaled vehicle goes through it, and two plates
+    once shipped 3,802 and 8,955 off-ink pixels precisely because a resample
+    skipped it. It had no direct test until now -- only end-to-end poster
+    assertions, which would not have told us WHICH stage broke.
+    """
+
+    def setUp(self):
+        import scene
+        self.scene = scene
+
+    def test_anything_at_all_comes_out_legal(self):
+        """The contract: arbitrary RGB in, only the six inks out. Fed the worst
+        case -- a full-spectrum gradient, nothing in it near an ink."""
+        w, h = 120, 40
+        px = [(x * 2 % 256, (x * 5 + y * 3) % 256, (y * 6) % 256)
+              for y in range(h) for x in range(w)]
+        img = Image.new("RGB", (w, h)); img.putdata(px)
+        out = self.scene.snap_to_inks(img)
+        self.assertEqual(verify(out), set(), "snap_to_inks emitted off-ink colours")
+
+    def test_a_legal_image_passes_through_untouched(self):
+        """Idempotence. If snapping moved already-exact pixels, every re-snap
+        in the pipeline would drift the art a little further each pass."""
+        img = render(SAMPLES[3], previous=SAMPLES[2])
+        once = self.scene.snap_to_inks(img)
+        twice = self.scene.snap_to_inks(once)
+        self.assertEqual(list(img.getdata()), list(once.getdata()))
+        self.assertEqual(list(once.getdata()), list(twice.getdata()))
+
+    def test_it_does_not_diffuse_error(self):
+        """The docstring's central claim, and the reason it is not dither().
+        A flat off-palette field must land on ONE ink, not a speckle of
+        several -- diffusion is what put colour noise on the white rocket."""
+        flat = Image.new("RGB", (60, 60), (150, 150, 150))    # grey: near nothing
+        out = self.scene.snap_to_inks(flat)
+        self.assertEqual(len(set(out.getdata())), 1,
+                         "a flat field fragmented -- error is being diffused")
+
+    def test_each_ink_snaps_to_itself_not_a_neighbour(self):
+        for name, rgb in palette.INKS.items():
+            with self.subTest(ink=name):
+                out = self.scene.snap_to_inks(Image.new("RGB", (4, 4), rgb))
+                self.assertEqual(out.getpixel((0, 0)), rgb)
