@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fact } from "@/components/claim/fact";
+import { planCostClaim } from "@/lib/cost";
 import type { BuildPlan, BuildStep, Part, MicroStep } from "@/lib/types";
 import type { FirmwarePackage } from "@/lib/firmware";
 import type { ProductVisual } from "@/lib/product-visual";
@@ -361,7 +363,10 @@ export function BuildScreen({
         <button onClick={onHome} className="text-sm text-text-muted hover:text-text cursor-pointer shrink-0">← Home</button>
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm font-medium text-text truncate max-w-[160px] lg:max-w-[220px]">{plan.title}</span>
-          <span className="text-xs text-text-muted hidden sm:inline">{plan.estimatedCost}</span>
+          <Fact
+            claim={planCostClaim(plan)}
+            className="text-xs text-text-muted hidden sm:inline"
+          />
         </div>
         <div className="flex items-center gap-1 lg:gap-2 shrink-0">
           <button

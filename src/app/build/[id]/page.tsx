@@ -4,7 +4,6 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { BuildPlan } from "@/lib/types";
 import { getPlan, savePlan, touchPlan } from "@/lib/storage";
-import { applyTrustPipeline } from "@/lib/trust";
 import { BuildSession } from "@/components/build-session";
 import demoPlan from "@/data/sat-line.json";
 import weatherClockPlan from "@/data/solar-weather-clock.json";
@@ -22,12 +21,19 @@ function BuildByIdInner() {
   useEffect(() => {
     if (!id) return;
 
+    // Resolve only. The route used to run applyTrustPipeline here as well as
+    // in BuildSession, which compiled the whole plan twice before anything
+    // rendered; BuildSession re-saves with derived data anyway, so the saved
+    // copy loses nothing.
+    const load = (p: BuildPlan) => {
+      savePlan(p);
+      touchPlan(p.id);
+      setPlan(p);
+    };
+
     // Built-in demo id
     if (id === "sat-line-smart-clock" || id === "demo-sat-line") {
-      const trusted = applyTrustPipeline(demoPlan as unknown as BuildPlan);
-      savePlan(trusted);
-      touchPlan(trusted.id);
-      setPlan(trusted);
+      load(demoPlan as unknown as BuildPlan);
       return;
     }
 
@@ -35,20 +41,13 @@ function BuildByIdInner() {
     // edits to the JSON show up without clearing localStorage. It still opens
     // at the prep screen (safety + parts) because it isn't flagged as a demo.
     if (id === "solar-weather-clock") {
-      const trusted = applyTrustPipeline(weatherClockPlan as unknown as BuildPlan);
-      savePlan(trusted);
-      touchPlan(trusted.id);
-      setPlan(trusted);
+      load(weatherClockPlan as unknown as BuildPlan);
       return;
     }
 
     // Researched builds — authored source of truth, same pattern as above.
     if (id === "rocket-launch-art" || id === "homelab-adblock-media") {
-      const src = id === "rocket-launch-art" ? rocketArtPlan : homelabPlan;
-      const trusted = applyTrustPipeline(src as unknown as BuildPlan);
-      savePlan(trusted);
-      touchPlan(trusted.id);
-      setPlan(trusted);
+      load((id === "rocket-launch-art" ? rocketArtPlan : homelabPlan) as unknown as BuildPlan);
       return;
     }
 
@@ -57,10 +56,7 @@ function BuildByIdInner() {
       setMissing(true);
       return;
     }
-    const trusted = applyTrustPipeline(found);
-    savePlan(trusted);
-    touchPlan(trusted.id);
-    setPlan(trusted);
+    load(found);
   }, [id]);
 
   const isDemo = id === "sat-line-smart-clock" || id === "demo-sat-line";

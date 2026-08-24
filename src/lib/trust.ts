@@ -59,7 +59,19 @@ function stampRealityColors(plan: BuildPlan, reality: BuildReality): BuildPlan {
   return { ...plan, electrical: { ...model, nets } };
 }
 
+/**
+ * How many times the pipeline has run this page load.
+ *
+ * Not instrumentation for its own sake: this ran THREE times per build-page
+ * load (route effect, session memo, then again when reality hydration flipped
+ * the revision undefined -> 0), each pass driving ~2,300 lines of enrichParts
+ * / netlist / ERC / compile / validate. It is a counter because "we think it
+ * runs once now" is the kind of claim this rebuild exists to stop making.
+ */
+export const trustPipelineRuns = { count: 0 };
+
 export function applyTrustPipeline(plan: BuildPlan, reality?: BuildReality): BuildPlan {
+  trustPipelineRuns.count += 1;
   const parts: Part[] = attachBuyData(enrichParts(plan.parts || []));
   const withParts: BuildPlan = {
     ...plan,

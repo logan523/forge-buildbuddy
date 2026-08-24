@@ -19,14 +19,20 @@ import { planCartOpens, VENDOR_LABEL, type CartOpenItem, type CartStrategy } fro
 import { generateFirmware, isSoftwareStep } from "@/lib/firmware";
 import { generatePcbPackage } from "@/lib/pcb";
 import { generateEnclosure } from "@/lib/enclosure";
-import { applyTrustPipeline } from "@/lib/trust";
+import { applyTrustPipeline, trustPipelineRuns } from "@/lib/trust";
 import { onStorageWarning, savePlan, touchPlan } from "@/lib/storage";
 import { shareUrlForPlan } from "@/lib/share";
 import { filterStepsForMode, skippedStepsForMode } from "@/lib/modes";
 import { useProductVisual } from "@/components/product-hero";
 import { PrepScreen } from "@/components/build/prep-screen";
 import { BuildScreen } from "@/components/build/build-screen";
-import { hydrateReality, readReality, subscribeReality } from "@/lib/build-reality";
+import {
+  hydrateReality,
+  migrateLegacyWirechecks,
+  readReality,
+  subscribeReality,
+  type BuildReality,
+} from "@/lib/build-reality";
 import { useSyncExternalStore } from "react";
 import { BuildDrawers } from "@/components/build/build-drawers";
 import {
@@ -56,12 +62,48 @@ export interface BuildSessionProps {
   jumpToWiring?: boolean;
 }
 
-export function BuildSession({
+/**
+ * Reality has to be known BEFORE the first compile, not after.
+ *
+ * This used to read the cache inline: the first compile ran with `undefined`
+ * reality (canonical colours, no declarations), then hydration flipped the
+ * revision and the entire pipeline ran again. Measured on
+ * /build/solar-weather-clock, the page was compiling FIVE times before it
+ * settled. Gating here costs a skeleton frame and buys one compile -- and it
+ * is also what stops the builder's declared wire colours from visibly
+ * swapping in after paint (design addendum 11).
+ */
+export function BuildSession(props: BuildSessionProps) {
+  const planId = props.plan.id;
+  const reality = useSyncExternalStore(
+    subscribeReality,
+    () => readReality(planId),
+    () => undefined
+  );
+  useEffect(() => {
+    void hydrateReality(planId); // no edges: the legacy migration runs after the first compile
+  }, [planId]);
+
+  if (reality === undefined) {
+    return (
+      <div
+        className="h-[calc(100vh-3.5rem)] grid place-items-center text-sm text-text-muted"
+        data-testid="build-session-hydrating"
+      >
+        Loading your build…
+      </div>
+    );
+  }
+  return <BuildSessionInner {...props} reality={reality} />;
+}
+
+function BuildSessionInner({
   plan: rawPlan,
   startAtPrep = true,
   initialStepIndex,
   jumpToWiring = false,
-}: BuildSessionProps) {
+  reality,
+}: BuildSessionProps & { reality: BuildReality }) {
   const router = useRouter();
   const [planPatch, setPlanPatch] = useState<Partial<BuildPlan>>({});
   // B6: storage quota failures surface instead of silently losing progress.
@@ -70,24 +112,20 @@ export function BuildSession({
     onStorageWarning((context) => setStorageWarning(context));
     return () => onStorageWarning(null);
   }, []);
-  // BuildReality (Slice 2): sync-read the cache; undefined = not hydrated
-  // yet — the pipeline runs canonical-colored until hydration lands, then
-  // recompiles ONCE keyed on the monotonic revision (eng E1/E6 — never a
-  // content hash, never a per-keystroke recompute).
-  const reality = useSyncExternalStore(
-    subscribeReality,
-    () => readReality(rawPlan.id),
-    () => undefined
-  );
+  // Reality is hydrated by the wrapper above, so this compiles once and is
+  // keyed on the monotonic revision (eng E1/E6 — never a content hash, never
+  // a per-keystroke recompute).
   const plan = useMemo(
     () => applyTrustPipeline({ ...rawPlan, ...planPatch }, reality),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- revision IS the identity (E6)
     [rawPlan, planPatch, reality?.revision]
   );
   useEffect(() => {
-    // Hydrate after first compile: the compiled edges let the legacy
-    // wirechecks migration record real endpoints (eng E9).
-    void hydrateReality(
+    // The one thing that genuinely needs compiled edges: recovering real
+    // endpoints from legacy forge-wirechecks-* keys (eng E9). No-ops unless
+    // this plan actually has legacy data, so it costs one extra compile once
+    // per plan rather than on every load.
+    migrateLegacyWirechecks(
       rawPlan.id,
       plan.steps.flatMap((st) => st.compiled?.connections ?? [])
     );
@@ -160,6 +198,15 @@ export function BuildSession({
     });
     const parts = plan.parts ?? null;
     (window as unknown as { __forgeBOM: typeof parts }).__forgeBOM = parts;
+    (window as unknown as { __forgePipelineRuns: number }).__forgePipelineRuns =
+      trustPipelineRuns.count;
+    // Dev trace: distinguishes StrictMode's duplicate invocation (same
+    // revision twice) from a real extra compile caused by hydration flipping
+    // the revision -- the thing the gate above exists to prevent.
+    (window as unknown as { __forgeRevisions: unknown[] }).__forgeRevisions = [
+      ...(((window as unknown as { __forgeRevisions?: unknown[] }).__forgeRevisions) ?? []),
+      reality.revision,
+    ];
     window.dispatchEvent(new CustomEvent("forge:bom", { detail: parts }));
   }, [plan, state.cartStrategy, state.buildMode, state.detailLevel]);
 

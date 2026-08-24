@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Fact } from "@/components/claim/fact";
+import { planCostClaim } from "@/lib/cost";
 import type { BuildPlan, CustomFirmwareFile, Part } from "@/lib/types";
 import { estimateBom, type CartStrategy } from "@/lib/cart";
 import { filterStepsForMode, modeLabel, type BuildMode } from "@/lib/modes";
@@ -75,7 +77,10 @@ export function PrepScreen({
         <span className="text-sm font-medium text-text truncate">{plan.title}</span>
         <div className="flex items-center gap-2">
           <button onClick={onShare} className="text-xs px-2 py-1 rounded-lg text-text-muted hover:text-text cursor-pointer">Share</button>
-          <span className="text-xs text-text-muted">{plan.estimatedCost}</span>
+          <Fact
+            claim={planCostClaim(plan)}
+            className="text-xs text-text-muted"
+          />
         </div>
       </div>
       {shareMsg && (

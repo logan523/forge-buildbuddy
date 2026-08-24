@@ -62,6 +62,28 @@ export function hydrateReality(planId: string, edges: CompiledConnection[] = [])
   return p;
 }
 
+/**
+ * Run the legacy `forge-wirechecks-*` migration, which needs compiled edges to
+ * recover real endpoints (eng E9).
+ *
+ * Split out of `hydrateReality` on purpose. Hydration used to be deferred
+ * until after the first compile so it could pass edges, which meant the first
+ * compile always ran against `undefined` reality and a second full compile
+ * followed the moment hydration flipped the revision. Now hydration runs
+ * first with no edges, and this runs once afterwards -- and only for a plan
+ * that actually has legacy data, so the extra compile is a one-time migration
+ * cost instead of something every page load pays forever.
+ */
+export function migrateLegacyWirechecks(planId: string, edges: CompiledConnection[]): void {
+  const current = cache.get(planId);
+  if (!current || current.revision > 0) return; // already real state; nothing to recover
+  const migrated = migrateWirechecks(planId, edges);
+  if (migrated.revision === 0) return;          // nothing legacy to migrate
+  cache.set(planId, migrated);
+  void saveRealityToDisk(migrated);
+  notify();
+}
+
 /** Write-through: cache now (sync, so the UI re-renders on this revision), disk async. */
 export function commitReality(reality: BuildReality): void {
   cache.set(reality.planId, reality);
