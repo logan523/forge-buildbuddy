@@ -1,5 +1,9 @@
 # Plan: 3D Fidelity — Flux-parity for Forge's assembly viewer
 
+> **SHIPPED, THEN REVERTED (2026-08-24).** Track A's postfx work was deleted by 332e1be.
+> Its actual conclusion is the durable part: chase recognizability, not cinema.
+
+
 Date: 2026-07-10 · Branch: main · Author: Forge
 Source research: deep-research on flux.ai (verified, 17/25 claims confirmed) + full audit of Forge's current 3D stack.
 

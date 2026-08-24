@@ -15,9 +15,8 @@ export const metadata: Metadata = {
 };
 
 // CONSTRAINT: no root loading.tsx in this segment. A root-level Suspense
-// boundary re-mounts the R3F Canvas mid-hydration; the postprocessing
-// composer then initializes against a renderer whose WebGL context the
-// interrupted mount already disposed ("null.alpha" crash in addPass).
+// boundary re-mounts the R3F Canvas mid-hydration against a renderer whose
+// WebGL context the interrupted mount already disposed.
 // error.tsx / not-found.tsx are error boundaries, not Suspense — safe.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

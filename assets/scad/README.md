@@ -1,4 +1,4 @@
-# OpenSCAD / FreeCAD / Chili3D → BuildBuddy GLB pipeline
+# OpenSCAD / FreeCAD / Chili3D → Forge GLB pipeline
 
 These tools **do not replace** the in-app R3F assembly modeler (harness, phases, isolate).  
 They **generate higher-fidelity solid meshes** for optional underlays.

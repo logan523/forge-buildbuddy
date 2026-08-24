@@ -1,5 +1,10 @@
 # Senior Engineering Review — Forge Platform
 
+> **HISTORICAL (audited 2026-07-08, superseded 2026-08-24).** Its scorecard predates Web
+> Serial flashing, the build-reality layer, and the rebuild that replaced the whole UI.
+> Reads as current when it is not.
+
+
 **Reviewer posture:** Staff/principal engineer with deep experience shipping hardware tools, EDA-adjacent software, and multi-agent LLM systems.  
 **Date:** 2026-07-08  
 **Scope:** Entire Forge codebase after moonshot delivery (pipeline, PCB, enclosure, kits, trust, buy, firmware, unstick, sessions).

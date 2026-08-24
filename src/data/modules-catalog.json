@@ -1094,7 +1094,11 @@
       "aliases": [
         "battery level",
         "battery indicator",
-        "led battery bar"
+        "led battery bar",
+        "capacity indicator",
+        "capacity display",
+        "battery capacity",
+        "ternary lithium"
       ],
       "category": "power",
       "logicVoltage": null,
@@ -1121,6 +1125,95 @@
       "amazonQuery": "1S 3.7V Li-ion battery capacity indicator LED 4 segment module",
       "lcscQuery": "battery capacity indicator 1S",
       "substituteIds": []
+    },
+    {
+      "id": "battery-lipo-1s",
+      "name": "1S LiPo Pouch Cell 3.7V",
+      "aliases": [
+        "lipo",
+        "li-po",
+        "lithium polymer",
+        "lipo battery",
+        "lipo pouch",
+        "pouch cell",
+        "602535",
+        "3.7v lipo"
+      ],
+      "category": "battery",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "+",
+        "-"
+      ],
+      "hazards": [
+        "LIPO"
+      ],
+      "isLithiumCell": true,
+      "footguns": [
+        "Never short + and − — a LiPo pouch can vent or catch fire",
+        "Never solder directly onto the pouch tabs — heat can cause an internal short; solder the leads instead",
+        "Charge only through a protected charger (TP4056/DW01) — never raw USB across the cell",
+        "Verify polarity (red +, black −) with a multimeter before connecting"
+      ],
+      "searchQuery": "602535 3.7V lipo battery 500mAh JST",
+      "typicalPrice": "$4-9",
+      "specs": "1S 3.7V LiPo pouch, ~500mAh, 6.0×25×35mm",
+      "preferredVendor": "amazon",
+      "priceMin": 4.0,
+      "priceMax": 9.0,
+      "amazonQuery": "602535 3.7V 500mAh lipo battery rechargeable",
+      "substituteIds": [
+        "battery-16340"
+      ],
+      "manufacturer": "Generic",
+      "mpn": "602535",
+      "mpnNote": "Pouch ~6.0×25×35mm; capacity varies ~450-600mAh",
+      "mpnVerifiedAt": "2026-08-02"
+    },
+    {
+      "id": "spdt-slide-switch",
+      "name": "SPDT Slide Switch",
+      "aliases": [
+        "slide switch",
+        "spdt",
+        "ss12f44",
+        "spdt switch",
+        "power switch",
+        "on off switch",
+        "toggle switch"
+      ],
+      "category": "input",
+      "logicVoltage": null,
+      "maxIOVoltage": null,
+      "interface": [
+        "power"
+      ],
+      "pins": [
+        "COM",
+        "A",
+        "B"
+      ],
+      "hazards": [],
+      "footguns": [
+        "3-pin SPDT: the CENTER pin is common (COM) — use COM + one outer pin as a simple ON/OFF",
+        "Confirm which slide direction is ON with a multimeter continuity check"
+      ],
+      "searchQuery": "SS12F44 SPDT slide switch 3 pin",
+      "typicalPrice": "$0.20-1",
+      "specs": "3-pin SPDT slide switch, ~0.5A / 50V",
+      "preferredVendor": "amazon",
+      "priceMin": 0.2,
+      "priceMax": 2.0,
+      "amazonQuery": "SS12F44 SPDT 3 pin slide switch",
+      "substituteIds": [],
+      "manufacturer": "Chanzon",
+      "mpn": "SS12F44",
+      "mpnNote": "3-pin SPDT; center pin = common (COM)",
+      "mpnVerifiedAt": "2026-08-02"
     }
   ]
 }

@@ -1,152 +1,132 @@
-# Forge — AI-guided DIY electronics build platform
+# Forge — a build that proves itself
+
+*Rewritten 2026-08-24, after the rebuild. The previous version described a product that no longer exists.*
 
 ## What Forge Is
 
-Paste a YouTube link or describe a project. Forge finds every part (with real buy links across 5 vendors) and generates step-by-step instructions a complete beginner can follow.
+You are at a bench holding a soldering iron and two modules. Forge tells you **the next single action, in your world — your parts, your colours, your hole coordinates — and proves it worked before you trust it.**
+
+That sentence is the whole product. It is also the exact thing the owner needed and could not get from the previous version, which he abandoned in the first hour of a real build and replaced with a chat window.
 
 ## Who It's For
 
-Complete beginners who don't know electronics. They don't know what a pull-up resistor is. They don't know I2C from SPI. They need specific pin numbers, wire colors, and photos/diagrams.
+Beginners, at NASA-grade rigor. Those are not in tension: the rigor is what makes it safe to hand to a beginner. Someone who has never soldered should be able to finish a build, and every claim the product makes along the way should be one it can account for.
+
+The question to design against is the one that was actually asked, over and over: **"where do I put each wire, where do I plug each breadboard thing."**
+
+## The Contract (read this before writing any UI)
+
+Every fact that can reach a builder's eye is a `Claim` (`src/lib/claim/`):
+
+```ts
+Claim<T> = { kind: "derived";   value: T; from: string }        // computed; `from` cites what
+         | { kind: "declared";  value: T; at: string }          // the builder said so
+         | { kind: "evidenced"; value: T; tier; at: string }    // an instrument answered
+         | { kind: "unknown";   need: string }                  // and what would close it
+```
+
+**`unknown` has no `value` field.** That is the mechanism, not a convention — you cannot read a value off it, so you cannot render one. `<Fact claim={...}/>` (`src/components/claim/fact.tsx`) takes a Claim and nothing else; `<Fact value={x ?? "guess"}/>` does not compile, and three `@ts-expect-error` directives in its test fail the build if that ever changes.
+
+Precedence is **evidenced > declared > derived > unknown**. Declared beats derived deliberately: the plan says the pad is `GND`, his board says `G`, and about his own bench he is right.
+
+`derivedOr(maybe, from, need)` replaces `a ?? b` anywhere a fallback used to invent an answer.
+
+**Why this exists.** On 2026-08-24 the live screen told a builder to buy a `0.96" SSD1306 OLED module` when they needed a 1S battery level indicator, because seven regexes matched product names and "capacity **display**" hit `/oled|ssd1306|display/`. That same wrong spec drove the life-size hold-it-up card, so the feature built to identify parts was drawing a different part at actual size. Nothing threw. Every layer did what it said. More validation would not have helped — there was nowhere for "we don't know" to live.
+
+Expect screens to look emptier than ones that guessed. That emptiness is the honest reading.
 
 ## North Star
 
-**Make builders' lives simpler.** Every change, every feature, every line of code must pass this test: does this make it easier for someone to build a project they found online?
+**Make builders' lives simpler.** Unchanged, and now with a second test beside it: *can the product account for everything it just said?* A screen that is confidently wrong fails the north star harder than a screen that admits a gap.
 
 ## How It Works
 
 ```
-User describes project → /api/analyze (Claude single pass) → BuildPlan JSON
-                                                                    ↓
-                                              page.tsx renders: parts + buy links + steps
+describe a project / paste a link → /api/analyze → BuildPlan
+                                                      ↓
+                                   applyTrustPipeline(plan, reality)   ← ONCE per load
+                                                      ↓
+   safety gate → bench: one action · one picture · one proof → live check → done
 ```
 
 ### File Map
 
-| File | Purpose |
+| Path | Purpose |
 |---|---|
-| `src/app/page.tsx` | Homepage: generate plan, demos, your builds |
-| `src/app/build/[id]/page.tsx` | Session route — resume plan by id |
-| `src/app/build/import/page.tsx` | Import shared plan from URL hash |
-| `src/components/build-session.tsx` | Orchestrator: state → PrepScreen/BuildScreen/BuildDrawers |
-| `src/components/build/` | prep-screen (3-job decision flow), build-screen (workbench: pinned sub-header, PrimaryActionBar, StepListSheet, CoverageBanner), build-drawers, step-hero, guided-steps (technique primer), use-build-state (pure reducer) |
-| `src/components/build/parts/` | PartCard + ShoppingList (honest tiers, visible buy guidance, mpnNote trust lines, substitutes) |
-| `src/components/ui/` | Primitive library: Button/Card/Badge (+confidenceTier)/DrawerShell/Icon (lucide)/InfoPopover — `/dev/ui-kit` catalog |
-| `src/components/home/` | demo-hero (lazy live Stage, three.js out of critical path), generation-progress (+Cancel + rate-budget honesty), principles-check |
-| `src/components/flash/` | Web Serial console + esptool-js flash flow + wiring-check verdicts + ComputerReady onramp |
-| `src/lib/serial/` | Pure Web Serial domain: session, line-parser (scanner format), expected-devices (catalog-derived I2C addrs), verify, manifest |
-| `src/app/themes/` + `src/components/dev/theme-switcher.tsx` | Rebrand candidates as [data-theme] token files; dev pill + `/dev/themes` judging board (parked — incumbent active) |
-| `src/components/build-ui.tsx` | Part rows (thin wrapper over PartCard), safety panel (human hazard labels), firmware/unstick drawers, FirmwareUnavailableDrawer |
-| `src/components/stage/` | THE 3D system (StageApp seam ← product-hero/step-hero): studio staging, deterministic CameraRig, GLB parts-layer + parametric fallback, netlist wiring-layer (tap → exact callout), assembly-director |
-| `src/lib/stage/` | Pure 3D domain: derive-recipe (assembly recipe for ANY template), wire-plan (exact wires + cut lengths), shots, ghost-target, wire-reveal, part-detail |
-| `scripts/author-*.mjs` + `scripts/lib/author-kit.mjs` | Part-model authoring (headless three.js → GLB, extruded silkscreen); `npm run models:parts` regenerates + optimizes the library |
-| `src/components/step-facts.tsx` | ConnectionsTable / CheckYourWorkCard / ActionChecklist / GlossaryText (render step.compiled) |
-| `src/lib/steps/` | classify (THE step classifier), compile (netlist → per-step facts), validate (content vs truth), instruction resolvers |
-| `src/lib/wire-colors.ts` | THE wire-color authority (text + 2D + 3D + legend; class wins, SDA blue / SCL yellow) |
-| `src/lib/glossary.ts` | Beginner jargon definitions (step popovers + part tooltips) |
-| `src/lib/diag.ts` | Local diagnostics ring buffer (every rescue path logs here) |
-| `src/app/api/analyze/route.ts` | Claude → plan → trust pipeline (+ optional Nexar) |
-| `src/lib/trust.ts` | Catalog match + safety validators + BOM estimate |
-| `src/lib/catalog.ts` / `modules-catalog.json` | Module ground truth |
-| `src/lib/cart.ts` | Multi-vendor offers, cart strategy |
-| `src/lib/unstick.ts` | Diagnosis trees |
-| `src/lib/firmware.ts` | Pin map + Arduino sketches |
-| `src/lib/storage.ts` / `share.ts` / `modes.ts` | Persistence, share links, quick/full modes |
-| `src/lib/transcript.ts` | YouTube transcript fetching |
-| `src/data/sat-line.json` | Demo project |
+| `src/lib/claim/` | **The contract.** Read it first. |
+| `src/components/claim/fact.tsx` | The render boundary that enforces it |
+| `src/components/bench/` | **The product.** action-card · bench-screen · bench-session · safety-gate · parts-sheet · declare-color · declare-hole · board-sheet · power-gate · proof-strip · chapter-sheet · stuck-sheet |
+| `src/lib/actions/cursor.ts` | The spine — ONE ordered action list, ONE position |
+| `src/lib/build-reality/` | The builder's own world: joints, evidence tiers, declared colours, hole coordinates. Contract: `docs/BUILD-REALITY.md` |
+| `src/lib/breadboard/` | Board geometry + the shared-column short-catch |
+| `src/lib/electrical/` | Netlist, nets, voltage domains, ERC. The rigorous core; authority for gates |
+| `src/lib/steps/` | classify · compile (netlist → per-step facts) · validate |
+| `src/lib/serial/` | Web Serial, I²C scan, bus-proof. **The one capability a camera and an LLM cannot replicate** |
+| `src/components/flash/` | Its surface: console, flash flow, missing-device panel |
+| `src/lib/hazards.ts` | Hazard tokens → human words; which ones gate a build |
+| `src/lib/cost.ts` | One cost answer, as a Claim. Real prices beat authored guesses |
+| `src/lib/part-identity.ts` | Catalog id → measured spec, via **seven explicit entries and nothing else** |
+| `src/lib/trust.ts` | `applyTrustPipeline` + `trustPipelineRuns` (a counter, because "we think it runs once" is the claim this rebuild exists to stop making) |
+| `src/lib/step-media/circuit-diagram.ts` | The whole-circuit picture, current wire lit |
+| `src/lib/unstick.ts` | Diagnosis trees, reality-aware |
+| `src/lib/capability.ts` | Web Serial is desktop-Chromium only — degrade honestly, never block |
+| `src/lib/core-loop.golden.test.ts` | **The contract the product may not break.** Six assertions, one per wall the real build hit |
 
-**Core loop:** Homepage → `/build/[id]` → prep (safety + cart) → build (diagram | steps | code | PCB | case | unstick) → publish kit → `/kits`
+### Kept but barely reached — know this before assuming coverage
 
-### Moonshot modules
-- `src/lib/pipeline/` — 6-layer analyze (L1 safety … L6 trust)
-- `src/lib/electrical/` — **principal-EE netlist + ERC** (authority for gates)
-- `src/lib/pcb/` — preview place/route; blocked when ERC errors
-- `src/lib/enclosure/` — parametric OpenSCAD + SVG previews
-- `src/lib/kits/` + `src/app/kits/` — free kit recipes; publish blocked on ERC errors
-- `docs/ELECTRICAL-CORE.md` — electrical model contract
-- `docs/SENIOR-REVIEW.md` — depth/specificity audit
-- `docs/FORGE-AGENTIC-EXPANSION.md` — **product expansion strategy** (tools + skills + task explorer; MathWorks-shaped architecture for hardware benches). Read when expanding the product, agent/MCP work, or fixing renderer/steps holistically.
-- `src/lib/skills/` — skills catalog v0 (match ≤3 per step); `src/lib/tasks/` — offline task explorer; `npm run audit:tasks` / `audit:steps` ship gates
-- `npm run mcp:server` — Forge MCP stdio (tools + resources); `POST /api/mcp` — HTTP
-- `npm run skills:export` / `classroom:export` / `audit:all` — packs + unified ship gate
+The rebuild deleted the surface, and some subsystems lost their only UI along with it. They still compile and still have tests; nothing reaches them from the build flow:
+
+| Subsystem | Lines | Reachable from |
+|---|---|---|
+| `src/components/stage/` + `src/lib/stage/` + `src/lib/product-3d/` | ~9,900 | the homepage demo hero only, and `/dev/stage` |
+| `src/lib/product-visual/` | 1,515 | nothing in the UI (it fed the deleted product hero) |
+| `src/lib/part-scan/` | 1,941 | its API route only; the camera UI was deleted |
+| `src/lib/pcb/`, `enclosure/`, `skills/`, `tasks/` | ~1,150 | nothing |
+| `src/lib/mcp/` | 608 | `/api/mcp` + scripts. A second full entry point into 11 domain modules — it will fight refactors |
+
+None of this is deleted, because none of it was asked to be. But do not describe the 3D system as central: it renders one hero on one screen.
 
 ## Anti-Patterns (DO NOT REPEAT)
 
-### 1. Over-engineering
-We built a 14-component architecture, 3-pass AI pipeline with research agents, cost tracking, chat IDE, debug modal, image generation, Fritzing diagrams, safety validators, community features, and a Zustand store. **All of it was noise.** The user just wants parts + steps. Start simple. Only add complexity when the simple version demonstrably fails.
+### 1. Confidently wrong beats admitting a gap — it doesn't
+The wrong-part bug, the two contradictory prices, `getRealPart()` typed to always succeed while returning `undefined`. Every one was a `??` filling a hole with something plausible. **If you cannot account for it, render the gap.**
 
-### 2. Under-engineering / Deleting working features
-We stripped everything to 165 lines with no demo project, no wiring diagrams, no mark-complete, no prep screen. The user lost all their existing projects. **Refine, don't destroy.** Before removing anything, ask: did the user ask for this to be removed? Does it serve the North Star?
+### 2. Over-engineering
+A 14-component architecture, a 3-pass pipeline with research agents, a chat IDE, image generation, a Zustand store. All noise. *Amended:* "just parts + steps" was also too small — steps must be about **the builder's actual bench** or they get abandoned for a chat window. That layer is `build-reality/`, and it is deterministic, testable and local.
 
-### 3. Broken visuals
-We tried Higgsfield AI (CLI tool, execSync, paid credits) for step images. It never worked. We tried Fritzing SVGs (template-based). It was half-baked. Kroki Mermaid was proven for a while, then its renderer went unused (dead code) and was deleted. **Wiring truth now renders from the instruction compiler** (`src/lib/steps/compile.ts` → ConnectionsTable, derived from the netlist — colors/pins can never disagree with the 3D view), plus local hand-authored technique SVGs (`src/lib/step-media/`). No network dependency for step visuals. Stick with derived-from-data over LLM-drawn.
+### 3. Under-engineering / deleting working features
+A previous rewrite stripped the app to 165 lines and lost working features, because nothing defined "working" except the code being deleted. **This is why `core-loop.golden.test.ts` exists and why it passed BEFORE the delete.** Write the golden first, or don't delete.
 
-### 4. Vague shopping search queries
-"Battery Level Indicator" returns garbage. "1S 3.7V Li-ion battery capacity indicator LED bar module 4-segment" finds the right product. The AI prompt MUST enforce precision: voltage, interface, form factor, key spec.
+### 4. Broken visuals
+Higgsfield, Fritzing templates, Kroki — all abandoned. Wiring truth renders from the compiler (`steps/compile.ts` → the circuit diagram), so colours and pins cannot disagree with each other. **Derived from data, never LLM-drawn.**
 
-### 5. Deleting code instead of editing it
-We've rewritten page.tsx from scratch 3 times in one conversation. Each rewrite loses context and introduces new bugs. **Edit the existing file.** Small, surgical changes. One thing at a time.
+### 5. Vague shopping queries
+"Battery Level Indicator" returns garbage. Voltage, interface, form factor, key spec — or say you don't know.
+
+### 6. Guessing identity from a name
+Seven regexes over product names assigned physical specs and SKUs from unrelated parts. **A name is not evidence.** Bridge by explicit id, or return null.
+
+### 7. Rewriting instead of editing
+page.tsx was rewritten from scratch three times in one conversation. Small, surgical changes.
 
 ## Quality Bar (self-audit before reporting done)
 
-After every change, verify:
-1. `npx tsc --noEmit` passes with zero errors
-2. `curl localhost:3001` returns 200
-3. Demo project loads, shows all parts with Buy buttons, all steps expandable
-4. Each part's Buy link goes to a real search results page (not a homepage)
-5. Wiring steps show a diagram (not blank)
-6. The change passes "make builders' lives simpler"
-
-## When to Use Skills
-
-Proactively invoke without being asked. The goal: catch problems before the user sees them.
-
-### Product & Strategy
-- Scope/direction questions, "what should we build next" → `/plan-ceo-review`
-- Before implementing any new feature → `/pm-spec-writing` (write a spec first, not code)
-- Deciding between features → `/feature-prioritization` (impact vs effort matrix)
-- Understanding WHY builders use Forge → `/jtbd-framing` (what job are they hiring Forge for?)
-- After shipping → suggest `/retro`
-
-### Design & UX (CRITICAL — use these constantly)
-- **Every UI change** → `/general-design-review` (lightweight, catches the big stuff)
-- **Before showing the user anything** → `/ux-heuristics-review` (Nielsen's 10 — catches what beginners will find confusing)
-- **Anytime a flow feels long or complex** → `/cognitive-load-conversion` (finds friction, reduces drop-off)
-- **To think like a beginner** → `/empathy-mapping` (what does a first-time builder think/feel/do?)
-- **Visual polish** → `/craft` (bans gradient text, glow effects, generic AI aesthetics)
-- **Accessibility** → `/accessibility` (WCAG 2.1 audit)
-- **Full design system work** → `/impeccable critique` or `/design-consultation`
-
-### Engineering
-- Architecture decisions → `/plan-eng-review`
-- Multi-perspective code review → `/council-review`
-- Finding broken things → `/audit-swarm`
-- Systematic debugging → `/investigate`
-
-### Self-Audit Loop (run after every significant change)
-
-Before reporting done, I must:
-1. `npx tsc --noEmit` passes
-2. `curl localhost:3001` returns 200
-3. Demo project loads with parts + buy buttons + expandable steps
-4. Run `/general-design-review` on the changed page
-5. Ask: does this pass "make builders' lives simpler"?
-
-### If the User Seems Frustrated
-Stop immediately. Re-read the North Star. Run `/ux-heuristics-review` on the current state. Simplify. Do not add features — remove friction.
-
-## Core Flow (the one thing that must always work)
-
-```
-Homepage → click demo OR describe project → loading → prep screen (safety + tools + parts checklist) → build view (split: wiring diagram | step instructions) → mark complete → next step
-```
-
-If this flow breaks, fix it before doing anything else.
+1. `npx tsc --noEmit` — zero errors
+2. `npm test` — **828 tests, 826 pass.** The 2 failures are long-standing `pins.test.ts`; anything else is yours
+3. `src/lib/core-loop.golden.test.ts` — all six. If one fails you removed a capability, not a rendering
+4. Dev server on **3007** (`.claude/launch.json`, `autoPort: true`) returns 200
+5. A real plan opens on safety, then one action with both endpoints named
+6. Count what you changed: rendering variants, progress readings, navigations. Report numbers, not adjectives
+7. Does it pass "make builders' lives simpler" *and* "can we account for this"?
 
 ## Tech Stack
 
-- Next.js 16 App Router + TypeScript
-- Tailwind CSS v4
-- Anthropic Claude API (single pass, Sonnet 4.6)
-- Kroki.io (Mermaid SVG diagrams via POST)
-- No state library (just React useState)
-- No database (localStorage for persistence)
+Next.js 16 App Router · TypeScript · Tailwind v4 · Anthropic Claude (single pass) · three.js / react-three-fiber (homepage hero) · **no state library** (useState + one external store for reality) · **IndexedDB** for build reality, localStorage for plans and progress.
+
+## When to Use Skills
+
+Proactively. Design/UX changes → `/general-design-review`, `/ux-heuristics-review`. Architecture → `/plan-eng-review`. Bugs → `/investigate`. Scope → `/plan-ceo-review`. Shipping → `/retro`.
+
+**Review live screens, never mockups.** The owner rejects static mockups; build the real screen and critique it in the browser.
+
+**If the user seems frustrated:** stop, re-read the north star, remove friction. Do not add features.

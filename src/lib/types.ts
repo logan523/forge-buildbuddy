@@ -119,6 +119,12 @@ export interface CompiledConnection {
   toLabel: string;
   colorHex: string;
   colorName: string;
+  /** The builder's own wording for this wire ("the short orange one") — prose prefers it. */
+  colorLabel?: string;
+  /** "user" when the color came from a builder declaration (BuildReality), else authority. */
+  colorSource?: "user" | "authority";
+  /** The pedagogy-standard name regardless of any user override — step-assignment scoring uses THIS (eng E5). */
+  canonicalColorName?: string;
   grade: "consistent" | "derived";
   /** Voltage-domain island ("The 3.3V Island") — derived from the net's domainV. */
   domainKey?: string;
@@ -155,6 +161,8 @@ export interface MicroStep {
   total: number;
   colorName: string;
   colorHex: string;
+  /** Builder's own wording, when declared — spoken/printed instructions prefer it. */
+  colorLabel?: string;
   netName: string;
   // Plan part ids for the 3D "show me" drill-down: resolve part → scene node,
   // then match the wire by node pair (harness + compiler name nets/pins
@@ -316,4 +324,40 @@ export interface BuildPlan {
       simplicityNotes: string[];
     };
   };
+  /**
+   * A builder's own hand-authored firmware, as a sibling to (never a
+   * mutation of) `generateFirmware()`'s deterministic FirmwarePackage —
+   * multi-file source with real `#include`s doesn't fit that shape's
+   * flat array of independent template sketches. Never LLM-populated (see
+   * CLAUDE.md's anti-pattern on over-engineered AI pipelines) — authored
+   * directly (pasted/uploaded), or for a demo plan, inlined from its real
+   * scripts/firmware-src/<slug>/ folder. When present, this is what the
+   * app treats as the real firmware for this plan: step instructions
+   * describe its actual entry file (src/lib/steps/instruction.ts), and the
+   * flash console resolves a compiled artifact for it by plan id
+   * (src/lib/serial/manifest.ts's `customSketches`) instead of guessing
+   * from a fixed template set.
+   */
+  customFirmware?: CustomFirmwareSource;
+}
+
+export interface CustomFirmwareFile {
+  /** Relative filename, e.g. "weather-clock.ino" or "bitmaps.h". */
+  path: string;
+  contents: string;
+  kind: "sketch" | "header" | "asset";
+}
+
+export interface CustomFirmwareSource {
+  /** Stable slot id — in practice the owning BuildPlan's id, and the key `manifest.customSketches` is looked up by. */
+  id: string;
+  /** Human label, e.g. "Solar Weather Clock firmware". */
+  label: string;
+  boardFamily: import("./firmware").BoardFamily;
+  /** Which file in `files` has setup()/loop() — the one the builder actually opens/uploads. */
+  entryFile: string;
+  files: CustomFirmwareFile[];
+  authoredBy: "human" | "pasted" | "imported";
+  /** Free-text: what it does, EDIT HERE pointers — shown alongside the file list. */
+  notes?: string;
 }

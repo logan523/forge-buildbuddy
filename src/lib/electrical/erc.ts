@@ -41,10 +41,22 @@ export function runErc(
   const isBatteryishPad = (pin: string) =>
     /^(B\+|B-|BAT\+|BAT-|OUT\+|OUT-|\+|IN\+)$/i.test(pin) || pin === "-";
 
+  // A "5V"/"VIN" pin on a board that regulates its own logic (logicVoltage 3.3,
+  // i.e. it has an onboard LDO) is a power INPUT — it accepts ~3–6V and drops it
+  // to 3.3V — not a 5V supply SOURCE. Such a pin must not, by itself, make its
+  // net a "5V rail": the net's real voltage is set by whatever feeds the input
+  // (e.g. a ≤4.2V battery through the charger's protected OUT). Without this, a
+  // battery-powered ESP32-C3 (silkscreen "5V" pin) falsely trips VOLTAGE_DOMAIN
+  // on every 3.7V-rated part sharing that rail.
+  const isRegulatedInputPin = (m: { ref: string; pin: string }) => {
+    if (!/^(5V|VIN)$/i.test(m.pin)) return false;
+    return byRef.get(m.ref)?.logicVoltage === 3.3;
+  };
+
   // --- Voltage domain: true 5V rails vs 3.3V-only pins ---
   for (const net of model.nets) {
-    // Explicit 5V name or a silkscreen 5V pin (not VIN/BAT alone)
-    const hasExplicit5vPin = net.members.some((m) => /^5V$/i.test(m.pin));
+    // Explicit 5V name or a silkscreen 5V pin (not VIN/BAT, nor a regulated input)
+    const hasExplicit5vPin = net.members.some((m) => /^5V$/i.test(m.pin) && !isRegulatedInputPin(m));
     const railIs5 =
       net.name === "5V" ||
       hasExplicit5vPin ||
@@ -54,7 +66,8 @@ export function runErc(
             m.role === "power" &&
             (m.domainV ?? 0) >= 4.8 &&
             !isBatteryishPad(m.pin) &&
-            !/^VIN$/i.test(m.pin)
+            !/^VIN$/i.test(m.pin) &&
+            !isRegulatedInputPin(m)
         ));
 
     if (railIs5) {
@@ -152,22 +165,35 @@ export function runErc(
   // --- GND connectivity for multi-IC ---
   const active = model.components.filter((c) => !c.isLithiumCell);
   if (active.length >= 2) {
-    const gnd = model.nets.find((n) => n.name === "GND" || n.netClass === "gnd");
-    const gndRefs = new Set(gnd?.members.map((m) => m.ref) || []);
-    const missingGnd = active.filter((c) => c.pins.some((p) => p.role === "gnd") && !gndRefs.has(c.ref));
-    if (missingGnd.length > 0 && gnd) {
+    // A module counts as grounded if it sits on ANY ground-class net — not only
+    // the one named "GND". Protected power boards deliberately split ground into
+    // separate domains (e.g. a TP4056's B- vs OUT-, bridged internally by its
+    // protection FET), so the charge-side ground and the load-side ground are
+    // different nets that are still one shared reference through the board.
+    const gndNets = model.nets.filter((n) => n.name === "GND" || n.netClass === "gnd");
+    const groundedRefs = new Set(gndNets.flatMap((n) => n.members.map((m) => m.ref)));
+    const missingGnd = active.filter((c) => c.pins.some((p) => p.role === "gnd") && !groundedRefs.has(c.ref));
+    if (missingGnd.length > 0 && gndNets.length > 0) {
       push(warnings, {
         id: "gnd-incomplete",
         severity: "warning",
         rule: "GND_CONNECTIVITY",
-        title: "Some modules not on GND net",
+        title: "Some modules not on any GND net",
         detail: `No GND wiring derived for: ${missingGnd.map((c) => c.ref).join(", ")}. Shared ground is mandatory.`,
-        mitigation: "Connect every module GND to the common GND net.",
+        mitigation: "Connect every module ground to a common ground (directly, or through the charger's ground pads).",
         refs: missingGnd.map((c) => c.ref),
         nets: ["GND"],
       });
     }
-    if (!gnd && active.length >= 2) {
+    // A plan with NO wiring intent at all (no nets, no wiringConnections) is
+    // not a miswired circuit — it's a software/networking build, or a set of
+    // pre-assembled boxes that plug together with off-the-shelf cables. ERC
+    // has nothing to check there, and firing a hard error on it is a false
+    // positive that teaches builders to ignore ERC. Found by authoring the
+    // homelab plan (Pi + mini PC + drive, zero solder joints).
+    const hasWiringIntent =
+      model.nets.length > 0 || (plan?.wiringConnections?.length ?? 0) > 0;
+    if (gndNets.length === 0 && active.length >= 2 && hasWiringIntent) {
       push(errors, {
         id: "gnd-missing",
         severity: "error",

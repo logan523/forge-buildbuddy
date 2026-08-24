@@ -1,0 +1,952 @@
+{
+  "id": "solar-weather-clock",
+  "title": "Solar Weather Clock",
+  "description": "A Wi-Fi weather clock built around an ESP32-C3 Super Mini and a 0.96\" OLED. It shows the time (auto-synced over Wi-Fi), the room's temperature and humidity from an SHT3x sensor, the outdoor forecast pulled from a free weather service, and your own custom messages. Runs on a rechargeable LiPo, solar-charged, with a battery gauge and a slide switch. Designed as a first-ever soldering project. The I2C bus uses the onboard pull-ups on the OLED and sensor breakouts.",
+  "formSpec": {
+    "templateId": "sat_clock",
+    "params": {
+      "heightScale": 1.05,
+      "wingSpan": 1.1,
+      "baseScale": 1
+    },
+    "materials": {
+      "base": "bamboo",
+      "frame": "brass",
+      "face": "oled"
+    },
+    "layers": {},
+    "productCaption": "Solar-powered Wi-Fi weather clock on a brass frame.",
+    "source": "demo_golden",
+    "grade": "high"
+  },
+  "difficulty": "beginner",
+  "estimatedTime": "A weekend (4-6 hours)",
+  "estimatedCost": "$25-40",
+  "buildModes": [
+    "quick_test",
+    "full_build"
+  ],
+  "activeMode": "full_build",
+  "hazardTags": [
+    "LIPO",
+    "ESD_SENSITIVE"
+  ],
+  "hazardAssessment": [
+    {
+      "category": "chemical",
+      "severity": "HIGH",
+      "description": "Lithium polymer battery present. Risk of fire if shorted, punctured, over-discharged, or charged without protection.",
+      "mitigation": "Charge only through the HW-373 (which has DW01 protection) or the solar charger. Never short the battery leads. Keep the soldering iron away from the pouch. Connect the battery LAST."
+    },
+    {
+      "category": "electrical",
+      "severity": "MEDIUM",
+      "description": "Powering the ESP32-C3 through the wrong pin can instantly destroy it.",
+      "mitigation": "Feed battery power into the pin labeled 5V (it goes through the onboard regulator). NEVER feed it into 3V3 \u2014 a full 4.2V battery on 3V3 kills the chip."
+    },
+    {
+      "category": "electrical",
+      "severity": "MEDIUM",
+      "description": "First-time soldering. Risk of burns and solder fumes.",
+      "mitigation": "Use a proper iron stand, work in a ventilated area, and keep the iron in its stand when not in use."
+    }
+  ],
+  "uncertaintyFlags": [],
+  "conditionalBranches": [],
+  "generatedAt": "2026-08-02T12:00:00Z",
+  "modelUsed": "hand-authored-verified",
+  "parts": [
+    {
+      "id": "esp32c3",
+      "name": "ESP32-C3 Super Mini",
+      "specification": "ESP32-C3 development board with Wi-Fi, USB-C, 3.3V logic",
+      "quantity": 1,
+      "notes": "Your board: TENSTAR ROBOT ESP32-C3 Super Mini. The brain of the clock. Power it through the pin labeled 5V (never 3V3). You have a second ESP32-C3 as a spare.",
+      "catalogId": "esp32-c3"
+    },
+    {
+      "id": "oled",
+      "name": "0.96 inch OLED SSD1306 I2C 128x64",
+      "specification": "0.96\" SSD1306 monochrome OLED, I2C, 4-pin (VCC/GND/SCL/SDA), address 0x3C",
+      "quantity": 1,
+      "notes": "Your main screen. If a 4-pin male header is attached, remove it in Step 3. (The little 0.91\" 128x32 OLED you have is a spare.)",
+      "catalogId": "ssd1306-i2c"
+    },
+    {
+      "id": "sht3x",
+      "name": "SHT3x Temperature & Humidity Sensor",
+      "specification": "SHT3x (SHT30/31) I2C temperature + humidity sensor, address 0x44",
+      "quantity": 1,
+      "notes": "Reads the room's temperature and humidity. Shares the I2C bus with the OLED at a different address (0x44 vs 0x3C).",
+      "catalogId": "sht31d"
+    },
+    {
+      "id": "charger",
+      "name": "TP4056 USB-C Charger with Protection (HW-373)",
+      "specification": "TP4056 1S Li-ion charger with DW01 protection, USB-C, pads IN+/IN-/B+/B-/OUT+/OUT-",
+      "quantity": 1,
+      "notes": "Your board: HW-373 v1.2.1. Does three jobs: USB-C charging, battery protection, and the protected OUT that powers the electronics. The load hangs off OUT+/OUT- (never the raw B+/B-).",
+      "catalogId": "tp4056-protected"
+    },
+    {
+      "id": "solar-charger",
+      "name": "Solar Charging Controller (eletechsup SDBK03TA)",
+      "specification": "1S 4.2V solar charge controller, input 4.4-6V, pads S+/S- (solar in) and B+/B- (battery out)",
+      "quantity": 1,
+      "notes": "Your board: eletechsup SDBK03TA (4V2). Harvests the sun better than the HW-373 does. Solar panels go to its S pads; its B pads go to the battery. You have a second one as a spare.",
+      "catalogId": "solar-charger"
+    },
+    {
+      "id": "battery",
+      "name": "1S LiPo Battery 3.7V (602535)",
+      "specification": "1S 3.7V LiPo pouch cell, ~500mAh, 6.0x25x35mm, 2-wire (red +, black -)",
+      "quantity": 1,
+      "notes": "Your battery: qimoo 602535. Verify polarity with a multimeter before connecting. Connect it LAST, after every other joint is inspected.",
+      "catalogId": "battery-lipo-1s"
+    },
+    {
+      "id": "switch",
+      "name": "SPDT Slide Switch (SS12F44)",
+      "specification": "3-pin SPDT slide switch, center pin = common (COM)",
+      "quantity": 1,
+      "notes": "Your switch: chanzon SS12F44. Cuts power to the electronics. Use the CENTER pin plus one outer pin. Turning it OFF also lets the battery charge cleanly.",
+      "catalogId": "spdt-slide-switch"
+    },
+    {
+      "id": "solar-panel",
+      "name": "Mini Solar Panel 5V",
+      "specification": "Small ~5V hobby solar panel",
+      "quantity": 2,
+      "notes": "Measure each panel's voltage in the sun first (Step 4). If each is ~2-3V, wire the two in SERIES to reach ~5-6V. If each is already ~5-6V, do NOT series them (over 8V damages the solar charger) \u2014 use one, or wire them in parallel.",
+      "catalogId": "solar-panel-5v"
+    },
+    {
+      "id": "capacity-meter",
+      "name": "1S Battery Level Indicator (capacity display)",
+      "specification": "1S 3.7V lithium battery capacity/level indicator module, 2-wire",
+      "quantity": 1,
+      "notes": "Your 'ternary lithium capacity display'. Shows battery percentage. Wire it AFTER the switch so it doesn't drain the battery when the clock is off.",
+      "catalogId": "battery-level-led"
+    },
+    {
+      "id": "brass-wire",
+      "name": "1mm Brass Wire",
+      "specification": "1mm solid brass wire for the frame",
+      "quantity": 1,
+      "notes": "The skeleton of the clock. Step 2 has the cut list.",
+      "catalogId": "brass-wire-1mm"
+    },
+    {
+      "id": "hookup-wire",
+      "name": "Jumper / Hookup Wire",
+      "specification": "Thin stranded hookup wire, ideally red / black / blue / yellow",
+      "quantity": 1,
+      "notes": "For the electrical connections. Color-code: red = power, black = ground, blue = SDA, yellow = SCL.",
+      "catalogId": "jumper-wires"
+    }
+  ],
+  "tools": [
+    {
+      "name": "Soldering iron and solder",
+      "required": true
+    },
+    {
+      "name": "Wire cutters / flush cutters",
+      "required": true
+    },
+    {
+      "name": "Wire strippers",
+      "required": true
+    },
+    {
+      "name": "Needle-nose pliers",
+      "required": true
+    },
+    {
+      "name": "Multimeter",
+      "required": true
+    },
+    {
+      "name": "Helping hands or a small vise",
+      "required": false
+    },
+    {
+      "name": "USB-C cable (data-capable) for programming and backup charging",
+      "required": true
+    },
+    {
+      "name": "Computer with Arduino IDE",
+      "required": true
+    },
+    {
+      "name": "Heat-shrink tubing or electrical tape",
+      "required": true
+    },
+    {
+      "name": "Safety glasses",
+      "required": true
+    }
+  ],
+  "steps": [
+    {
+      "stepNumber": 1,
+      "title": "Safety first, then lay out your parts",
+      "description": "This build uses a lithium battery, which stores a lot of energy. Read the three safety rules before you touch anything. RULE 1: Never let metal touch both battery leads at once \u2014 a short can start a fire. RULE 2: You will power the ESP32-C3 through the pad labeled 5V, NEVER the one labeled 3V3 (a full battery is 4.2V, and anything over 3.6V on 3V3 instantly kills the chip). RULE 3: The battery goes on LAST, after every other wire is done and checked. Now lay all your modules on the bench and match each one to the parts list so you know what everything is.",
+      "quickSummary": "Learn the 3 safety rules (no shorts, 5V-not-3V3, battery last) and identify every module.",
+      "whyThisWorks": "Knowing the hazards up front is what separates a fun first build from a ruined board or a burn. Identifying parts now means you never solder the wrong thing later.",
+      "goal": "Understand the safety rules and know which module is which.",
+      "youNeed": [
+        "All your modules",
+        "This parts list",
+        "Safety glasses",
+        "A clear, non-flammable work surface"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Read the three safety rules above out loud once. They matter."
+        },
+        {
+          "n": 2,
+          "text": "Lay every module on the bench and match it to a part in the list."
+        },
+        {
+          "n": 3,
+          "text": "Set your spares aside: the 2nd ESP32-C3, the 2nd solar charger, and the 0.91\" OLED.",
+          "caution": "You only need ONE of each for this clock."
+        },
+        {
+          "n": 4,
+          "text": "Keep the battery in its own corner, away from tools, until Step 8."
+        }
+      ],
+      "doneWhen": "You can point to each module and name it, and the battery is set aside somewhere safe.",
+      "safetyNotes": [
+        "Lithium battery: never short the leads, keep it away from heat, and leave it for last.",
+        "Feed battery power to the 5V pad only \u2014 never 3V3."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 2,
+      "title": "Cut and shape the brass frame",
+      "description": "The 1mm brass wire is the skeleton that holds everything \u2014 and it's purely structural, NOT part of the circuit, so you can join the corners however is easiest: a dab of epoxy or hot glue, a few wraps of thin wire, or solder (solder is the fiddliest \u2014 brass is a heat-hog). Size is flexible. The only hard rule is the front opening clears your ~27mm OLED with a little margin, so anywhere from about 45mm wide x 55mm tall up to a roomier 60 x 80mm works. A compact, tidy target is ~45mm wide x 60mm tall; a roomier 60 x 80mm is more forgiving to assemble. Either way: make a rectangle from two equal tall sides and two equal short pieces, dry-fit your OLED in the opening before you commit the corners, and cut equal pairs by using your first piece as a ruler.",
+      "quickSummary": "Make a brass rectangle sized to your OLED \u2014 compact ~45x60mm up to a roomier 60x80mm. Join the corners with glue, a wire-wrap, or solder; it's structural, not electrical.",
+      "whyThisWorks": "A rigid frame keeps the modules aligned so wires don't pull loose and the clock stands level. Dry-fitting first stops you wasting wire.",
+      "goal": "Build a rectangular brass frame sized to hold your electronics.",
+      "youNeed": [
+        "1mm brass wire",
+        "Flush cutters",
+        "Needle-nose pliers (or a hard edge to bend around)",
+        "Ruler",
+        "Your OLED (for dry-fitting)"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Decide: bend one 280mm piece, or cut 2x80mm + 2x60mm straight pieces."
+        },
+        {
+          "n": 2,
+          "text": "Cut ONE 80mm side first and hold it against your OLED + board stack to check the size."
+        },
+        {
+          "n": 3,
+          "text": "Cut or bend the rest to match, using your first piece as a ruler for equal pairs.",
+          "caution": "Wear eye protection \u2014 brass offcuts can fly."
+        },
+        {
+          "n": 4,
+          "text": "Form the rectangle. Solder the corner(s); overlap ~5mm and bind with a turn of thin wire for strength."
+        }
+      ],
+      "doneWhen": "You have a closed rectangular brass frame that sits flat and clears your OLED in the opening.",
+      "toolTechnique": {
+        "tool": "Needle-nose pliers (or any hard edge)",
+        "usage": "1mm brass is soft \u2014 grip at the mark and bend against the jaw, or bend around a table corner or socket. No special tool required.",
+        "safety": "Wear eye protection when cutting brass wire.",
+        "mistake": "Bending back and forth at one spot work-hardens the brass until it snaps \u2014 make each bend once."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Sides come out unequal",
+          "cause": "Measured every piece from scratch instead of matching to the first.",
+          "fix": "Cut one, then use it as a template for its pair."
+        }
+      ],
+      "safetyNotes": [
+        "Eye protection when cutting metal wire."
+      ],
+      "mediaKind": "wire_bend_frame"
+    },
+    {
+      "stepNumber": 3,
+      "title": "Get the OLED ready (you probably don't need to desolder)",
+      "description": "Good news first: you most likely do NOT need to remove anything. Look at the edge of your 0.96\" OLED with the 4 connection points and find which case you're in. CASE A \u2014 it has 4 metal pins sticking out (a header): easiest is to push a female jumper wire onto each pin (no soldering the screen at all), or solder a wire straight to each pin. CASE B \u2014 it has 4 flat pads with little holes: solder one wire into each hole. Either way, just identify the four labels printed on the board: VCC, GND, SCL, SDA (the order varies board to board \u2014 trust your labels). ONLY if you want the flattest possible mount should you desolder the header: heat one pin at a time, pull it while the solder is molten, and clear the holes with braid.",
+      "quickSummary": "Find your OLED's 4 points (pins or pads) and note VCC/GND/SCL/SDA. No desoldering needed unless you want a flush mount.",
+      "whyThisWorks": "I2C needs only power, ground, and two signal wires. You can connect to a header with female jumpers or soldered wires, or to bare pads \u2014 removing the header is optional and only for a tidier mount.",
+      "goal": "Know your OLED's four connection points (VCC, GND, SCL, SDA) and how you'll attach wires to them.",
+      "youNeed": [
+        "0.96\" OLED",
+        "Soldering iron (~350C)",
+        "Pliers or tweezers",
+        "Desoldering braid or solder sucker"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Look at the 4 connection points: pins sticking out = a header; flat holes = pads."
+        },
+        {
+          "n": 2,
+          "text": "Note the four labels printed on the board: VCC, GND, SCL, SDA (order varies)."
+        },
+        {
+          "n": 3,
+          "text": "Got a header? Easiest is to push a female jumper onto each pin, or solder a wire to each pin."
+        },
+        {
+          "n": 4,
+          "text": "Got bare pads? Solder one wire into each hole."
+        },
+        {
+          "n": 5,
+          "text": "OPTIONAL \u2014 only for a flush mount: desolder the header (heat a pin, pull while molten, clear the holes).",
+          "caution": "Heat first, then pull \u2014 never yank a cold pin, it rips the pad off."
+        }
+      ],
+      "doneWhen": "You can point to VCC, GND, SCL, SDA on your OLED and you know how you'll attach a wire to each.",
+      "toolTechnique": {
+        "tool": "Soldering iron + desolder braid",
+        "usage": "Press braid onto the joint, heat until the solder wicks up into the braid, then lift iron and braid together.",
+        "safety": "Always use an iron stand and ventilate the fumes.",
+        "mistake": "Prying a header off while the solder is solid tears the copper pad off the board."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Bought the wrong OLED (7-pin SPI)",
+          "cause": "SPI OLEDs look similar but wire and code differently.",
+          "fix": "Use only the 4-pin I2C SSD1306 for this build. Your 0.96\" 128x64 is correct."
+        }
+      ],
+      "safetyNotes": [
+        "Hot iron and molten solder \u2014 burn hazard."
+      ],
+      "mediaKind": "oled_desolder"
+    },
+    {
+      "stepNumber": 4,
+      "title": "Measure your panels, battery, and switch",
+      "description": "Three quick measurements now save you from frying parts later. FIRST, measure each solar panel's voltage in bright light with your multimeter on DC volts: if each reads about 2-3V, the two panels will go in SERIES (+ of one to \u2212 of the other) to reach ~5-6V; if each already reads ~5-6V, do NOT put them in series (that's over 8V and can damage the solar charger) \u2014 use just one, or put them in parallel. SECOND, check the battery's polarity: red should be + and black should be \u2212, but verify with the meter. THIRD, find which way your slide switch is ON: set the meter to continuity mode, touch the two probes to the middle terminal and one outer terminal, and slide until it beeps.",
+      "quickSummary": "Measure panel voltage (decides series vs parallel), confirm battery polarity, and find the switch's ON direction.",
+      "whyThisWorks": "The solar charger accepts about 4.4-6V in. Too little and it won't charge; too much and you damage it. Knowing polarity and switch direction now prevents reversed connections later.",
+      "goal": "Know your panel voltage, your battery polarity, and your switch's ON direction.",
+      "youNeed": [
+        "Multimeter",
+        "Both solar panels",
+        "The LiPo battery",
+        "The slide switch",
+        "A bright light or sunlight"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Meter on DC volts. Measure ONE panel in bright light. Note the voltage."
+        },
+        {
+          "n": 2,
+          "text": "Decide: ~2-3V each -> put the two in SERIES. ~5-6V each -> use one or parallel.",
+          "caution": "Never exceed ~8V into the solar charger."
+        },
+        {
+          "n": 3,
+          "text": "Measure the battery: confirm red = +, black = -. Write it down."
+        },
+        {
+          "n": 4,
+          "text": "Meter on continuity. Find which slide direction links the middle terminal to an outer one (it beeps)."
+        }
+      ],
+      "doneWhen": "You've decided series-vs-parallel for the panels, confirmed battery polarity, and marked the switch's ON direction.",
+      "toolTechnique": {
+        "tool": "Multimeter",
+        "usage": "DC volts for the panel/battery (red probe +, black -). Continuity mode (the beeper) for the switch.",
+        "safety": "Don't let the probes short the battery leads together.",
+        "mistake": "Measuring panels indoors \u2014 the voltage collapses without real light and misleads you."
+      },
+      "safetyNotes": [
+        "Never short the battery leads with the probes or a tool."
+      ],
+      "mediaKind": "battery_id_poles"
+    },
+    {
+      "stepNumber": 5,
+      "title": "Wire it up \u2014 one wire at a time",
+      "description": "This is the heart of the build: about twenty soldered connections. Work through them ONE AT A TIME in the guided order below \u2014 it goes safest-first (grounds, then power, then the I2C signal wires). Use red wire for power, black for ground, blue for SDA, yellow for SCL. After every few joints, gently tug each wire to make sure it's solid, and check nothing bare is touching anything it shouldn't. Two things to keep straight: the electronics get power from the HW-373's OUT pins (through the switch) into the ESP32's 5V pin \u2014 never 3V3 \u2014 and the load grounds go to the HW-373's OUT- (not B-). Leave the battery disconnected the whole time; it goes on last, in Step 8.",
+      "quickSummary": "Solder ~20 connections one at a time, safest-first. Power to the ESP32 5V pin; load ground from OUT-; OLED + sensor share the I2C bus.",
+      "whyThisWorks": "Doing wires one at a time in a safe order, with a tug-test after each, is how beginners get a first build working without a rat's nest of mistakes. The color code keeps SDA and SCL from getting swapped \u2014 the number-one cause of a blank screen.",
+      "goal": "Make every electrical connection correctly and solidly, with nothing shorting.",
+      "youNeed": [
+        "All modules (except the battery)",
+        "Hookup wire (red/black/blue/yellow)",
+        "Soldering iron + solder",
+        "Wire strippers",
+        "Multimeter"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Follow the guided wire list below, one connection at a time, in order."
+        },
+        {
+          "n": 2,
+          "text": "Power = red, ground = black, SDA = blue, SCL = yellow."
+        },
+        {
+          "n": 3,
+          "text": "The ESP32 power wire goes to its 5V pin. NEVER 3V3.",
+          "caution": "4.2V on 3V3 destroys the ESP32 instantly."
+        },
+        {
+          "n": 4,
+          "text": "Load grounds go to the HW-373 OUT- pad, not B-."
+        },
+        {
+          "n": 5,
+          "text": "Tug-test every few joints. Insulate anything that could touch a neighbor."
+        }
+      ],
+      "doneWhen": "Every wire in the guided list is soldered and tug-tested, nothing bare is shorting, and the battery is still disconnected.",
+      "toolTechnique": {
+        "tool": "Soldering iron",
+        "usage": "Heat the pad and the wire together for a second, feed solder into the joint (not onto the tip), then remove the solder and the iron. A good joint is shiny and smooth.",
+        "safety": "Iron in the stand whenever it's not in your hand. Ventilate. Safety glasses on.",
+        "mistake": "A dull, blobby 'cold' joint that looks connected but isn't \u2014 reflow it if in doubt."
+      },
+      "commonMistakes": [
+        {
+          "symptom": "Screen stays blank later",
+          "cause": "SDA and SCL swapped, OLED on 5V instead of 3.3V, or a cold joint.",
+          "fix": "Swap SDA/SCL at one end, confirm OLED VCC is on the 3V3 net, reflow suspect joints, run the I2C scanner."
+        },
+        {
+          "symptom": "Heat or smell at the battery pads",
+          "cause": "A short or reversed polarity on the charge path.",
+          "fix": "Disconnect power immediately and recheck every + and - against the silkscreen."
+        }
+      ],
+      "safetyNotes": [
+        "Battery stays disconnected until Step 8.",
+        "Power to the 5V pin only; load grounds from OUT-."
+      ],
+      "mediaKind": "i2c_wiring"
+    },
+    {
+      "stepNumber": 6,
+      "title": "Get your computer ready and bring the board to life",
+      "description": "Before the full app, prove each piece works with the small test sketches Forge generated (open the Code package). Install the Arduino IDE, add the ESP32 board support URL, and select 'ESP32C3 Dev Module'. Connect the ESP32-C3 with a DATA-capable USB-C cable (not charge-only). Upload in order: (1) Blink \u2014 proves your cable, board, and port work; (2) I2C scanner \u2014 you should see 0x3C (the OLED) and 0x44 (the sensor); (3) OLED test \u2014 text appears on the screen; (4) sensor test \u2014 temperature and humidity print in the Serial Monitor at 115200 baud. Do this with the board on USB only \u2014 the battery is still disconnected.",
+      "quickSummary": "Install Arduino IDE + ESP32 support, then upload Blink, I2C scanner (see 0x3C + 0x44), OLED test, and sensor test.",
+      "whyThisWorks": "Uploading tiny test sketches in order isolates problems: if Blink works your toolchain is fine; if the scanner finds both addresses your wiring is good. Debugging the whole app at once is far harder.",
+      "goal": "Confirm the board, the screen, and the sensor all work before loading the real app.",
+      "youNeed": [
+        "ESP32-C3 (wired, on USB only)",
+        "Data-capable USB-C cable",
+        "Computer with Arduino IDE",
+        "The Code package from Forge"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Install Arduino IDE, add the ESP32 boards URL, and select 'ESP32C3 Dev Module'."
+        },
+        {
+          "n": 2,
+          "text": "Plug in the ESP32-C3. Pick the right port. Upload 01_blink."
+        },
+        {
+          "n": 3,
+          "text": "Upload the I2C scanner. Confirm you see 0x3C and 0x44 in Serial Monitor (115200)."
+        },
+        {
+          "n": 4,
+          "text": "Upload the OLED test (text on screen), then the sensor test (temp/humidity printing)."
+        }
+      ],
+      "doneWhen": "Blink runs, the I2C scanner finds 0x3C and 0x44, the OLED shows text, and the sensor prints readings.",
+      "commonMistakes": [
+        {
+          "symptom": "No port shows up",
+          "cause": "Charge-only cable or missing USB-serial driver.",
+          "fix": "Use a data cable; if needed install the CH340 or CP210x driver for your board."
+        },
+        {
+          "symptom": "Scanner finds nothing",
+          "cause": "SDA/SCL swapped, no shared ground, or OLED/sensor not on 3.3V.",
+          "fix": "Recheck the I2C wiring from Step 5; confirm shared ground and 3V3 power."
+        }
+      ],
+      "mediaKind": "usb_upload"
+    },
+    {
+      "stepNumber": 7,
+      "title": "Load your weather-clock app",
+      "description": "Open weather-clock.ino from the Code drawer \u2014 this build ships its own hand-written firmware, not a generated template. Near the top you'll find WIFI_NETWORKS (add every network the clock might ever be near \u2014 it tries each one) and MESSAGES[] (the lines it rotates through full-screen every 5 minutes; add as many as you want). Everything else in the file is the real app: the rotating globe clock face, the special moments, all of it \u2014 you don't need to touch it. Compile and flash it (the flash button in the serial console resolves this build automatically), then watch Serial Monitor at 115200 as it connects and starts showing the time, indoor temp/humidity, the outdoor forecast, and your messages.",
+      "quickSummary": "Edit WIFI_NETWORKS and MESSAGES[] in weather-clock.ino, then flash it.",
+      "whyThisWorks": "The app is plain, commented Arduino code with one obvious place to change things. Wi-Fi gives it the time and weather with no extra hardware; your messages make it personal.",
+      "goal": "Get the real clock running with your Wi-Fi, your location, and your messages.",
+      "youNeed": [
+        "weather-clock.ino (this build's real firmware, not a generated template)",
+        "Every Wi-Fi network name + password the clock might be near",
+        "Your own messages to display"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Open weather-clock.ino from the Code drawer."
+        },
+        {
+          "n": 2,
+          "text": "Add every network it might be near to WIFI_NETWORKS."
+        },
+        {
+          "n": 3,
+          "text": "Write your own lines in the MESSAGES[] list."
+        },
+        {
+          "n": 4,
+          "text": "Flash it, then open Serial Monitor (115200) and watch it connect and display."
+        }
+      ],
+      "doneWhen": "The OLED shows the correct time, indoor temp/humidity, the outdoor forecast, and cycles through your messages.",
+      "commonMistakes": [
+        {
+          "symptom": "Time stuck on \"Syncing...\"",
+          "cause": "None of the networks in WIFI_NETWORKS matched what's actually in range.",
+          "fix": "Add the network you're actually near; it retries automatically every 30s once you do."
+        },
+        {
+          "symptom": "No weather",
+          "cause": "Wrong or blank latitude/longitude, or no internet.",
+          "fix": "Recheck LATITUDE/LONGITUDE near the top of the file and that Wi-Fi is connected."
+        }
+      ],
+      "mediaKind": "usb_upload"
+    },
+    {
+      "stepNumber": 8,
+      "title": "Connect the battery and power on",
+      "description": "Everything else is done and tested, so now \u2014 and only now \u2014 connect the battery. Double-check polarity one more time (red to the + side of the charge path, black to -). With the slide switch OFF, connect the LiPo to the HW-373 B+/B- pads. Then unplug USB (so you're not powering from two sources at once), slide the switch ON, and watch: the clock should light up and run on battery alone, and the capacity meter should show the charge level. Keep an eye and a hand near it for the first 30 seconds \u2014 if anything gets warm or smells, switch off immediately and recheck.",
+      "quickSummary": "With the switch OFF, connect the LiPo to the HW-373 B pads; unplug USB; switch ON; confirm it runs on battery.",
+      "whyThisWorks": "Connecting the battery last means every joint has already been checked with no stored energy in the circuit. Running on battery alone proves the whole power path works.",
+      "goal": "Power the finished clock from its battery for the first time, safely.",
+      "youNeed": [
+        "The wired-up clock",
+        "The LiPo battery",
+        "Multimeter (for a last polarity check)"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Slide the switch to OFF."
+        },
+        {
+          "n": 2,
+          "text": "Confirm battery polarity one last time, then solder/connect it to the HW-373 B+/B-.",
+          "caution": "Reversed polarity can destroy the charger and the board."
+        },
+        {
+          "n": 3,
+          "text": "Unplug the USB cable so power comes only from the battery."
+        },
+        {
+          "n": 4,
+          "text": "Slide the switch ON. The clock should light up and the capacity meter should read."
+        },
+        {
+          "n": 5,
+          "text": "Watch for 30 seconds. If anything is warm or smells, switch OFF and recheck."
+        }
+      ],
+      "doneWhen": "The clock runs on battery power with the screen and capacity meter working, and nothing gets warm.",
+      "safetyNotes": [
+        "Connect the battery only after every other joint is inspected.",
+        "Never power from USB and battery at the same time \u2014 switch the load off before plugging in USB to reprogram.",
+        "First power-up: watch for heat for 30 seconds."
+      ],
+      "mediaKind": "final_assembly"
+    },
+    {
+      "stepNumber": 9,
+      "title": "Mount it on the frame and test the solar charge",
+      "description": "Fix the modules to the brass frame so the OLED faces forward and nothing rattles or shorts against the metal \u2014 a dab of hot glue or a wrap of tape works, and insulate any bare joints near the frame. Route the wires tidily. Finally, test solar charging: with the switch OFF (so the load isn't fighting the charge), put the panels in bright light and confirm the solar charger's charging LED comes on. Your clock is done \u2014 it runs on the battery, tops up from the sun, and shows the time, weather, and your messages. USB-C is always there as a backup charge if the sun isn't enough.",
+      "quickSummary": "Mount everything on the frame (insulated, nothing loose), then confirm the solar charger's LED lights in bright sun with the switch off.",
+      "whyThisWorks": "A stable, insulated mount prevents intermittent shorts and loose joints. Testing solar with the load off gives the cleanest charge and confirms the panels are feeding the charger.",
+      "goal": "Finish the physical build and confirm solar charging works.",
+      "youNeed": [
+        "The working clock",
+        "The brass frame",
+        "Hot glue or tape",
+        "The solar panels in bright light"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Mount the OLED facing forward; fix the boards and battery so nothing is loose."
+        },
+        {
+          "n": 2,
+          "text": "Insulate any bare joints near the brass frame so they can't short."
+        },
+        {
+          "n": 3,
+          "text": "Switch the load OFF and put the panels in bright light."
+        },
+        {
+          "n": 4,
+          "text": "Confirm the solar charger's charge LED lights up."
+        },
+        {
+          "n": 5,
+          "text": "Switch back ON and enjoy \u2014 USB-C is your backup charge any time."
+        }
+      ],
+      "doneWhen": "The clock is mounted solidly with no shorts, and the solar charger's LED confirms it charges in the sun.",
+      "commonMistakes": [
+        {
+          "symptom": "Solar never charges",
+          "cause": "Weak light, reversed panel polarity, or panels below the charger's input voltage.",
+          "fix": "Test in direct sun, recheck panel + / - into the S pads, and confirm your series/parallel choice from Step 4."
+        }
+      ],
+      "safetyNotes": [
+        "Insulate joints near the conductive brass frame.",
+        "Don't leave a first-build lithium project charging unattended until you trust it."
+      ],
+      "mediaKind": "final_assembly"
+    }
+  ],
+  "wiringConnections": [
+    {
+      "from": "Solar Panel +",
+      "to": "Solar Charger S+ (IN+)"
+    },
+    {
+      "from": "Solar Panel -",
+      "to": "Solar Charger S- (IN-)"
+    },
+    {
+      "from": "Solar Charger B+ (BAT+)",
+      "to": "Battery +"
+    },
+    {
+      "from": "Solar Charger B- (BAT-)",
+      "to": "Battery -"
+    },
+    {
+      "from": "HW-373 B+",
+      "to": "Battery +"
+    },
+    {
+      "from": "HW-373 B-",
+      "to": "Battery -"
+    },
+    {
+      "from": "HW-373 OUT+",
+      "to": "Slide Switch COM"
+    },
+    {
+      "from": "Slide Switch A",
+      "to": "ESP32-C3 5V",
+      "wireColor": "red"
+    },
+    {
+      "from": "Slide Switch A",
+      "to": "Battery Level Indicator +",
+      "wireColor": "red"
+    },
+    {
+      "from": "HW-373 OUT-",
+      "to": "ESP32-C3 GND",
+      "wireColor": "black"
+    },
+    {
+      "from": "ESP32-C3 GND",
+      "to": "OLED Display GND",
+      "wireColor": "black"
+    },
+    {
+      "from": "ESP32-C3 GND",
+      "to": "SHT3x GND",
+      "wireColor": "black"
+    },
+    {
+      "from": "ESP32-C3 GND",
+      "to": "Battery Level Indicator -",
+      "wireColor": "black"
+    },
+    {
+      "from": "ESP32-C3 3V3",
+      "to": "OLED Display VCC",
+      "wireColor": "red"
+    },
+    {
+      "from": "ESP32-C3 3V3",
+      "to": "SHT3x VCC",
+      "wireColor": "red"
+    },
+    {
+      "from": "ESP32-C3 GPIO4 (SDA)",
+      "to": "OLED Display SDA",
+      "wireColor": "blue"
+    },
+    {
+      "from": "ESP32-C3 GPIO4 (SDA)",
+      "to": "SHT3x SDA",
+      "wireColor": "blue"
+    },
+    {
+      "from": "ESP32-C3 GPIO5 (SCL)",
+      "to": "OLED Display SCL",
+      "wireColor": "yellow"
+    },
+    {
+      "from": "ESP32-C3 GPIO5 (SCL)",
+      "to": "SHT3x SCL",
+      "wireColor": "yellow"
+    }
+  ],
+  "structuredNets": [
+    {
+      "name": "SOLAR+",
+      "netClass": "power",
+      "members": [
+        {
+          "ref": "solar-charger",
+          "pin": "IN+"
+        },
+        {
+          "ref": "solar-panel",
+          "pin": "+"
+        }
+      ]
+    },
+    {
+      "name": "SOLAR-",
+      "netClass": "gnd",
+      "members": [
+        {
+          "ref": "solar-charger",
+          "pin": "IN-"
+        },
+        {
+          "ref": "solar-panel",
+          "pin": "-"
+        }
+      ]
+    },
+    {
+      "name": "BATT+",
+      "netClass": "power",
+      "members": [
+        {
+          "ref": "charger",
+          "pin": "B+"
+        },
+        {
+          "ref": "solar-charger",
+          "pin": "BAT+"
+        },
+        {
+          "ref": "battery",
+          "pin": "+"
+        }
+      ]
+    },
+    {
+      "name": "BATT-",
+      "netClass": "gnd",
+      "members": [
+        {
+          "ref": "charger",
+          "pin": "B-"
+        },
+        {
+          "ref": "solar-charger",
+          "pin": "BAT-"
+        },
+        {
+          "ref": "battery",
+          "pin": "-"
+        }
+      ]
+    },
+    {
+      "name": "OUT+",
+      "netClass": "power",
+      "members": [
+        {
+          "ref": "charger",
+          "pin": "OUT+"
+        },
+        {
+          "ref": "switch",
+          "pin": "COM"
+        }
+      ]
+    },
+    {
+      "name": "V+",
+      "netClass": "power",
+      "members": [
+        {
+          "ref": "switch",
+          "pin": "A"
+        },
+        {
+          "ref": "esp32c3",
+          "pin": "5V"
+        },
+        {
+          "ref": "capacity-meter",
+          "pin": "+"
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "netClass": "gnd",
+      "members": [
+        {
+          "ref": "charger",
+          "pin": "OUT-"
+        },
+        {
+          "ref": "esp32c3",
+          "pin": "GND"
+        },
+        {
+          "ref": "oled",
+          "pin": "GND"
+        },
+        {
+          "ref": "sht3x",
+          "pin": "GND"
+        },
+        {
+          "ref": "capacity-meter",
+          "pin": "-"
+        }
+      ]
+    },
+    {
+      "name": "3V3",
+      "netClass": "power",
+      "members": [
+        {
+          "ref": "esp32c3",
+          "pin": "3V3"
+        },
+        {
+          "ref": "oled",
+          "pin": "VCC"
+        },
+        {
+          "ref": "sht3x",
+          "pin": "VCC"
+        }
+      ]
+    },
+    {
+      "name": "SDA",
+      "netClass": "i2c",
+      "wireColor": "blue",
+      "members": [
+        {
+          "ref": "esp32c3",
+          "pin": "GPIO4"
+        },
+        {
+          "ref": "oled",
+          "pin": "SDA"
+        },
+        {
+          "ref": "sht3x",
+          "pin": "SDA"
+        }
+      ]
+    },
+    {
+      "name": "SCL",
+      "netClass": "i2c",
+      "wireColor": "yellow",
+      "members": [
+        {
+          "ref": "esp32c3",
+          "pin": "GPIO5"
+        },
+        {
+          "ref": "oled",
+          "pin": "SCL"
+        },
+        {
+          "ref": "sht3x",
+          "pin": "SCL"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "Lithium (LiPo) battery: never short + and -. Connect the battery last, after every other joint is checked.",
+    "Power the ESP32-C3 through the pin labeled 5V, never 3V3 \u2014 a 4.2V battery on 3V3 destroys the chip.",
+    "Load power and ground come from the HW-373's protected OUT pads, never the raw B pads.",
+    "Charge only through the HW-373 or the solar charger \u2014 never wire a panel or USB directly across the cell.",
+    "The ESP32-C3 and OLED are 3.3V devices. The OLED runs from the ESP32's 3V3 pin.",
+    "Measure each solar panel's voltage first \u2014 series only if each is low-voltage; never exceed ~8V into the solar charger.",
+    "Don't power from USB and the battery at the same time; switch the load off before plugging in USB to reprogram."
+  ],
+  "customFirmware": {
+    "id": "solar-weather-clock",
+    "label": "Solar Weather Clock firmware",
+    "boardFamily": "esp32c3",
+    "entryFile": "weather-clock.ino",
+    "files": [
+      {
+        "path": "weather-clock.ino",
+        "contents": "// Solar Weather Clock \u2014 custom firmware for Logan's build (gift for Mia)\n//\n// Board: ESP32-C3 SuperMini \u00b7 OLED 0.96\" SSD1306 (0x3C) \u00b7 SHT31 (0x44)\n// SDA=GPIO4  SCL=GPIO5\n//\n// WHAT THIS DOES\n//  1. Boot: \"Connecting To Earth...\" flashes on screen while Wi-Fi connects\n//     and the first weather/time fetch completes.\n//  2. Once real data is loaded for the first time: a one-time welcome\n//     message for Mia, then it settles into the main clock.\n//  3. Main screen (\"blanket\" view): time, date, indoor temp/humidity, and\n//     outdoor weather all visible together, all the time.\n//  4. Every 5 minutes: one of your messages takes over the whole screen for\n//     a few seconds, word-wrapped across as many lines as it needs, then\n//     back to normal.\n//  5. Every hour: a special full-screen moment (Mars-and-back, a shooting\n//     star, a weather-reactive scene, or \u2014 rarely \u2014 the proposal screen).\n//\n// EDIT HERE \u2014 your messages are down in the MESSAGES[] block below. Add as\n// many as you want (no fixed limit other than the ESP32's flash size, which\n// easily holds hundreds of short strings).\n\n#include <WiFi.h>\n#include <WiFiMulti.h>\n#include <time.h>\n#include <HTTPClient.h>\n#include <Wire.h>\n#include <Adafruit_GFX.h>\n#include <Adafruit_SSD1306.h>\n#include \"Adafruit_SHT31.h\"\n#include <esp_system.h>  // esp_random() \u2014 hardware RNG, no seeding needed\n// Generated by scripts/compile-firmware.mjs immediately before every\n// compile \u2014 never committed (see .gitignore). Always compile through the\n// script (`node scripts/compile-firmware.mjs --sketch scripts/firmware-src/weather-clock --key solar-weather-clock`),\n// never a raw arduino-cli invocation \u2014 this file won't exist otherwise.\n#include \"build_id.h\"\n// Real bitmap fonts bundled with Adafruit_GFX (a library already in use,\n// not a new dependency) \u2014 used for the main clock view instead of the\n// default built-in 5x7 font. GFX fonts are baseline-anchored (the y cursor\n// is the text baseline, not the top), unlike the default font.\n#include <Fonts/FreeSansBold12pt7b.h>\n#include <Fonts/FreeSans9pt7b.h>\n\n// ================= EDIT HERE \u2014 Wi-Fi, location, timezone =================\n// Every network here is tried; whichever is actually in range wins. Add a\n// row any time the clock moves somewhere new.\nstruct WifiNetwork { const char* ssid; const char* password; };\nconst WifiNetwork WIFI_NETWORKS[] = {\n  { \"YOUR_WIFI_NAME\", \"YOUR_WIFI_PASSWORD\" },\n  { \"YOUR_OTHER_WIFI\", \"YOUR_OTHER_PASSWORD\" },\n};\nconst int WIFI_NETWORK_COUNT = sizeof(WIFI_NETWORKS) / sizeof(WIFI_NETWORKS[0]);\n\n// Tampa, FL\nconst float LATITUDE  = 27.9506;\nconst float LONGITUDE = -82.4572;\n\n// EST. Set DAYLIGHT_OFFSET_HOURS to 0 when daylight saving ends (~Nov), back\n// to 1 when it resumes (~Mar) \u2014 Florida currently observes DST.\nconst int GMT_OFFSET_HOURS      = -5;\nconst int DAYLIGHT_OFFSET_HOURS = 1;\n\n// The one-time message Mia sees the first time the clock finishes loading\n// real data after power-up (not shown again until the next power cycle).\nconst char* WELCOME_MESSAGE = \"Hi Mia :)\";\n\n// The \"will you marry me?\" screen is live \u2014 it joins the same rotation as\n// the other special full-screen moments (Mars-and-back, shooting star,\n// weather scene), just weighted much rarer than the others (see\n// PROPOSAL_ODDS below). It plays for a while, then goes back to the normal\n// clock, same as the rest. Flip back to false and reflash to make it\n// impossible again.\n#define PROPOSAL_ELIGIBLE true\n\n// Your rotating messages \u2014 one takes over the whole screen at random every\n// ~5 minutes. Add as many as you like; long ones wrap across extra lines\n// automatically.\nconst char* MESSAGES[] = {\n  \"Hi Mia! <3\",\n  \"You, me, Buckskin Tavern?\",\n  \"You, me, Beccofino Saturday?\",\n  \"I MISS YOU MF\",\n  \"Missing PopUp w/ you rn\",\n  \"Wine walk?\",\n  \"My HLS MVP!\",\n  \"Guatemalaaaaaaaaa\",\n  \"Im thinking of ur butt rn\",\n  \"I am SO grateful for you\",\n  \"Hot-tubbin in zion under the stars :)\",\n  \"Thank god you got me to shave my beard\",\n  \"Thank god you got me to get new glasses\",\n  \"I am so frickin proud of you\",\n  \"you got games on yo phone?\",\n};\nconst int MESSAGE_COUNT = sizeof(MESSAGES) / sizeof(MESSAGES[0]);\n// ============================================================================\n\n#define PIN_SDA 4\n#define PIN_SCL 5\n#define SCREEN_WIDTH 128\n#define SCREEN_HEIGHT 64\n#define OLED_ADDR 0x3C\nAdafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);\nAdafruit_SHT31 sht = Adafruit_SHT31();\nWiFiMulti wifiMulti;\n\n// Ease-in-out: motion starts and ends gently instead of at constant speed \u2014\n// used across the special moments (rocket flights, the flower bloom) so\n// progress reads as designed motion, not a linear tween. Defined before the\n// #include block below since those headers' draw functions call it.\nfloat easeInOutQuad(float t) {\n  return t < 0.5f ? 2.0f * t * t : 1.0f - (2.0f * t - 2.0f) * (2.0f * t - 2.0f) / 2.0f;\n}\n\nfloat g_outTemp = NAN;\nString g_outText = \"--\";\nunsigned long g_lastWeather = 0;\nbool g_everLoaded = false;         // true once time+weather have both loaded at least once\nbool g_wifiConfigured = false;     // true once NTP/weather have been kicked off for the current connection\nunsigned long g_lastWifiRetry = 0;\nconst unsigned long WIFI_RETRY_INTERVAL_MS = 30000UL;  // retry Wi-Fi every 30s while disconnected\nunsigned long g_lastRocketOrbit = 0;\nbool g_rocketOrbitActive = false;\nunsigned long g_rocketOrbitStart = 0;\nconst unsigned long ROCKET_ORBIT_INTERVAL_MS = 60000UL;  // every minute\n\n// Full-screen message takeover \u2014 replaces the old corner-popup rotation.\n// Every ~5 minutes one of MESSAGES[] takes the whole screen for a few\n// seconds, then reverts to the normal clock.\nunsigned long g_lastMessage = 0;\nbool g_messageActive = false;\nunsigned long g_messageStart = 0;\nint g_messageIndex = 0;  // chosen fresh, once, each time a new message starts\nconst unsigned long MESSAGE_INTERVAL_MS = 300000UL;  // 5 minutes\nconst unsigned long MESSAGE_DURATION_MS = 6000UL;    // how long a message stays up\n\n// Special full-screen moments (Mars-and-back and friends) \u2014 a rare, shared\n// pool instead of Mars having its own bespoke timer. Checked on the same\n// interval; when one fires, drawSpecialMoment() picks which.\nunsigned long g_lastSpecialMoment = 0;\nbool g_specialMomentActive = false;\nunsigned long g_specialMomentStart = 0;\nint g_specialMomentIndex = -1;  // which entry in SPECIAL_MOMENTS is currently playing\nconst unsigned long SPECIAL_MOMENT_INTERVAL_MS = 3600000UL;  // 1 hour between occurrences\n\n#include \"bitmaps.h\"\n#include \"propose.h\"\n#include \"mars-and-back.h\"\n#include \"shooting-star.h\"\n#include \"weather-scene.h\"\n#include \"world-map.h\"  // live clock face \u2014 rotating Earth + orbiting rocket\n\n// The proposal screen is static (drawProposeScreen() takes no args) \u2014 wrap\n// it to match the other moments' void(unsigned long) signature.\nconst unsigned long PROPOSAL_MOMENT_DURATION_MS = 15000UL;  // longer than the rest \u2014 give it room to land\nvoid drawProposalMoment(unsigned long elapsed) { drawProposeScreen(); }\n\ntypedef void (*MomentDrawFn)(unsigned long);\nstruct SpecialMoment { MomentDrawFn draw; unsigned long duration; };\nconst SpecialMoment SPECIAL_MOMENTS[] = {\n  { drawMarsAndBackMoment, MARS_MOMENT_DURATION_MS },\n  { drawShootingStarMoment, STAR_MOMENT_DURATION_MS },\n  { drawWeatherSceneMoment, WEATHER_SCENE_DURATION_MS },\n};\nconst int SPECIAL_MOMENT_COUNT = sizeof(SPECIAL_MOMENTS) / sizeof(SPECIAL_MOMENTS[0]);\n// 1-in-8 of all occurrences are the proposal \u2014 noticeably rarer than the 3\n// regular moments, which are equally likely against each other.\nconst int PROPOSAL_ODDS = 8;\n\n// Picks the next moment to play and starts it \u2014 separated from the trigger\n// check in loop() so both the interval-elapsed path and (if ever wanted) a\n// manual trigger can share it.\nvoid startRandomSpecialMoment() {\n  g_specialMomentActive = true;\n  g_specialMomentStart = millis();\n  g_lastSpecialMoment = millis();\n  if (PROPOSAL_ELIGIBLE && (esp_random() % PROPOSAL_ODDS == 0)) {\n    g_specialMomentIndex = -1;  // -1 marks \"proposal\", not an index into SPECIAL_MOMENTS\n  } else {\n    g_specialMomentIndex = esp_random() % SPECIAL_MOMENT_COUNT;\n  }\n}\n\nvoid drawCurrentSpecialMoment(unsigned long elapsed) {\n  if (g_specialMomentIndex == -1) drawProposalMoment(elapsed);\n  else SPECIAL_MOMENTS[g_specialMomentIndex].draw(elapsed);\n}\n\nunsigned long currentSpecialMomentDuration() {\n  return g_specialMomentIndex == -1 ? PROPOSAL_MOMENT_DURATION_MS : SPECIAL_MOMENTS[g_specialMomentIndex].duration;\n}\n\n// ---------------------------------------------------------------------------\n\n// Read the numeric value for a JSON key, skipping the units section (whose\n// value is a string, not a number) so we get the real reading.\nfloat jsonNumber(String& b, const char* key) {\n  int i = 0;\n  while ((i = b.indexOf(key, i)) >= 0) {\n    int c = b.indexOf(':', i);\n    if (c < 0) return NAN;\n    int j = c + 1;\n    while (j < (int)b.length() && b[j] == ' ') j++;\n    char ch = b[j];\n    if ((ch >= '0' && ch <= '9') || ch == '-') return b.substring(j).toFloat();\n    i = c + 1;\n  }\n  return NAN;\n}\n\nString weatherText(int code) {\n  if (code == 0) return \"Clear\";\n  if (code <= 3) return \"Cloudy\";\n  if (code == 45 || code == 48) return \"Fog\";\n  if (code >= 51 && code <= 67) return \"Rain\";\n  if (code >= 71 && code <= 77) return \"Snow\";\n  if (code >= 80 && code <= 82) return \"Showers\";\n  if (code >= 95) return \"Storm\";\n  return \"--\";\n}\n\n// Both the SHT31 library and Open-Meteo's API hand back Celsius \u2014 convert\n// once here since every on-screen label says \"F\".\nfloat cToF(float c) { return c * 9.0f / 5.0f + 32.0f; }\n\nbool fetchWeather() {\n  if (WiFi.status() != WL_CONNECTED) return false;\n  HTTPClient http;\n  String url = \"http://api.open-meteo.com/v1/forecast?latitude=\" + String(LATITUDE, 4) +\n               \"&longitude=\" + String(LONGITUDE, 4) +\n               \"&current=temperature_2m,weather_code&timezone=auto\";\n  http.begin(url);\n  int code = http.GET();\n  bool ok = false;\n  if (code == 200) {\n    String body = http.getString();\n    float tp = jsonNumber(body, \"temperature_2m\");\n    float wc = jsonNumber(body, \"weather_code\");\n    if (!isnan(tp)) { g_outTemp = cToF(tp); ok = true; }\n    if (!isnan(wc)) g_outText = weatherText((int)wc);\n  }\n  http.end();\n  return ok;\n}\n\n// Flashes \"Connecting To Earth...\" on/off while Wi-Fi is coming up. Runs for\n// at least ~2.5s (a few visible flashes) even if Wi-Fi connects instantly,\n// so it always reads as a deliberate boot sequence, not a flicker.\nvoid bootScreen() {\n  unsigned long start = millis();\n  int flashes = 0;\n  while (WiFi.status() != WL_CONNECTED || flashes < 3) {\n    bool on = ((millis() - start) / 400) % 2 == 0;\n    display.clearDisplay();\n    if (on) {\n      display.setTextSize(1);\n      display.setCursor(10, 26);\n      display.println(\"Connecting To Earth...\");\n    }\n    display.display();\n    if (on) flashes++;\n    delay(400);\n    if (millis() - start > 15000UL) break;  // don't hang forever if Wi-Fi never shows up\n  }\n}\n\n// One-time welcome, shown once real data is loaded for the first time.\nvoid welcomeScreen() {\n  display.clearDisplay();\n  display.setTextSize(2);\n  display.setTextColor(SSD1306_WHITE);\n  display.setCursor(4, 24);\n  display.println(WELCOME_MESSAGE);\n  display.display();\n  delay(3000);\n}\n\n// Picks a fresh random message \u2014 call this exactly once, right when a new\n// full-screen message starts.\nvoid rollMessageChoice() {\n  if (MESSAGE_COUNT > 0) g_messageIndex = esp_random() % MESSAGE_COUNT;\n}\n\n// Word-wraps a whole message across as many lines as it needs (up to 6 \u2014\n// far more than any real message here uses) at ~20 chars/line, the width\n// the default 6px-wide font comfortably fits on a 128px screen with a\n// margin. Always breaks on a word boundary; only hard-cuts a single word\n// that alone overruns the line.\n#define MSG_MAX_LINES 6\n#define MSG_CHARS_PER_LINE 20\nint wordWrapMessage(const String& msg, String outLines[MSG_MAX_LINES]) {\n  int lineCount = 0;\n  String cur = \"\";\n  int start = 0;\n  while (start < (int)msg.length() && lineCount < MSG_MAX_LINES - 1) {\n    int sp = msg.indexOf(' ', start);\n    String word = (sp < 0) ? msg.substring(start) : msg.substring(start, sp);\n    String trial = cur.length() ? (cur + \" \" + word) : word;\n    if ((int)trial.length() > MSG_CHARS_PER_LINE && cur.length() > 0) {\n      outLines[lineCount++] = cur;\n      cur = word;\n    } else {\n      cur = trial;\n    }\n    start = (sp < 0) ? (int)msg.length() : sp + 1;\n  }\n  if (cur.length() > 0 && lineCount < MSG_MAX_LINES) outLines[lineCount++] = cur;\n  return lineCount;\n}\n\n// Full-screen message takeover \u2014 clears the screen, centers the wrapped\n// message both vertically and horizontally. `elapsed` isn't used for\n// motion (messages are static text), just kept for signature parity with\n// the other full-screen moment draw functions.\nvoid drawFullScreenMessage(unsigned long elapsed) {\n  display.clearDisplay();\n  display.setTextSize(1);\n  display.setTextColor(SSD1306_WHITE);\n\n  String lines[MSG_MAX_LINES];\n  int lineCount = wordWrapMessage(String(MESSAGES[g_messageIndex]), lines);\n\n  const int lineHeight = 10;\n  int totalHeight = lineCount * lineHeight;\n  int y = (SCREEN_HEIGHT - totalHeight) / 2;\n  for (int i = 0; i < lineCount; i++) {\n    int textWidth = lines[i].length() * 6;\n    int x = (SCREEN_WIDTH - textWidth) / 2;\n    if (x < 0) x = 0;\n    display.setCursor(x, y + i * lineHeight);\n    display.print(lines[i]);\n  }\n  display.display();\n}\n\nvoid setup() {\n  Serial.begin(115200);\n  delay(500);\n  // First line printed, before anything that can stall (WiFi, display/sensor\n  // init) \u2014 lets Forge's post-flash confirmation banner read this back\n  // immediately and confirm the device is running the build just flashed.\n  Serial.print(\"FORGE_BUILD_ID=\");\n  Serial.println(FORGE_BUILD_ID);\n  Serial.println(\"Solar Weather Clock booting...\");\n  Wire.begin(PIN_SDA, PIN_SCL);\n\n  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {\n    Serial.println(\"OLED missing \u2014 check 0x3C vs 0x3D and wiring\");\n  }\n  display.setTextColor(SSD1306_WHITE);\n\n  if (!sht.begin(0x44)) Serial.println(\"SHT3x missing at 0x44\");\n\n  WiFi.mode(WIFI_STA);\n  for (int i = 0; i < WIFI_NETWORK_COUNT; i++) {\n    wifiMulti.addAP(WIFI_NETWORKS[i].ssid, WIFI_NETWORKS[i].password);\n  }\n  wifiMulti.run();\n  bootScreen();\n\n  bool haveTime = false;\n  bool haveWeather = false;\n  if (WiFi.status() == WL_CONNECTED) {\n    configTime(GMT_OFFSET_HOURS * 3600, DAYLIGHT_OFFSET_HOURS * 3600, \"pool.ntp.org\", \"time.nist.gov\");\n    struct tm ti;\n    haveTime = getLocalTime(&ti, 5000);\n    haveWeather = fetchWeather();\n    g_lastWeather = millis();\n    g_wifiConfigured = true;\n  }\n\n  if (haveTime && haveWeather) {\n    welcomeScreen();\n    g_everLoaded = true;\n  }\n  g_lastMessage = millis();\n  rollMessageChoice();\n}\n\nvoid loop() {\n  if (g_specialMomentActive) {\n    unsigned long elapsed = millis() - g_specialMomentStart;\n    if (elapsed >= currentSpecialMomentDuration()) {\n      g_specialMomentActive = false;  // falls through to the normal clock below\n    } else {\n      drawCurrentSpecialMoment(elapsed);\n      delay(200);\n      return;\n    }\n  } else if (millis() - g_lastSpecialMoment > SPECIAL_MOMENT_INTERVAL_MS) {\n    startRandomSpecialMoment();\n    drawCurrentSpecialMoment(0);\n    delay(200);\n    return;\n  }\n\n  // --- Full-screen message, every 5 minutes ---\n  if (g_messageActive) {\n    unsigned long elapsed = millis() - g_messageStart;\n    if (elapsed >= MESSAGE_DURATION_MS) {\n      g_messageActive = false;  // falls through to the normal clock below\n    } else {\n      drawFullScreenMessage(elapsed);\n      delay(200);\n      return;\n    }\n  } else if (MESSAGE_COUNT > 0 && millis() - g_lastMessage > MESSAGE_INTERVAL_MS) {\n    g_lastMessage = millis();\n    g_messageActive = true;\n    g_messageStart = millis();\n    rollMessageChoice();\n    drawFullScreenMessage(0);\n    delay(200);\n    return;\n  }\n\n  // --- Wi-Fi watchdog: setup() only calls WiFi.begin() once. If that\n  // connection attempt failed or later drops, nothing else ever retries \u2014\n  // this is what \"stuck syncing forever\" actually was. Retry periodically,\n  // and catch up on time + weather the moment a connection lands.\n  if (WiFi.status() != WL_CONNECTED) {\n    g_wifiConfigured = false;\n    if (millis() - g_lastWifiRetry > WIFI_RETRY_INTERVAL_MS) {\n      g_lastWifiRetry = millis();\n      wifiMulti.run();\n    }\n  } else if (!g_wifiConfigured) {\n    configTime(GMT_OFFSET_HOURS * 3600, DAYLIGHT_OFFSET_HOURS * 3600, \"pool.ntp.org\", \"time.nist.gov\");\n    fetchWeather();\n    g_lastWeather = millis();\n    g_wifiConfigured = true;\n  }\n\n  float t = cToF(sht.readTemperature());\n  float h = sht.readHumidity();\n\n  struct tm timeinfo;\n  bool haveTime = getLocalTime(&timeinfo, 50);\n\n  if (millis() - g_lastWeather > 900000UL) { fetchWeather(); g_lastWeather = millis(); }\n\n  // Data finished loading for the first time after a boot that skipped the\n  // welcome screen above (e.g. NTP/weather took a moment longer than the\n  // initial fetch window) \u2014 show it once, the moment it's actually ready.\n  if (!g_everLoaded && haveTime && !isnan(g_outTemp)) {\n    welcomeScreen();\n    g_everLoaded = true;\n    g_lastMessage = millis();\n  }\n\n  display.clearDisplay();\n\n  // --- Blanket view: everything, all the time ---\n  display.setTextSize(1);\n  char buf[8] = \"\";\n  char dbuf[20] = \"\";\n  const char* ampm = \"\";\n  if (haveTime) {\n    // 12-hour, no leading zero (e.g. \"2:32\" not \"14:32\") \u2014 strftime's %I\n    // always zero-pads, so this is built by hand instead.\n    int hour12 = timeinfo.tm_hour % 12;\n    if (hour12 == 0) hour12 = 12;\n    snprintf(buf, sizeof(buf), \"%d:%02d\", hour12, timeinfo.tm_min);\n    ampm = (timeinfo.tm_hour < 12) ? \"AM\" : \"PM\";\n    strftime(dbuf, sizeof(dbuf), \"%a %b %d\", &timeinfo);\n  }\n  drawWorldMapClockFace(haveTime, buf, dbuf, ampm, t, h, g_outTemp, g_outText);\n  // Every other screen (full-screen messages, special moments, boot/welcome)\n  // assumes the default built-in font's metrics \u2014 drawWorldMapClockFace\n  // already resets this, but stay explicit here too.\n  display.setFont(NULL);\n\n  // --- Rocket orbiting the globe, every minute ---\n  if (millis() - g_lastRocketOrbit > ROCKET_ORBIT_INTERVAL_MS) {\n    g_lastRocketOrbit = millis();\n    g_rocketOrbitStart = millis();\n    g_rocketOrbitActive = true;\n  }\n  if (g_rocketOrbitActive) {\n    unsigned long orbitElapsed = millis() - g_rocketOrbitStart;\n    if (orbitElapsed >= ROCKET_ORBIT_DURATION_MS) g_rocketOrbitActive = false;\n    else drawRocketOrbit(orbitElapsed);\n  }\n\n  display.display();\n  delay(200);\n}\n",
+        "kind": "sketch"
+      },
+      {
+        "path": "bitmaps.h",
+        "contents": "// Generated 16x16 monochrome animation frames, reused inside the special\n// full-screen moments (heart pulse in mars-and-back.h, sparkle landing in\n// shooting-star.h). Regenerate/extend via scratchpad/gen_bitmaps.py (design\n// pattern only \u2014 not part of the app build, hand-run when adding more).\n\n// --- heart ---\nconst unsigned char PROGMEM heart_f0[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x0C, 0x60,\n  0x1E, 0xF0,\n  0x1E, 0xF0,\n  0x0F, 0xF0,\n  0x07, 0xE0,\n  0x03, 0xC0,\n  0x01, 0x80,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char PROGMEM heart_f1[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x18, 0x60,\n  0x3C, 0xF0,\n  0x7E, 0xFC,\n  0x7E, 0xFC,\n  0x3F, 0xFC,\n  0x3F, 0xFC,\n  0x1F, 0xF8,\n  0x0F, 0xF0,\n  0x07, 0xE0,\n  0x03, 0xC0,\n  0x01, 0x80,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char PROGMEM heart_f2[] = {\n  0x00, 0x00,\n  0x30, 0x60,\n  0x78, 0xF0,\n  0xFD, 0xF8,\n  0xFF, 0xFE,\n  0xFF, 0xFE,\n  0xFF, 0xFE,\n  0xFF, 0xFE,\n  0x7F, 0xFC,\n  0x7F, 0xFC,\n  0x3F, 0xF8,\n  0x1F, 0xF0,\n  0x0F, 0xE0,\n  0x07, 0xC0,\n  0x03, 0x80,\n  0x01, 0x00,\n};\nconst unsigned char PROGMEM heart_f3[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x18, 0x60,\n  0x3C, 0xF0,\n  0x7E, 0xFC,\n  0x7E, 0xFC,\n  0x3F, 0xFC,\n  0x3F, 0xFC,\n  0x1F, 0xF8,\n  0x0F, 0xF0,\n  0x07, 0xE0,\n  0x03, 0xC0,\n  0x01, 0x80,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char* const heart_frames[] = { heart_f0, heart_f1, heart_f2, heart_f3 };\nconst int heart_frame_count = 4;\n\n// --- sparkle ---\nconst unsigned char PROGMEM sparkle_f0[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x01, 0x80,\n  0x01, 0x80,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char PROGMEM sparkle_f1[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x80,\n  0x00, 0x80,\n  0x01, 0xC0,\n  0x13, 0xE4,\n  0x0F, 0xF0,\n  0x13, 0xE4,\n  0x01, 0xC0,\n  0x00, 0x80,\n  0x00, 0x80,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char PROGMEM sparkle_f2[] = {\n  0x00, 0x00,\n  0x00, 0x80,\n  0x00, 0x80,\n  0x01, 0xC0,\n  0x00, 0x80,\n  0x08, 0x88,\n  0x0C, 0x98,\n  0xFF, 0xDF,\n  0x0C, 0x98,\n  0x08, 0x88,\n  0x00, 0x80,\n  0x01, 0xC0,\n  0x00, 0x80,\n  0x00, 0x80,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char PROGMEM sparkle_f3[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x80,\n  0x00, 0x80,\n  0x01, 0xC0,\n  0x13, 0xE4,\n  0x0F, 0xF0,\n  0x13, 0xE4,\n  0x01, 0xC0,\n  0x00, 0x80,\n  0x00, 0x80,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char* const sparkle_frames[] = { sparkle_f0, sparkle_f1, sparkle_f2, sparkle_f3 };\nconst int sparkle_frame_count = 4;\n\n",
+        "kind": "header"
+      },
+      {
+        "path": "mars-and-back.h",
+        "contents": "// \"I love you to Mars and back\" \u2014 a rare, full-screen special moment.\n// Earth/Mars/stars are drawn as primitives (no bitmap needed); only the\n// rocket is a sprite, animated along a computed arc rather than hand-placed\n// per frame \u2014 swap rocket_right_frames/rocket_left_frames for outbound vs.\n// return so the nose always points the way it's flying. Heart on arrival\n// reuses bitmaps.h's existing heart_frames \u2014 no need for a second heart.\n\nconst unsigned char PROGMEM rocket_right_f0[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x18, 0x00,\n  0x38, 0x00,\n  0x0F, 0xF8,\n  0x0F, 0xFC,\n  0x7E, 0x7E,\n  0x7E, 0x7E,\n  0x0F, 0xFC,\n  0x0F, 0xF8,\n  0x38, 0x00,\n  0x18, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char PROGMEM rocket_right_f1[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x18, 0x00,\n  0x38, 0x00,\n  0x0F, 0xF8,\n  0xFF, 0xFC,\n  0xFE, 0x7E,\n  0xFE, 0x7E,\n  0xFF, 0xFC,\n  0x0F, 0xF8,\n  0x38, 0x00,\n  0x18, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char* const rocket_right_frames[] = { rocket_right_f0, rocket_right_f1 };\n\nconst unsigned char PROGMEM rocket_left_f0[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x18,\n  0x00, 0x1C,\n  0x1F, 0xF0,\n  0x3F, 0xF0,\n  0x7E, 0x7E,\n  0x7E, 0x7E,\n  0x3F, 0xF0,\n  0x1F, 0xF0,\n  0x00, 0x1C,\n  0x00, 0x18,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char PROGMEM rocket_left_f1[] = {\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x18,\n  0x00, 0x1C,\n  0x1F, 0xF0,\n  0x3F, 0xFF,\n  0x7E, 0x7F,\n  0x7E, 0x7F,\n  0x3F, 0xFF,\n  0x1F, 0xF0,\n  0x00, 0x1C,\n  0x00, 0x18,\n  0x00, 0x00,\n  0x00, 0x00,\n  0x00, 0x00,\n};\nconst unsigned char* const rocket_left_frames[] = { rocket_left_f0, rocket_left_f1 };\n\n// Fixed starfield \u2014 hand-placed once, not randomized, so it doesn't flicker\n// or drift between frames.\nconst int8_t MARS_STARS[][2] = {\n  {4, 4}, {20, 55}, {36, 8}, {50, 52}, {62, 6}, {72, 50}, {88, 4}, {94, 55},\n  {44, 20}, {58, 38}, {76, 22}, {30, 35}, {100, 20}, {2, 50},\n};\nconst int MARS_STAR_COUNT = sizeof(MARS_STARS) / sizeof(MARS_STARS[0]);\n\nconst int EARTH_X = 18, EARTH_Y = 32, EARTH_R = 11;\nconst int MARS_X = 108, MARS_Y = 32, MARS_R = 6;\n\nconst unsigned long MARS_OUTBOUND_END = 3200UL;\nconst unsigned long MARS_PAUSE_END = 4700UL;\nconst unsigned long MARS_RETURN_END = 7900UL;\nconst unsigned long MARS_MOMENT_DURATION_MS = 8000UL;\n\nvoid drawMarsAndBackMoment(unsigned long elapsed) {\n  display.clearDisplay();\n\n  for (int i = 0; i < MARS_STAR_COUNT; i++) {\n    display.drawPixel(MARS_STARS[i][0], MARS_STARS[i][1], SSD1306_WHITE);\n  }\n\n  display.fillCircle(EARTH_X, EARTH_Y, EARTH_R, SSD1306_WHITE);\n  display.fillCircle(EARTH_X - 4, EARTH_Y - 4, 2, SSD1306_BLACK);\n  display.fillCircle(EARTH_X + 4, EARTH_Y + 4, 2, SSD1306_BLACK);\n\n  display.fillCircle(MARS_X, MARS_Y, MARS_R, SSD1306_WHITE);\n  display.fillCircle(MARS_X - 2, MARS_Y - 2, 1, SSD1306_BLACK);\n\n  int startX = EARTH_X + EARTH_R + 2;\n  int endX = MARS_X - MARS_R - 2;\n  int flameFrame = (int)((elapsed / 150) % 2);\n\n  if (elapsed < MARS_OUTBOUND_END) {\n    float t = easeInOutQuad(elapsed / (float)MARS_OUTBOUND_END);  // gentle accel/decel, not constant speed\n    int px = startX + (int)(t * (endX - startX));\n    int py = EARTH_Y - (int)(6 * sin(t * PI));  // gentle upward bow\n    display.drawBitmap(px - 8, py - 8, rocket_right_frames[flameFrame], 16, 16, SSD1306_WHITE);\n  } else if (elapsed < MARS_PAUSE_END) {\n    unsigned long pt = elapsed - MARS_OUTBOUND_END;\n    int hf = (int)((pt / 250) % heart_frame_count);\n    display.drawBitmap(MARS_X - 8, MARS_Y - MARS_R - 20, heart_frames[hf], 16, 16, SSD1306_WHITE);\n  } else if (elapsed < MARS_RETURN_END) {\n    float t = easeInOutQuad((elapsed - MARS_PAUSE_END) / (float)(MARS_RETURN_END - MARS_PAUSE_END));\n    int px = endX + (int)(t * (startX - endX));\n    int py = EARTH_Y - (int)(6 * sin(t * PI));\n    display.drawBitmap(px - 8, py - 8, rocket_left_frames[flameFrame], 16, 16, SSD1306_WHITE);\n  }\n\n  display.display();\n}\n",
+        "kind": "header"
+      },
+      {
+        "path": "propose.h",
+        "contents": "// The \"will you marry me?\" screen \u2014 ported from a Lopaka export (drawScreen_1).\n// Lopaka targets Arduino_GFX (`gfx->`, RGB565 colors); this is the same\n// layout and pixel data redrawn against the Adafruit_SSD1306 `display`\n// object actually running on this board. Adafruit_GFX has no drawEllipse,\n// hence the small helper below.\n\nconst unsigned char PROGMEM propose_frame_bits[] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x10,0x00,0x00,0x00,0x04,0x00,0x08,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x10,0x00,0x08,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x20,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x00,0x00,0x03,0xf8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0f,0xfc,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x7e,0x18,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0xf0,0x38,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x03,0xc0,0xf0,0x00,0x00,0x00,0x10,0x00,0x00,0x00,0x00,0x00,0x80,0x00,0x00,0x02,0x01,0xe0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x07,0x80,0x00,0x00,0x00,0x00,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1f,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x3c,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0xf0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x07,0xe0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x07,0x80,0x00,0x3f,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1f,0x80,0x01,0xff,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x3f,0x00,0x0f,0xf8,0x00,0x00,0x20,0x00,0x00,0x00,0x00,0x00,0x00,0x40,0x00,0xfc,0x00,0x7f,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x03,0xf0,0x0f,0xf8,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x07,0xc0,0xff,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0e,0x07,0xfe,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1c,0x1f,0xc0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x1f,0xfc,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x0f,0xc0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x10,0x00,0x08,0x00,0x00,0x00,0x00,0x00,0x20,0x00,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};\n\nconst unsigned char PROGMEM propose_star_bits[] = {0x92,0x54,0x38,0xfe,0x38,0x54,0x92};\n\n// Adafruit_GFX has no ellipse primitive \u2014 trig-plotted outline, cheap enough\n// to run once per screen draw (not per frame).\nvoid drawEllipseOutline(int cx, int cy, int rx, int ry, uint16_t color) {\n  for (float a = 0; a < 360; a += 2) {\n    float rad = a * PI / 180.0;\n    display.drawPixel(cx + (int)round(rx * cos(rad)), cy + (int)round(ry * sin(rad)), color);\n  }\n}\n\nstruct ProposeLetter { int8_t x, y; char c; };\nconst ProposeLetter PROPOSE_LETTERS[] = {\n  {3, 6, 'w'}, {10, 11, 'i'}, {16, 6, 'l'}, {24, 10, 'l'},\n  {39, 15, 'y'}, {46, 13, 'o'}, {54, 11, 'u'},\n  {67, 6, 'm'}, {74, 8, 'a'}, {81, 9, 'r'}, {88, 7, 'r'}, {94, 11, 'y'},\n  {108, 11, 'm'}, {115, 14, 'e'}, {122, 11, '?'},\n};\n\nvoid drawProposeScreen() {\n  display.clearDisplay();\n  display.setTextColor(SSD1306_WHITE);\n  display.setTextWrap(false);\n  display.setTextSize(1);\n\n  for (const auto &L : PROPOSE_LETTERS) {\n    display.setCursor(L.x, L.y);\n    display.print(L.c);\n  }\n\n  display.drawBitmap(5, 48, propose_star_bits, 7, 7, SSD1306_WHITE);\n  display.drawBitmap(20, 28, propose_star_bits, 7, 7, SSD1306_WHITE);\n  display.drawBitmap(108, 40, propose_star_bits, 7, 7, SSD1306_WHITE);\n  display.drawBitmap(116, 53, propose_star_bits, 7, 7, SSD1306_WHITE);\n\n  drawEllipseOutline(66, 29, 11, 10, SSD1306_WHITE);\n\n  display.drawBitmap(6, 1, propose_frame_bits, 120, 61, SSD1306_WHITE);\n\n  display.display();\n}\n",
+        "kind": "header"
+      },
+      {
+        "path": "shooting-star.h",
+        "contents": "// \"Make a wish\" \u2014 a shooting star streaks across a starfield, lands, and a\n// sparkle celebrates. Procedural (no sprite for the star itself \u2014 just a\n// bright head plus a hand-computed fading trail along its path), reusing\n// bitmaps.h's existing sparkle_frames for the landing moment.\n\nconst int8_t STAR_FIELD[][2] = {\n  {6, 50}, {18, 10}, {34, 55}, {48, 14}, {60, 48}, {74, 8}, {90, 52},\n  {104, 16}, {116, 44}, {122, 6}, {26, 30}, {80, 30}, {40, 42}, {110, 28},\n};\nconst int STAR_FIELD_COUNT = sizeof(STAR_FIELD) / sizeof(STAR_FIELD[0]);\n\nconst unsigned long STAR_STREAK_END = 2200UL;\nconst unsigned long STAR_MOMENT_DURATION_MS = 5000UL;\nconst int STAR_START_X = 6, STAR_START_Y = 4;\nconst int STAR_END_X = 100, STAR_END_Y = 42;\n\nvoid drawShootingStarMoment(unsigned long elapsed) {\n  display.clearDisplay();\n  for (int i = 0; i < STAR_FIELD_COUNT; i++) {\n    display.drawPixel(STAR_FIELD[i][0], STAR_FIELD[i][1], SSD1306_WHITE);\n  }\n\n  if (elapsed < STAR_STREAK_END) {\n    float t = elapsed / (float)STAR_STREAK_END;\n    // Trail: a handful of points walked back along the same path, thinning\n    // out (every other pixel skipped) the further back they sit.\n    for (int i = 0; i < 7; i++) {\n      float tt = t - i * 0.03f;\n      if (tt < 0) break;\n      if (i > 2 && (i % 2 == 0)) continue;  // thin the tail\n      int tx = STAR_START_X + (int)(tt * (STAR_END_X - STAR_START_X));\n      int ty = STAR_START_Y + (int)(tt * (STAR_END_Y - STAR_START_Y));\n      display.drawPixel(tx, ty, SSD1306_WHITE);\n    }\n    int hx = STAR_START_X + (int)(t * (STAR_END_X - STAR_START_X));\n    int hy = STAR_START_Y + (int)(t * (STAR_END_Y - STAR_START_Y));\n    display.fillCircle(hx, hy, 1, SSD1306_WHITE);\n  } else {\n    unsigned long lt = elapsed - STAR_STREAK_END;\n    int fi = (int)((lt / 220) % sparkle_frame_count);\n    display.drawBitmap(STAR_END_X - 8, STAR_END_Y - 8, sparkle_frames[fi], 16, 16, SSD1306_WHITE);\n  }\n\n  display.display();\n}\n",
+        "kind": "header"
+      },
+      {
+        "path": "weather-scene.h",
+        "contents": "// A little scene matching *today's actual weather* (g_outText, already\n// fetched by fetchWeather() for the main clock view) \u2014 not just decoration,\n// it reflects real data already flowing through the sketch. All procedural\n// (circles/lines/dots), no bitmap assets needed.\n\nconst unsigned long WEATHER_SCENE_DURATION_MS = 6000UL;\n\nvoid wsCloud(int cx, int cy) {\n  display.fillCircle(cx - 6, cy, 5, SSD1306_WHITE);\n  display.fillCircle(cx + 6, cy, 5, SSD1306_WHITE);\n  display.fillCircle(cx, cy - 3, 6, SSD1306_WHITE);\n  display.fillRect(cx - 6, cy, 12, 5, SSD1306_WHITE);\n}\n\nvoid wsSun(unsigned long elapsed) {\n  int cx = 64, cy = 30;\n  display.fillCircle(cx, cy, 10, SSD1306_WHITE);\n  float rot = elapsed / 800.0f;\n  for (int i = 0; i < 8; i++) {\n    float a = rot + i * (PI / 4);\n    int x1 = cx + (int)(14 * cos(a)), y1 = cy + (int)(14 * sin(a));\n    int x2 = cx + (int)(20 * cos(a)), y2 = cy + (int)(20 * sin(a));\n    display.drawLine(x1, y1, x2, y2, SSD1306_WHITE);\n  }\n}\n\nvoid wsClouds(unsigned long elapsed) {\n  int drift = (int)((elapsed / 40) % 140) - 20;\n  wsCloud(20 + drift, 20);\n  wsCloud(70 + drift, 38);\n  wsCloud((30 + drift + 140) % 160 - 10, 12);\n}\n\nvoid wsRain(unsigned long elapsed) {\n  wsCloud(64, 16);\n  const int DROP_X[] = {14, 30, 46, 58, 72, 86, 100, 112};\n  for (int i = 0; i < 8; i++) {\n    int y = (int)((elapsed / 3 + i * 23) % 56) + 6;\n    display.drawLine(DROP_X[i], y, DROP_X[i] - 2, y + 5, SSD1306_WHITE);\n  }\n}\n\nvoid wsSnow(unsigned long elapsed) {\n  wsCloud(64, 14);\n  const int FLAKE_X[] = {10, 26, 42, 54, 68, 82, 96, 108, 120};\n  for (int i = 0; i < 9; i++) {\n    int y = (int)((elapsed / 8 + i * 19) % 58) + 6;\n    int sway = (int)(3 * sin((elapsed / 300.0f) + i));\n    display.fillCircle(FLAKE_X[i] + sway, y, 1, SSD1306_WHITE);\n  }\n}\n\nvoid wsStorm(unsigned long elapsed) {\n  wsCloud(64, 14);\n  const int DROP_X[] = {16, 34, 50, 66, 82, 98, 112};\n  for (int i = 0; i < 7; i++) {\n    int y = (int)((elapsed / 3 + i * 26) % 56) + 8;\n    display.drawLine(DROP_X[i], y, DROP_X[i] - 2, y + 5, SSD1306_WHITE);\n  }\n  if ((elapsed % 1500) < 120) {\n    display.drawLine(64, 18, 58, 34, SSD1306_WHITE);\n    display.drawLine(58, 34, 66, 34, SSD1306_WHITE);\n    display.drawLine(66, 34, 60, 52, SSD1306_WHITE);\n  }\n}\n\nvoid drawWeatherSceneMoment(unsigned long elapsed) {\n  display.clearDisplay();\n\n  if (g_outText == \"Clear\") wsSun(elapsed);\n  else if (g_outText == \"Rain\" || g_outText == \"Showers\") wsRain(elapsed);\n  else if (g_outText == \"Snow\") wsSnow(elapsed);\n  else if (g_outText == \"Storm\") wsStorm(elapsed);\n  else wsClouds(elapsed);  // Cloudy, Fog, or \"--\" (no data yet) \u2014 safe default\n\n  display.setTextSize(1);\n  display.setCursor(2, 54);\n  display.print(g_outText);\n  display.print(\" outside\");\n\n  display.display();\n}\n",
+        "kind": "header"
+      },
+      {
+        "path": "world-map.h",
+        "contents": "// A real, rotating Earth \u2014 orthographic projection of Wikimedia Commons'\n// \"BlankMap-World.png\" (public domain), warped through the standard\n// spherical-projection inverse at 8 longitude offsets (45\u00b0 apart) so it\n// genuinely rotates like Earth does, not a static image. Big (52px), sits\n// in the bottom-right corner. The panel's physical yellow/blue split (a\n// fixed color filter bonded onto the glass, not something software can\n// address per-pixel) means the top of the globe \u2014 if it reaches into that\n// band \u2014 renders yellow and the rest blue; that's a property of the\n// hardware, not this code.\n// Source: https://commons.wikimedia.org/wiki/File:BlankMap-World.png\n\n#define EARTH_GLOBE_D 52\n#define EARTH_GLOBE_FRAME_COUNT 8\n#define EARTH_GLOBE_X (128 - EARTH_GLOBE_D - 2)\n#define EARTH_GLOBE_Y (64 - EARTH_GLOBE_D - 2)\n\nconst unsigned char PROGMEM earth_globe_f0[] = {\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x60, 0x00, 0xE0, 0x00, 0x00,\n  0x00, 0x01, 0xE4, 0xC0, 0xF8, 0x00, 0x00,\n  0x00, 0x03, 0xF5, 0x86, 0xFE, 0x00, 0x00,\n  0x00, 0x0F, 0x03, 0x45, 0xFF, 0x80, 0x00,\n  0x00, 0x1E, 0x40, 0x17, 0x7C, 0xC0, 0x00,\n  0x00, 0x7F, 0xC0, 0x02, 0x7F, 0xE0, 0x00,\n  0x00, 0xFF, 0xC0, 0x02, 0xFF, 0xF0, 0x00,\n  0x01, 0xFF, 0x00, 0x1B, 0xFF, 0xE8, 0x00,\n  0x03, 0x9C, 0x80, 0x07, 0xFB, 0xFC, 0x00,\n  0x07, 0xF0, 0x00, 0x07, 0xB5, 0xBE, 0x00,\n  0x07, 0xC0, 0x00, 0x07, 0xD8, 0x5D, 0x00,\n  0x0F, 0x80, 0x00, 0x1E, 0x57, 0xBF, 0x00,\n  0x1E, 0x00, 0x00, 0x1C, 0xAB, 0xBF, 0x80,\n  0x04, 0x00, 0x00, 0x1C, 0x00, 0x7F, 0x80,\n  0x20, 0x00, 0x00, 0x03, 0xC0, 0x76, 0xC0,\n  0x04, 0x00, 0x00, 0x1B, 0xE7, 0xBB, 0x40,\n  0x00, 0x00, 0x00, 0x1F, 0xBF, 0xFD, 0x20,\n  0x60, 0x00, 0x00, 0x2F, 0xFF, 0xDF, 0x20,\n  0x48, 0x00, 0x00, 0x7F, 0xFF, 0xEF, 0x00,\n  0x48, 0x00, 0x00, 0x7F, 0xDF, 0xDF, 0x00,\n  0x00, 0x00, 0x00, 0xBB, 0xFF, 0xF7, 0x10,\n  0x40, 0x00, 0x00, 0xFF, 0xBF, 0xFB, 0x00,\n  0x40, 0x00, 0x00, 0xFF, 0xFF, 0xFE, 0x00,\n  0x18, 0x00, 0x00, 0xFF, 0xFF, 0xFC, 0x00,\n  0x3C, 0x00, 0x01, 0xFD, 0xFF, 0xFF, 0x00,\n  0x3E, 0x00, 0x01, 0x7E, 0xFF, 0xDF, 0x00,\n  0x3E, 0x00, 0x00, 0xF9, 0xFF, 0xFE, 0x00,\n  0x3B, 0x00, 0x00, 0x7B, 0xFF, 0xBD, 0x00,\n  0x17, 0x80, 0x00, 0x7F, 0xFF, 0xFE, 0x00,\n  0x3F, 0x80, 0x00, 0x10, 0x5D, 0xFE, 0x00,\n  0x3F, 0xC0, 0x00, 0x00, 0x07, 0xFC, 0x00,\n  0x3F, 0xE0, 0x00, 0x00, 0x1F, 0xDC, 0x00,\n  0x3F, 0xF8, 0x00, 0x00, 0x17, 0xDC, 0x00,\n  0x1F, 0xFC, 0x00, 0x00, 0x0F, 0xD8, 0x00,\n  0x1F, 0xFE, 0x00, 0x00, 0x0F, 0xEC, 0x00,\n  0x0F, 0xFE, 0x00, 0x00, 0x0F, 0xFD, 0x00,\n  0x07, 0xFE, 0x00, 0x00, 0x07, 0xFA, 0x00,\n  0x07, 0xFC, 0x00, 0x00, 0x0F, 0xF2, 0x00,\n  0x03, 0xFC, 0x00, 0x00, 0x0F, 0xE4, 0x00,\n  0x03, 0xFE, 0x00, 0x00, 0x1F, 0xE4, 0x00,\n  0x01, 0xFC, 0x00, 0x00, 0x0F, 0xA0, 0x00,\n  0x01, 0xF8, 0x00, 0x00, 0x0F, 0x80, 0x00,\n  0x00, 0xF8, 0x00, 0x00, 0x0F, 0x80, 0x00,\n  0x00, 0x78, 0x00, 0x00, 0x07, 0x00, 0x00,\n  0x00, 0x38, 0x00, 0x00, 0x0C, 0x00, 0x00,\n  0x00, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n};\nconst unsigned char PROGMEM earth_globe_f1[] = {\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x1C, 0x0E, 0xF8, 0x00, 0x00,\n  0x00, 0x02, 0x40, 0x07, 0xFE, 0x00, 0x00,\n  0x00, 0x18, 0x01, 0x7F, 0xFC, 0x00, 0x00,\n  0x00, 0x30, 0x07, 0xFF, 0xFF, 0x80, 0x00,\n  0x00, 0x60, 0x25, 0xFF, 0xFF, 0xC0, 0x00,\n  0x00, 0x00, 0x29, 0xFF, 0xFF, 0xE0, 0x00,\n  0x00, 0x00, 0x5F, 0x7F, 0xEF, 0xF0, 0x00,\n  0x00, 0x00, 0xFB, 0xFF, 0xFF, 0xF8, 0x00,\n  0x00, 0x00, 0xFE, 0xFF, 0xFF, 0xF8, 0x00,\n  0x00, 0x03, 0xCF, 0x3B, 0x7F, 0xFC, 0x00,\n  0x00, 0x07, 0x13, 0x10, 0xFF, 0xFE, 0x00,\n  0x00, 0x06, 0x0D, 0xFD, 0xFF, 0xFF, 0x00,\n  0x00, 0x01, 0xC5, 0xFC, 0xBF, 0xFF, 0x00,\n  0x00, 0x0F, 0xC0, 0x3F, 0xFB, 0xFF, 0x80,\n  0x00, 0x1F, 0xC0, 0x3B, 0xFF, 0xF3, 0x80,\n  0x00, 0x3F, 0xE6, 0x3F, 0xFF, 0xFB, 0x80,\n  0x00, 0x1F, 0xFF, 0xFE, 0xFF, 0xFF, 0x80,\n  0x00, 0xFF, 0xFF, 0xBE, 0x7F, 0xFB, 0x80,\n  0x01, 0xFF, 0xFF, 0xDF, 0x01, 0xF9, 0xC0,\n  0x01, 0xFF, 0xFF, 0xCF, 0xF0, 0x71, 0xD0,\n  0x01, 0xFD, 0xF7, 0xEF, 0xE0, 0x70, 0xC0,\n  0x01, 0x7F, 0xFB, 0xE7, 0x60, 0x70, 0x00,\n  0x01, 0xFF, 0xFF, 0xF7, 0xC0, 0x30, 0x00,\n  0x01, 0xFF, 0xFF, 0xF3, 0x80, 0x30, 0x50,\n  0x01, 0xDF, 0xFF, 0xFA, 0x00, 0x10, 0x10,\n  0x00, 0x7F, 0xFF, 0xBC, 0x80, 0x08, 0x10,\n  0x80, 0xF7, 0x3F, 0xFF, 0x80, 0x00, 0x50,\n  0x80, 0x03, 0xFF, 0xFE, 0x80, 0x00, 0x00,\n  0x80, 0x01, 0xF9, 0xFD, 0x00, 0x00, 0x20,\n  0x40, 0x01, 0x7F, 0xFE, 0x00, 0x00, 0x20,\n  0x40, 0x01, 0xFF, 0xFC, 0x00, 0x00, 0x00,\n  0x40, 0x01, 0x7F, 0xB8, 0x00, 0x00, 0x00,\n  0x40, 0x00, 0xFE, 0xF0, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0xFE, 0xF0, 0x00, 0x00, 0x00,\n  0x20, 0x00, 0x7F, 0xF0, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x77, 0xF0, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x7E, 0xF8, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x77, 0xD8, 0x80, 0x00, 0x00,\n  0x00, 0x00, 0x5F, 0xF3, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x7D, 0xC3, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x3E, 0xC6, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x3D, 0xC6, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x1F, 0x80, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x0E, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n};\nconst unsigned char PROGMEM earth_globe_f2[] = {\n  0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x59, 0xFF, 0x80, 0x00, 0x00,\n  0x00, 0x04, 0x7F, 0xFF, 0xE0, 0x00, 0x00,\n  0x00, 0x10, 0xFF, 0xFF, 0xD0, 0x00, 0x00,\n  0x00, 0x1F, 0xFF, 0xFF, 0x80, 0x00, 0x00,\n  0x00, 0x3B, 0xFB, 0xFF, 0xF0, 0x00, 0x00,\n  0x00, 0xF7, 0xFF, 0xFF, 0xF8, 0x00, 0x00,\n  0x01, 0x75, 0x7F, 0xFF, 0xF2, 0x00, 0x00,\n  0x02, 0x33, 0x7F, 0xFF, 0xFD, 0x00, 0x00,\n  0x06, 0xDB, 0x7D, 0xEF, 0x7C, 0x80, 0x00,\n  0x0E, 0x3F, 0x3F, 0xFF, 0xFC, 0x00, 0x00,\n  0x1E, 0x1E, 0x7F, 0xFF, 0xF2, 0x40, 0x00,\n  0x1E, 0x0F, 0xFF, 0xFF, 0xF9, 0x40, 0x00,\n  0x3F, 0x8F, 0xFF, 0xFF, 0xFC, 0x00, 0x00,\n  0x3F, 0xD7, 0xFF, 0xFF, 0xFE, 0x00, 0x00,\n  0x5F, 0xF9, 0xF7, 0xFF, 0xFF, 0x00, 0x00,\n  0x7F, 0xFD, 0xFF, 0xDF, 0xFF, 0x00, 0x00,\n  0x79, 0xFC, 0x7F, 0xFF, 0x7F, 0x80, 0x00,\n  0x7F, 0xFF, 0x8F, 0xFB, 0xFE, 0x00, 0x00,\n  0x7F, 0xFF, 0xC7, 0xFD, 0xDC, 0x00, 0x00,\n  0xFF, 0xDF, 0x81, 0xF9, 0xF0, 0x00, 0x00,\n  0xFF, 0xD7, 0x01, 0xF0, 0xF8, 0x00, 0x00,\n  0xDF, 0xDC, 0x01, 0xE0, 0xF4, 0x20, 0x00,\n  0x6F, 0xF0, 0x01, 0xC0, 0x3C, 0x00, 0x00,\n  0x3F, 0xE0, 0x00, 0xC0, 0x2C, 0x18, 0x00,\n  0x3B, 0xFC, 0x00, 0xC0, 0x00, 0x18, 0x00,\n  0x3F, 0xF8, 0x00, 0x00, 0x20, 0x00, 0x00,\n  0x3F, 0xB8, 0x00, 0x20, 0x10, 0x44, 0x00,\n  0x3F, 0xF0, 0x00, 0x00, 0x52, 0xCC, 0x00,\n  0x3E, 0xE0, 0x00, 0x00, 0x29, 0xC4, 0xC0,\n  0x3F, 0xC0, 0x00, 0x00, 0x19, 0xD0, 0xC0,\n  0x1F, 0x80, 0x00, 0x00, 0x0C, 0x50, 0x00,\n  0x15, 0x80, 0x00, 0x00, 0x0C, 0x00, 0x00,\n  0x1B, 0x80, 0x00, 0x00, 0x07, 0x20, 0x00,\n  0x1F, 0x40, 0x00, 0x00, 0x00, 0x06, 0x00,\n  0x0E, 0xC0, 0x00, 0x00, 0x00, 0x05, 0x00,\n  0x0D, 0x44, 0x00, 0x00, 0x00, 0x1F, 0x00,\n  0x07, 0x8C, 0x00, 0x00, 0x00, 0x3F, 0x00,\n  0x07, 0x88, 0x00, 0x00, 0x00, 0x7E, 0x00,\n  0x02, 0xC8, 0x00, 0x00, 0x01, 0xFC, 0x00,\n  0x01, 0x88, 0x00, 0x00, 0x03, 0xFC, 0x00,\n  0x00, 0xC0, 0x00, 0x00, 0x03, 0xF8, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x07, 0xF0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n};\nconst unsigned char PROGMEM earth_globe_f3[] = {\n  0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x20, 0x00, 0x20, 0x00, 0x00,\n  0x00, 0x01, 0x7C, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x07, 0xFF, 0x80, 0x00, 0x00, 0x00,\n  0x00, 0x1F, 0xFF, 0xF8, 0x00, 0x00, 0x00,\n  0x00, 0x3F, 0xFF, 0xF8, 0x00, 0x00, 0x00,\n  0x00, 0x6F, 0xFF, 0x10, 0x00, 0x00, 0x00,\n  0x00, 0x7F, 0xFF, 0x18, 0x00, 0x00, 0x00,\n  0x00, 0x7F, 0xBF, 0xC8, 0x00, 0x00, 0x00,\n  0x03, 0xFF, 0xFF, 0xC0, 0x00, 0x00, 0x00,\n  0x02, 0xFF, 0xFF, 0xC0, 0x00, 0x00, 0x00,\n  0x07, 0xDF, 0xFF, 0xC0, 0x00, 0x00, 0x00,\n  0x0E, 0xFF, 0xFF, 0x90, 0x00, 0x00, 0x00,\n  0x1F, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,\n  0x17, 0xFF, 0xF9, 0x88, 0x00, 0x00, 0x00,\n  0x1F, 0xFF, 0xFC, 0x98, 0x00, 0x00, 0x00,\n  0x37, 0xFF, 0xFC, 0x00, 0x00, 0x00, 0x00,\n  0x63, 0xFF, 0xFE, 0x20, 0x00, 0x00, 0x00,\n  0x33, 0xFF, 0xFE, 0x00, 0x00, 0x00, 0x00,\n  0x63, 0xFF, 0xFE, 0x00, 0x00, 0x00, 0x00,\n  0x41, 0xFF, 0xFE, 0x00, 0x00, 0x00, 0x00,\n  0x81, 0xE7, 0xFD, 0x00, 0x00, 0x00, 0x00,\n  0x81, 0x87, 0xC0, 0x00, 0x00, 0x00, 0x00,\n  0x81, 0x05, 0x40, 0x00, 0x00, 0x00, 0x00,\n  0x81, 0x03, 0xC0, 0x80, 0x00, 0x00, 0x00,\n  0x81, 0x01, 0x60, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0xE0, 0x80, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,\n  0x00, 0x01, 0x00, 0x20, 0x00, 0x00, 0x00,\n  0x00, 0x02, 0x82, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x01, 0x9E, 0x80, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x8E, 0x04, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0xC4, 0x8B, 0xE0, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0xF1, 0x00, 0x00,\n  0x00, 0x00, 0x08, 0x04, 0xD0, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x04, 0x40, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x0C, 0x40, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x7E, 0xC0, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0xFF, 0xE0, 0x00, 0x00,\n  0x00, 0x00, 0x07, 0xFF, 0xE0, 0x00, 0x00,\n  0x00, 0x00, 0x07, 0xFF, 0xE0, 0x00, 0x00,\n  0x00, 0x00, 0x07, 0xFF, 0xE0, 0x00, 0x00,\n  0x00, 0x00, 0x07, 0xFF, 0xC0, 0x00, 0x00,\n  0x00, 0x00, 0x07, 0x17, 0x82, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x06, 0x04, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n};\nconst unsigned char PROGMEM earth_globe_f4[] = {\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x70, 0x00, 0x60, 0x00, 0x00,\n  0x00, 0x01, 0xF0, 0x00, 0x78, 0x00, 0x00,\n  0x00, 0x07, 0xFC, 0x00, 0x1E, 0x00, 0x00,\n  0x00, 0x1F, 0xF8, 0x00, 0x1B, 0x80, 0x00,\n  0x00, 0x3F, 0x10, 0x00, 0x00, 0x80, 0x00,\n  0x00, 0x7E, 0x20, 0x00, 0x08, 0x20, 0x00,\n  0x00, 0xFE, 0x20, 0x00, 0x00, 0x10, 0x00,\n  0x01, 0xFF, 0x00, 0x00, 0x00, 0x18, 0x00,\n  0x03, 0xFC, 0x00, 0x00, 0x00, 0x0C, 0x00,\n  0x07, 0xF0, 0x00, 0x00, 0x00, 0x06, 0x00,\n  0x0F, 0xF0, 0x00, 0x00, 0x00, 0x03, 0x00,\n  0x0F, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x1F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x80,\n  0x1F, 0x8C, 0x00, 0x00, 0x00, 0x00, 0x80,\n  0x3F, 0x80, 0x00, 0x00, 0x00, 0x00, 0x40,\n  0x3F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x6F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20,\n  0x2E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x38, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x1C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x2E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x08, 0x1C, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x0E, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x07, 0x40, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x30, 0x40, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0xF2, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0xFA, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x03, 0xFF, 0x00, 0x04, 0x00, 0x00, 0x00,\n  0x01, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x01, 0xFF, 0x80, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0xFF, 0xC0, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x5F, 0xC0, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x07, 0xC0, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x03, 0x80, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n};\nconst unsigned char PROGMEM earth_globe_f5[] = {\n  0x00, 0x00, 0x04, 0x0C, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x60, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x01, 0xC0, 0x00, 0xB0, 0x00, 0x00,\n  0x00, 0x07, 0x80, 0x02, 0xF4, 0x00, 0x00,\n  0x00, 0x14, 0x00, 0x07, 0xF9, 0x00, 0x00,\n  0x00, 0x20, 0x00, 0x07, 0x7E, 0x80, 0x00,\n  0x00, 0x40, 0x00, 0x00, 0x3D, 0xE0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x3F, 0xE0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x1F, 0xD0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0F, 0xD0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0F, 0xF8, 0x00,\n  0x04, 0x00, 0x00, 0x00, 0x0F, 0xF8, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0F, 0xFC, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0F, 0xFC, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x07, 0xFC, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x03, 0xFA, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x03, 0xF0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x01, 0x70, 0xC0,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x72, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x3A, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x3E, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x10,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB0,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30,\n  0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x30,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30,\n  0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30,\n  0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60,\n  0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20,\n  0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20,\n  0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20,\n  0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40,\n  0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x08, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n};\nconst unsigned char PROGMEM earth_globe_f6[] = {\n  0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x0E, 0x20, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x0A, 0xC0, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x06, 0xA0, 0x00, 0x00,\n  0x00, 0x00, 0x01, 0xFE, 0x40, 0x80, 0x00,\n  0x00, 0x00, 0x07, 0xFE, 0x40, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0xF6, 0x38, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0xFF, 0xBC, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0xFF, 0xF6, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0xFF, 0xF8, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0xFF, 0xB8, 0x00, 0x00,\n  0x00, 0x00, 0x01, 0xFF, 0xF8, 0x01, 0x00,\n  0x00, 0x00, 0x03, 0xFF, 0xF8, 0x00, 0x00,\n  0x00, 0x00, 0x03, 0xFF, 0xF0, 0x00, 0x80,\n  0x00, 0x00, 0x03, 0xFF, 0xF0, 0x00, 0x00,\n  0x00, 0x00, 0x03, 0xFF, 0xF1, 0x00, 0x40,\n  0x00, 0x00, 0x03, 0xFF, 0xE0, 0x00, 0x00,\n  0x00, 0x00, 0x03, 0x7F, 0xC0, 0x00, 0x20,\n  0x00, 0x00, 0x03, 0xEC, 0x20, 0x00, 0x00,\n  0x00, 0x00, 0x02, 0xF8, 0x20, 0x00, 0x00,\n  0x00, 0x80, 0x00, 0xF0, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x70, 0x70, 0x00, 0x10,\n  0x00, 0x00, 0x00, 0x71, 0x02, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x79, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x03, 0xC0, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0xC1, 0xC0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x45, 0xE0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x2F, 0xD8, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0F, 0xFC, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0F, 0xAC, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0F, 0xFF, 0x80,\n  0x00, 0x00, 0x00, 0x00, 0x1F, 0xFF, 0x80,\n  0x00, 0x00, 0x00, 0x00, 0x1F, 0xFF, 0x80,\n  0x00, 0x00, 0x00, 0x00, 0x1F, 0xFF, 0x80,\n  0x00, 0x00, 0x00, 0x00, 0x1F, 0xFF, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0F, 0xFF, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0F, 0xBF, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x07, 0xFE, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x07, 0xFE, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x01, 0xF8, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x01, 0x70, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x03, 0xF0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x03, 0xE0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x03, 0xC0, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x07, 0x80, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n};\nconst unsigned char PROGMEM earth_globe_f7[] = {\n  0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x34, 0xE0, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x6C, 0x78, 0x00, 0x00,\n  0x00, 0x00, 0x7D, 0x2E, 0x0E, 0x00, 0x00,\n  0x00, 0x01, 0xFF, 0xB4, 0x8B, 0x80, 0x00,\n  0x00, 0x00, 0xFE, 0x04, 0x05, 0xC0, 0x00,\n  0x00, 0x00, 0xFC, 0x40, 0x09, 0xE0, 0x00,\n  0x00, 0x03, 0xFE, 0x70, 0x03, 0xE0, 0x00,\n  0x00, 0x07, 0xFE, 0xF0, 0x01, 0xF8, 0x00,\n  0x00, 0x0F, 0xFF, 0xC0, 0x00, 0xE4, 0x00,\n  0x00, 0x1F, 0xE7, 0xC0, 0x01, 0xC2, 0x00,\n  0x00, 0x3F, 0xEF, 0xC0, 0x00, 0xC9, 0x00,\n  0x00, 0x7F, 0xF6, 0x00, 0x40, 0xD8, 0x00,\n  0x00, 0x7F, 0xFC, 0x00, 0x00, 0x1D, 0x00,\n  0x00, 0x7F, 0xF8, 0x00, 0x00, 0x3F, 0x80,\n  0x00, 0x7F, 0xF8, 0x00, 0x00, 0x3F, 0xC0,\n  0x00, 0x7F, 0xE0, 0x00, 0x00, 0x3F, 0xC0,\n  0x00, 0xEA, 0xC0, 0x00, 0x00, 0x1F, 0xE0,\n  0x01, 0xF0, 0x40, 0x00, 0x00, 0x7F, 0xE0,\n  0x00, 0x60, 0x60, 0x00, 0x00, 0x7F, 0xE0,\n  0x00, 0xE0, 0x00, 0x00, 0x00, 0x7F, 0xE0,\n  0x00, 0xE0, 0x40, 0x00, 0x00, 0x7F, 0xE0,\n  0x00, 0x6C, 0x60, 0x00, 0x00, 0x3F, 0xF0,\n  0x00, 0x38, 0x58, 0x00, 0x00, 0x2F, 0xF0,\n  0x00, 0x1E, 0x00, 0x00, 0x00, 0x1F, 0xF0,\n  0x00, 0x06, 0x00, 0x00, 0x00, 0x3F, 0xF0,\n  0x02, 0x04, 0x00, 0x00, 0x00, 0x0F, 0xF0,\n  0x00, 0x00, 0x38, 0x00, 0x00, 0x0E, 0x10,\n  0x00, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x30,\n  0x00, 0x00, 0xFF, 0x80, 0x00, 0x00, 0x30,\n  0x00, 0x00, 0xF7, 0xE0, 0x00, 0x00, 0x10,\n  0x00, 0x10, 0xF7, 0xF0, 0x00, 0x00, 0x20,\n  0x00, 0x01, 0xFB, 0xF0, 0x00, 0x00, 0x20,\n  0x00, 0x01, 0xFF, 0xFA, 0x00, 0x00, 0x20,\n  0x00, 0x00, 0xFF, 0xFF, 0x80, 0x00, 0x20,\n  0x00, 0x00, 0xFF, 0xFF, 0xE0, 0x00, 0x40,\n  0x00, 0x00, 0xFF, 0xFF, 0xE0, 0x00, 0x40,\n  0x00, 0x00, 0x7F, 0xFF, 0xC0, 0x00, 0x80,\n  0x00, 0x00, 0x77, 0xFF, 0xC0, 0x00, 0x80,\n  0x00, 0x00, 0x3F, 0xFF, 0x80, 0x00, 0x00,\n  0x00, 0x00, 0x0F, 0xFF, 0x80, 0x01, 0x00,\n  0x00, 0x00, 0x07, 0xBF, 0x80, 0x00, 0x00,\n  0x00, 0x00, 0x07, 0xFF, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x07, 0xFC, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x07, 0xFC, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x07, 0xD8, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x03, 0xF0, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x03, 0xE0, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x03, 0xC0, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00,\n  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,\n};\n\nconst unsigned char* const earth_globe_frames[] = {\n  earth_globe_f0, earth_globe_f1, earth_globe_f2, earth_globe_f3,\n  earth_globe_f4, earth_globe_f5, earth_globe_f6, earth_globe_f7,\n};\n\n// Rotation speed: one full 8-frame spin every ~16s \u2014 slow enough to read as\n// a globe turning, not spinning like a fan.\nconst unsigned long EARTH_ROTATION_FRAME_MS = 2000UL;\n\n// A rocket orbiting the globe, reusing the same sprites from\n// mars-and-back.h \u2014 every ROCKET_ORBIT_INTERVAL_MS (loop() controls the\n// timer) one full lap plays, then it's gone until the next minute mark.\n// Orbit radius is bigger than the globe (52px, so radius 26) plus the\n// rocket's own half-width, so it clears the sphere with a visible gap\n// rather than clipping across it. Centered on the globe, so the bottom-\n// right arc naturally runs off-screen \u2014 Adafruit_GFX clips out-of-bounds\n// pixels safely, so that reads as \"behind the globe,\" not a bug.\nconst int ORBIT_CX = EARTH_GLOBE_X + EARTH_GLOBE_D / 2;\nconst int ORBIT_CY = EARTH_GLOBE_Y + EARTH_GLOBE_D / 2;\nconst int ORBIT_RX = 36, ORBIT_RY = 32;\nconst unsigned long ROCKET_ORBIT_DURATION_MS = 4000UL;  // one full lap\n\nvoid drawRocketOrbit(unsigned long elapsed) {\n  float angle = (elapsed / (float)ROCKET_ORBIT_DURATION_MS) * 2.0f * PI;\n  int rx = ORBIT_CX + (int)(ORBIT_RX * cos(angle));\n  int ry = ORBIT_CY - (int)(ORBIT_RY * sin(angle));\n  int flameFrame = (int)((elapsed / 150) % 2);\n  // Sprite matches actual direction of travel (derivative of x w.r.t.\n  // angle) so it flips exactly when the path reverses horizontally, not on\n  // a hand-picked top/bottom split.\n  bool movingLeft = sin(angle) > 0;\n  const unsigned char* const* frames = movingLeft ? rocket_left_frames : rocket_right_frames;\n  display.drawBitmap(rx - 8, ry - 8, frames[flameFrame], 16, 16, SSD1306_WHITE);\n}\n\n// The live clock face: big rotating globe bottom-right, time/date/readings\n// stacked in the column to its left. Uses the fonts already set up in\n// weather-clock.ino (FreeSansBold12pt7b / FreeSans9pt7b) for the time; the\n// default font for the rest, sized to reliably fit the narrower column.\n// `timeStr` is 12-hour with no leading zero (e.g. \"2:32\"); `ampm` prints\n// small, right after it on the same line \u2014 the default-font \"AM\"/\"PM\" is\n// only 12px wide, comfortably inside the ~15px left over from the widest\n// possible time text (\"11:11\") before hitting the globe's left edge.\nvoid drawWorldMapClockFace(bool haveTime, const char* timeStr, const char* dateStr, const char* ampm, float inT, float inH, float outT, const String& outC) {\n  int frame = (int)((millis() / EARTH_ROTATION_FRAME_MS) % EARTH_GLOBE_FRAME_COUNT);\n  display.drawBitmap(EARTH_GLOBE_X, EARTH_GLOBE_Y, earth_globe_frames[frame], EARTH_GLOBE_D, EARTH_GLOBE_D, SSD1306_WHITE);\n\n  if (haveTime) {\n    display.setFont(&FreeSansBold12pt7b);\n    display.setCursor(0, 15);\n    display.print(timeStr);\n    display.setFont(NULL);\n    display.setCursor(display.getCursorX() + 1, 8);\n    display.print(ampm);\n    display.setCursor(0, 22);\n    display.print(dateStr);\n  } else {\n    display.setFont(NULL);\n    display.setCursor(0, 0);\n    display.print(\"Syncing...\");\n  }\n\n  display.setCursor(0, 38);\n  display.print(\"In  \"); display.print(inT, 0); display.print(\"F \"); display.print(inH, 0); display.print(\"%\");\n  display.setCursor(0, 48);\n  display.print(\"Out \"); display.print(outT, 0); display.print(\"F\"); display.println();\n  display.setCursor(0, 56);\n  display.print(outC);\n}\n",
+        "kind": "header"
+      }
+    ],
+    "authoredBy": "human",
+    "notes": "Hand-written for this specific gift \u2014 Wi-Fi clock, live indoor/outdoor weather, a rotating full-screen message every 5 minutes, and rare full-screen special moments (Mars-and-back, a shooting star, a weather-reactive scene, and a hidden proposal screen). Edit the WIFI_NETWORKS list and MESSAGES[] near the top of weather-clock.ino \u2014 everything else is the actual app logic."
+  }
+}

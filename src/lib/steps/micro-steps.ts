@@ -47,6 +47,7 @@ export function buildMicroSteps(
       index: i + 1,
       total,
       colorName: c.colorName,
+      ...(c.colorLabel ? { colorLabel: c.colorLabel } : {}),
       colorHex: c.colorHex,
       netName: c.netName,
       fromPartId: refToPartId?.get(c.fromRef),
@@ -57,7 +58,7 @@ export function buildMicroSteps(
       toPin: c.toPin,
       netClass: c.netClass,
       // verb-first, both endpoints by printed label
-      action: `Solder the ${c.colorName} wire from ${c.fromLabel} pin ${c.fromPin} to ${c.toLabel} pin ${c.toPin}.`,
+      action: `Solder the ${c.colorLabel ?? c.colorName} wire from ${c.fromLabel} pin ${c.fromPin} to ${c.toLabel} pin ${c.toPin}.`,
       verify: {
         tug: "Gently tug the wire — it shouldn't move. If it wiggles, reheat the joint and add a little more solder.",
         continuity: `Set your multimeter to continuity (the beep mode). Touch one probe to ${c.fromPin} and the other to ${c.toPin} — it should beep.`,

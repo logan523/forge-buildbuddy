@@ -13,7 +13,6 @@ import {
   svgUsbUpload,
   svgWireBendFrame,
 } from "./diagrams";
-import { normalizeSvgForHtml } from "./svg-util";
 
 const KIND_META: Record<
   StepMediaKind,
@@ -123,6 +122,8 @@ export function resolveStepMedia(step: BuildStep): StepMediaResult {
     kind,
     title: meta.title,
     caption: meta.caption,
-    svg: normalizeSvgForHtml(rawSvg),
+    // Native-pixel sheet: pass width/height through untouched so text keeps
+    // its authored size; hosts scroll horizontally instead of squishing.
+    svg: rawSvg,
   };
 }

@@ -1,0 +1,194 @@
+{
+ "Angara": {
+  "drawn_ratio": 4.52,
+  "family": "Angara",
+  "file": "angara.png",
+  "prompt": "The Russian Angara A5 rocket. A central core surrounded by exactly FOUR identical cylindrical boosters of the SAME diameter as the core, so the base looks like a bundle of five matching tubes, two visible on each side of the core. Each booster has a pointed nose. Pale grey-white with a blue band. A conical payload fairing on top. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 14.72,
+  "seed": null,
+  "size": [
+   199,
+   900
+  ],
+  "source": "angara.png",
+  "source_sha256": "10eccb7a7390bf49",
+  "tonal": "angara.png",
+  "warning": null
+ },
+ "Ariane": {
+  "drawn_ratio": 5.06,
+  "family": "Ariane",
+  "file": "ariane.png",
+  "prompt": "The European Ariane 62 rocket. A tall white central core with exactly TWO slender solid rocket boosters strapped to opposite sides, one visible on each side, each with a pointed conical nose and reaching about half the core's height. A long white ogive payload fairing on top. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 11.67,
+  "seed": null,
+  "size": [
+   178,
+   900
+  ],
+  "source": "ariane.png",
+  "source_sha256": "a65fe307825893a9",
+  "tonal": "ariane.png",
+  "warning": null
+ },
+ "Atlas": {
+  "drawn_ratio": 4.71,
+  "family": "Atlas",
+  "file": "atlas.png",
+  "prompt": "The American Atlas V 401 rocket. A single white cylindrical core standing alone with NOTHING attached to its sides, topped by a very large diameter white payload fairing that is noticeably wider than the booster below it, giving a distinctive lightbulb silhouette. A single engine nozzle at the base. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 15.3,
+  "seed": null,
+  "size": [
+   191,
+   900
+  ],
+  "source": "atlas.png",
+  "source_sha256": "ba231e9a503f30be",
+  "tonal": "atlas.png",
+  "warning": null
+ },
+ "Electron": {
+  "drawn_ratio": 12.0,
+  "family": "Electron",
+  "file": "electron.png",
+  "prompt": "The Rocket Lab Electron small launch vehicle. Its body is entirely MATTE BLACK carbon fibre, which is its most distinctive feature. A single slim cylindrical core standing completely alone with nothing attached to its sides. Very slender, roughly 15 times taller than it is wide. Two stages with a plain conical nose fairing. Nine tiny engine nozzles at the base. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 15.0,
+  "seed": null,
+  "size": [
+   75,
+   900
+  ],
+  "source": "electron.png",
+  "source_sha256": "d8658f6adef32a09",
+  "tonal": "electron.png",
+  "warning": null
+ },
+ "Falcon": {
+  "drawn_ratio": 13.24,
+  "family": "Falcon",
+  "file": "falcon.png",
+  "prompt": "nano_banana_pro 4k, tight framing",
+  "real_ratio": 19.18,
+  "seed": null,
+  "size": [
+   68,
+   900
+  ],
+  "source": "falcon-4k.png",
+  "source_sha256": "412ddf5c321397e7",
+  "tonal": "falcon.png",
+  "warning": null
+ },
+ "GSLV": {
+  "drawn_ratio": 3.47,
+  "family": "GSLV",
+  "file": "gslv.png",
+  "prompt": "The Indian LVM3 (GSLV Mark III) rocket. A short, wide white central core flanked by exactly TWO very large solid rocket boosters, one on each side, which are nearly as tall as the core itself and dominate the silhouette. Each booster has a pointed nose. A white ogive payload fairing on top. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 10.88,
+  "seed": null,
+  "size": [
+   259,
+   900
+  ],
+  "source": "gslv.png",
+  "source_sha256": "40aff7b17694ec83",
+  "tonal": "gslv.png",
+  "warning": null
+ },
+ "H3": {
+  "drawn_ratio": 4.81,
+  "family": "H3",
+  "file": "h3.png",
+  "prompt": "The Japanese H3 rocket. A white central core with exactly TWO solid rocket boosters strapped to opposite sides, each with a pointed nose cone, reaching roughly half the core height. An orange-red band around the core. A long white ogive payload fairing. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 11.95,
+  "seed": null,
+  "size": [
+   187,
+   900
+  ],
+  "source": "h3.png",
+  "source_sha256": "7566205abd6602b4",
+  "tonal": "h3.png",
+  "warning": null
+ },
+ "Long March": {
+  "drawn_ratio": 4.52,
+  "family": "Long March",
+  "file": "long-march.png",
+  "prompt": "The Chinese Long March 5 heavy-lift rocket. A wide white central core flanked by exactly FOUR slender strap-on boosters, one at each quadrant, so two are visible on each side. Each strap-on has a pointed conical nose and is about half the height of the core. The core is topped by a large white ogive payload fairing. A red band circles the core near mid-height. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 11.39,
+  "seed": null,
+  "size": [
+   199,
+   900
+  ],
+  "source": "long-march.png",
+  "source_sha256": "cf75f5a742333420",
+  "tonal": "long-march.png",
+  "warning": null
+ },
+ "New Glenn": {
+  "drawn_ratio": 6.08,
+  "family": "New Glenn",
+  "file": "new-glenn.png",
+  "prompt": "The Blue Origin New Glenn rocket. A very tall, very wide single white cylindrical core standing alone with nothing attached to its sides. Seven large engine nozzles clustered at the base. Six landing legs and four strakes near the bottom of the first stage. A tall white ogive fairing. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 14.0,
+  "seed": null,
+  "size": [
+   148,
+   900
+  ],
+  "source": "new-glenn.png",
+  "source_sha256": "414b14e9a7ca6361",
+  "tonal": "new-glenn.png",
+  "warning": null
+ },
+ "Soyuz": {
+  "drawn_ratio": 4.57,
+  "family": "Soyuz",
+  "file": "soyuz.png",
+  "prompt": "recheck",
+  "real_ratio": 15.69,
+  "seed": null,
+  "size": [
+   197,
+   900
+  ],
+  "source": "soyuz.png",
+  "source_sha256": "d10270446d99ed8a",
+  "tonal": "soyuz.png",
+  "warning": null
+ },
+ "Starship": {
+  "drawn_ratio": 6.08,
+  "family": "Starship",
+  "file": "starship.png",
+  "prompt": "The SpaceX Starship and Super Heavy stack. Entirely bare polished STAINLESS STEEL, silver and metallic, which is its defining feature. Extremely wide and cylindrical with a constant diameter for almost its whole height. The upper stage has two small forward flaps near its pointed nose and two large aft flaps lower down. Grid fins near the top of the tall booster. A dense cluster of many engine nozzles at the base. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 13.44,
+  "seed": null,
+  "size": [
+   148,
+   900
+  ],
+  "source": "starship.png",
+  "source_sha256": "5a7242b19db9a76e",
+  "tonal": "starship.png",
+  "warning": null
+ },
+ "Vega": {
+  "drawn_ratio": 10.0,
+  "family": "Vega",
+  "file": "vega.png",
+  "prompt": "The European Vega-C small launch vehicle. A single slim white cylindrical core standing alone with nothing attached to its sides. Four stacked stages of slightly decreasing diameter, giving a subtly stepped profile, topped by a pointed conical nose fairing. A green band near mid-height. Perfectly vertical, flat to camera, strict orthographic side elevation, no perspective, no tilt, no angle. Solid uniform bright magenta background, completely flat, no shadows, no gradient. Even frontal lighting. The entire rocket is visible with a margin on all sides. Technical illustration with visible panel seams and structural detail. No flames, no exhaust, no smoke, no launch tower, no ground, no sky, no stars, no text, no logos, no people.",
+  "real_ratio": 11.6,
+  "seed": null,
+  "size": [
+   90,
+   900
+  ],
+  "source": "vega.png",
+  "source_sha256": "51ee3dc92c6846b3",
+  "tonal": "vega.png",
+  "warning": null
+ }
+}

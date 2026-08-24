@@ -6,6 +6,7 @@
  */
 
 import type { Part, ShoppingLink } from "@/lib/types";
+import { derivedOr, type Claim } from "@/lib/claim";
 import {
   REAL_PARTS,
   getRealPart,
@@ -13,30 +14,52 @@ import {
   type RealPartSpec,
 } from "@/lib/product-3d/real-parts";
 
-// Same signal as inferCatalogId (catalog.ts) but keyed off Part text, since the
-// guided card has the Part, not a scene node. Order matters: specific before generic.
-const TEXT_RULES: [RegExp, CatalogPartId][] = [
-  [/esp|xiao|\bc3\b|\bmcu\b/, "esp32_c3"],
-  [/oled|ssd1306|display/, "oled_096"],
-  [/tp4056|charg/, "tp4056"],
-  [/16340|li-?ion|lipo|\bcell\b|battery/, "cell_16340"],
-  [/\bsht\b|sht3|bme|dht|temp|humid/, "sht30"],
-  [/ttp|touch/, "ttp223"],
-  [/solar|photovolta/, "solar_cell"],
-];
+/**
+ * Catalog id -> the physical spec we have actually measured for it.
+ *
+ * EXPLICIT, and short on purpose. This replaces a list of seven regexes run
+ * against the part's NAME, which is how, on 2026-08-24, the live prep screen
+ * told a builder that a "1S Battery Level Indicator (capacity display)" was a
+ * `0.96" SSD1306 OLED module`: the word "display" matched /oled|ssd1306|
+ * display/. Two more went the same way -- "Solar Charging Controller" hit
+ * /tp4056|charg/ because that rule sat above /solar/, and a 602535 LiPo pouch
+ * hit /lipo|battery/ and came back a cylindrical 16340 cell.
+ *
+ * That mattered more than a wrong SKU. This spec also drives the life-size
+ * "hold it up to the screen" card, so the one feature built to help a beginner
+ * identify a part was drawing a different part at actual size.
+ *
+ * The 22 catalog ids NOT listed here have no measured spec, and that is a fact
+ * to render, not a hole to fill from a neighbour. They resolve to null, which
+ * becomes an `unknown` claim.
+ */
+const SPEC_FOR_CATALOG_ID: Record<string, CatalogPartId> = {
+  "esp32-c3": "esp32_c3",
+  "ssd1306-i2c": "oled_096",
+  "tp4056-protected": "tp4056",
+  "battery-16340": "cell_16340",
+  sht31d: "sht30",
+  "touch-switch": "ttp223",
+  "solar-panel-5v": "solar_cell",
+};
 
+/**
+ * The measured-spec key for a part, or null when we have not measured one.
+ *
+ * Two id namespaces exist in this repo: the module catalog's (`esp32-c3`) and
+ * real-parts' (`esp32_c3`). They are bridged here, by hand, and nowhere else.
+ */
 export function partCatalogId(part: Part): CatalogPartId | null {
-  if (part.catalogId && part.catalogId in REAL_PARTS) {
-    return part.catalogId as CatalogPartId;
-  }
-  const t = `${part.name} ${part.specification}`.toLowerCase();
-  for (const [re, id] of TEXT_RULES) if (re.test(t)) return id;
-  return null;
+  if (!part.catalogId) return null;
+  const mapped = SPEC_FOR_CATALOG_ID[part.catalogId];
+  if (mapped) return mapped;
+  // Callers inside the 3D code already hold real-parts keys; accept those too.
+  return part.catalogId in REAL_PARTS ? (part.catalogId as CatalogPartId) : null;
 }
 
 export function realPartForPart(part: Part): RealPartSpec | null {
   const id = partCatalogId(part);
-  return id ? getRealPart(id) : null;
+  return (id ? getRealPart(id) : null) ?? null;
 }
 
 /** Human size, e.g. "23 × 18 mm" (boards) or "34 mm × ⌀17 mm" (cells). */
@@ -67,23 +90,34 @@ const money = (n: number) => (n % 1 === 0 ? `${n}` : n.toFixed(2).replace(/0$/, 
  * on the first click. Derived from real-parts + the BOM; degrades field by field.
  */
 export function buyGuidance(part: Part): {
-  lookFor: string | null;
-  priceBand: string | null;
-  avoid: string | null;
+  lookFor: Claim<string>;
+  priceBand: Claim<string>;
+  avoid: Claim<string>;
 } {
+  // Only a measured part or the plan's own MPN may name what to buy. The old
+  // chain ended in `specification.split(".")[0]`, which turned a description
+  // into a shopping instruction -- and before that, in another part's SKU.
   const real = realPartForPart(part);
-  const lookFor =
-    real?.mpnOrSku ??
-    part.mpn ??
-    (part.specification ? part.specification.split(/[.;]/)[0]!.trim() || null : null);
+  const lookFor = derivedOr<string>(
+    real?.mpnOrSku ?? part.mpn,
+    "real-parts + BOM",
+    "we haven't matched this to a part we've measured — compare the specs yourself before buying",
+  );
 
   const link = bestBuyLink(part);
   const lo = part.unitPriceMin ?? link?.priceUsd ?? null;
   const hi = part.unitPriceMax ?? link?.priceMaxUsd ?? lo;
-  const priceBand =
-    lo != null ? (hi != null && hi > lo ? `$${money(lo)}–${money(hi)}` : `$${money(lo)}`) : null;
+  const priceBand = derivedOr<string>(
+    lo != null ? (hi != null && hi > lo ? `$${money(lo)}–${money(hi)}` : `$${money(lo)}`) : null,
+    "BOM + vendor offers",
+    "no price yet",
+  );
 
-  return { lookFor, priceBand, avoid: keyFootgun(part) };
+  return {
+    lookFor,
+    priceBand,
+    avoid: derivedOr<string>(keyFootgun(part), "BOM footguns", "nothing specific to avoid"),
+  };
 }
 
 /**

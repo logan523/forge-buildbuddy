@@ -1,5 +1,12 @@
 # Product 3D (parametric assembly)
 
+> **PARTLY STALE (2026-08-24).** Documents a postfx pipeline (N8AO / Bloom / Vignette) that
+> commit 332e1be deleted, and an AI beauty-mesh path that CLAUDE.md anti-pattern #4 argues
+> against. Two 3D authorities are documented across this repo; the canonical one is
+> `src/components/stage/` + `src/lib/stage/`. After the rebuild the 3D system renders ONE
+> hero on the homepage — do not treat it as central.
+
+
 ## Goal
 
 Orbitable **3D product model** built from the BOM — not a flat SVG stand-in, not an AI mesh black box.

@@ -1,5 +1,11 @@
 # BuildBuddy 10x: Complete Scope Expansion
 
+> **SUPERSEDED (2026-08-24).** Historical. This prescribes a six-layer pipeline, a 500+
+> module RAG database, a kit marketplace, auto-routing PCB and three build modes. CLAUDE.md
+> anti-pattern #2 names much of it "all of it was noise"; the 2026-08-24 rebuild deleted the
+> surface it describes. Kept for the reasoning, not the plan.
+
+
 ## Research Foundation
 
 Four deep-research agents analyzed:

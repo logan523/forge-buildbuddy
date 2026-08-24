@@ -40,6 +40,17 @@ export function filterStepsForMode(plan: BuildPlan, mode: BuildMode): BuildStep[
   return result.length >= 4 ? result : steps;
 }
 
+/**
+ * The steps quick mode HID — Slice 1 (Track 0.3): skipping must be visible,
+ * never silent. The real build's "moved me to step 6 automatically" came from
+ * this filter dropping steps while the footer counted the filtered list.
+ */
+export function skippedStepsForMode(plan: BuildPlan, mode: BuildMode): BuildStep[] {
+  if (mode === "full") return [];
+  const kept = new Set(filterStepsForMode(plan, mode).map((s) => s.stepNumber));
+  return (plan.steps || []).filter((s) => !kept.has(s.stepNumber));
+}
+
 export function modeLabel(mode: BuildMode): string {
   return mode === "quick" ? "Quick test" : "Full build";
 }

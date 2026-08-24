@@ -1,5 +1,11 @@
 # Forge Agentic Expansion
 
+> **PARKED (2026-08-24).** MCP was deferred by decision, and the rebuild did not revive it.
+> `src/lib/mcp/` still exists and still works; nothing in the build flow reaches it. Layer C's
+> wire-colour doctrine is WRONG — read `docs/BUILD-REALITY.md`, where the builder's declared
+> colour outranks the class standard.
+
+
 **Status:** STRATEGY — durable north-star for product expansion  
 **Date:** 2026-07-27  
 **Audience:** Founder + agents working in this repo  
@@ -378,6 +384,7 @@ From `CLAUDE.md` and this architecture:
 | 2026-07-27 | **P2.1+:** MCP stdio server (`npm run mcp:server`); skill pack export (`npm run skills:export`); kit agent pack (`exportKitAgentPack`). |
 | 2026-07-27 | **P2 close:** Publish → Download agent pack; `POST /api/mcp`; `npm run classroom:export` (lab-sat-line). |
 | 2026-07-27 | **Polish:** single-file agent pack JSON; MCP `resources/list|read` (wire colors, pin policy, Li-ion); `npm run audit:all`; lab `RUBRIC.md`. |
+| 2026-08-21 | **Forge-10x cycle (Slices 1-3), and a scope call on this doc.** A real end-to-end build showed the missing layer wasn't agent surface area — it was that the product had no model of the BUILDER's world. Shipped: `src/lib/build-reality/` (joints, evidence tiers, user colors, IndexedDB + export), `src/lib/breadboard/` (hole-coordinate ERC incl. the shared-column short), the action cursor, serial verdicts writing instrument-tier evidence, and a soft pre-power gate. **Layer D (`/next-wire`, `/stuck`, …) and further MCP work are DEFERRED by decision, not forgotten** — the deterministic engines landed first and stand alone; the conversational surface is a later, evidence-informed call. Note for future agents: `resources.ts`'s wire-color doctrine is now STALE — read `docs/BUILD-REALITY.md`, where the builder's declared color outranks the class standard. |
 
 ---
 

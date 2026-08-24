@@ -1,5 +1,10 @@
 # Product
 
+> **SUPERSEDED (2026-08-24).** Historical, and uses the old name. The product is **Forge**,
+> not BuildBuddy, and its audience is stated in CLAUDE.md: beginners, at NASA-grade rigor.
+> The voice and visual guidance here is still worth reading; the scope is not current.
+
+
 ## Register
 
 product

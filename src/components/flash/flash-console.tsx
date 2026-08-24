@@ -14,7 +14,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DrawerShell, Button, Badge } from "@/components/ui";
 import { serialSupported, describePort, openSession, type SerialSession } from "@/lib/serial/session";
 import { parseScannerLine } from "@/lib/serial/line-parser";
-import type { FirmwareManifestEntry } from "@/lib/serial/manifest";
+import { loadFirmwareManifest, type FirmwareManifest, type FirmwareManifestEntry } from "@/lib/serial/manifest";
+import { startConfirm, applyLine, applyTimeout, type ConfirmState } from "@/lib/serial/build-confirm";
 import { expectedI2cAddresses, type ExpectedDevice } from "@/lib/serial/expected-devices";
 import {
   createVerifyState,
@@ -26,8 +27,11 @@ import {
   type UnexpectedDevice,
   allExpectedFound,
 } from "@/lib/serial/verify";
-import type { BuildPlan } from "@/lib/types";
+import type { BuildPlan, CustomFirmwareSource } from "@/lib/types";
+import { applyDeviceVerdictsToReality } from "@/lib/build-reality/serial-bridge";
+import { commitReality, readReality } from "@/lib/build-reality";
 import { FlashFlow, FlashFirmwareSection } from "./flash-flow";
+import { MissingDeviceDebugPanel } from "./missing-device-panel";
 
 export interface FlashConsoleProps {
   /**
@@ -90,6 +94,8 @@ type Phase =
   | { kind: "connected"; portLabel: string }
   | { kind: "error"; message: string };
 
+const CONFIRM_TIMEOUT_MS = 10000;
+
 function friendlyConnectError(err: unknown): string {
   const name = err instanceof DOMException ? err.name : "";
   if (name === "NotFoundError") {
@@ -134,12 +140,18 @@ export function FlashConsole({
   // the same props/state (react-hooks/purity) — Date.now() itself only ever
   // gets called from the effect below, never during render.
   const [verifyNow, setVerifyNow] = useState<number | null>(null);
+  // Track A3 (build-provenance rebuild cycle): seeded right after a flash
+  // that carried a buildId, cleared on any fresh connect. `null` means
+  // "nothing to confirm" (no flash happened yet this session, or the
+  // flashed entry had no buildId — an older manifest entry).
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const sessionRef = useRef<SerialSession | null>(null);
   const expectedCloseRef = useRef(false);
   const nextLineIdRef = useRef(0);
   const logRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
+  const confirmTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const appendLine = useCallback((text: string) => {
     const id = nextLineIdRef.current++;
@@ -147,10 +159,14 @@ export function FlashConsole({
       const trimmed = prev.length >= MAX_LINES ? prev.slice(prev.length - MAX_LINES + 1) : prev;
       return [...trimmed, { id, text }];
     });
+    const parsed = parseScannerLine(text);
     // C3: harmless when verifyState is null (no plan / not connected yet) —
     // the functional updater below is a no-op in that case, so appendLine
     // doesn't need `plan` in its own dependency list at all.
-    setVerifyState((prev) => (prev ? feedLine(prev, parseScannerLine(text), Date.now()) : prev));
+    setVerifyState((prev) => (prev ? feedLine(prev, parsed, Date.now()) : prev));
+    // A3: harmless when confirmState is null (nothing pending) or already
+    // settled — applyLine (build-confirm.ts) is a no-op in both cases.
+    setConfirmState((prev) => applyLine(prev, parsed));
   }, []);
 
   // Opens the monitor on an already-picked port — shared by connect() (fresh
@@ -169,6 +185,10 @@ export function FlashConsole({
       // elapsed time against the WRONG session's clock for up to a second.
       setVerifyState(plan ? createVerifyState(Date.now()) : null);
       setVerifyNow(null);
+      // A3: a fresh manual connect has nothing to confirm yet — only
+      // handleFlashDone (below) seeds a real confirmState, immediately
+      // after this same reset runs as part of its own reopen.
+      setConfirmState(null);
       setPhase({ kind: "connecting" });
       try {
         const portLabel = describePort(port.getInfo());
@@ -219,14 +239,26 @@ export function FlashConsole({
 
   const handleFlashDone = useCallback(
     async (pins: { sda: number; scl: number }) => {
+      // Captured before reopenMonitorSession's own reset (openMonitorOnPort
+      // clears confirmState for every fresh session, including this one) —
+      // reading flashEntry here, not after, is what lets this seed win.
+      const buildId = flashEntry?.buildId;
       await reopenMonitorSession();
       // Best effort — diag.ino's 2s config window just keeps its own
       // defaults (4/5) if this races the board still finishing its boot,
       // which isn't a failure, so a lost write here isn't either.
       await sessionRef.current?.write(JSON.stringify(pins) + "\n").catch(() => {});
       setFlashEntry(null);
+      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
+      if (buildId) {
+        setConfirmState(startConfirm(buildId));
+        confirmTimeoutRef.current = setTimeout(() => setConfirmState((prev) => applyTimeout(prev)), CONFIRM_TIMEOUT_MS);
+      }
+      // No buildId on the flashed entry (an older manifest entry, or a
+      // hand-authored one that predates this) — confirmState is already
+      // null from reopenMonitorSession's reset; nothing to confirm.
     },
-    [reopenMonitorSession]
+    [reopenMonitorSession, flashEntry]
   );
 
   // Belt-and-suspenders: if the whole app tears this down mid-session
@@ -235,6 +267,7 @@ export function FlashConsole({
     return () => {
       expectedCloseRef.current = true;
       sessionRef.current?.close();
+      if (confirmTimeoutRef.current) clearTimeout(confirmTimeoutRef.current);
     };
   }, []);
 
@@ -272,6 +305,18 @@ export function FlashConsole({
   const verifyClockNow = verifyNow ?? verifyState?.startedAt ?? 0;
   const verdicts = verifyState ? deviceVerdicts(verifyState, expectedDevices, verifyClockNow) : EMPTY_VERDICTS;
   const unexpected = verifyState ? unexpectedDevices(verifyState, expectedDevices) : EMPTY_UNEXPECTED;
+
+  // Slice 3 (V1/E10): live verdicts WRITE evidence. A found device fans out
+  // to its joints as verified(i2c-scan) in BuildReality — evidence-based
+  // progress, not assertion. Idempotent + monotonic, so running every tick
+  // is free; reference-unchanged results commit nothing.
+  useEffect(() => {
+    if (!plan) return;
+    const reality = readReality(plan.id);
+    if (!reality) return; // not hydrated — never write against UNKNOWN
+    const next = applyDeviceVerdictsToReality(plan, reality, verdicts);
+    if (next !== reality) commitReality(next);
+  }, [plan, verdicts]);
 
   // Fire once when the live bus proves every expected device — end-of-build gate.
   const verifiedRef = useRef(false);
@@ -339,8 +384,10 @@ export function FlashConsole({
                 </Button>
               </div>
 
+              {confirmState && <FlashConfirmBanner state={confirmState} />}
+
               {plan && (
-                <WiringCheckCard verdicts={verdicts} unexpected={unexpected} onOpenUnstick={onOpenUnstick} />
+                <WiringCheckCard plan={plan} verdicts={verdicts} unexpected={unexpected} onOpenUnstick={onOpenUnstick} />
               )}
 
               <div
@@ -358,6 +405,13 @@ export function FlashConsole({
               </div>
 
               <FlashFirmwareSection onStart={setFlashEntry} />
+              {plan?.customFirmware && (
+                <CustomFirmwareFlashSection
+                  planId={plan.id}
+                  customFirmware={plan.customFirmware}
+                  onStart={setFlashEntry}
+                />
+              )}
             </div>
           )}
         </>
@@ -366,9 +420,101 @@ export function FlashConsole({
   );
 }
 
+/**
+ * Track B2 (rebuild cycle): any plan's own hand-authored firmware
+ * (`plan.customFirmware`, src/lib/types.ts), flashed from a real manifest
+ * entry keyed by plan id (`manifest.customSketches[planId]` — written by
+ * `node scripts/compile-firmware.mjs --sketch ... --key <planId>`). This
+ * replaces a hardcoded `plan?.id === "solar-weather-clock"` gate pointing
+ * at a hand-typed, never-validated manifest entry — the exact pattern that
+ * every future custom-firmware build would otherwise need its own copy of.
+ * Same honest-degrade shape FlashFirmwareSection already uses: no dead
+ * button, just an explanatory line, until a real compiled artifact exists.
+ */
+function CustomFirmwareFlashSection({
+  planId,
+  customFirmware,
+  onStart,
+}: {
+  planId: string;
+  customFirmware: CustomFirmwareSource;
+  onStart: (entry: FirmwareManifestEntry) => void;
+}) {
+  const [manifest, setManifest] = useState<FirmwareManifest | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadFirmwareManifest().then((m) => {
+      if (!cancelled) setManifest(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!manifest) return null; // near-instant same-origin fetch — not worth a loading flash
+
+  const entry = manifest.customSketches?.[planId];
+
+  return (
+    <div className="pt-3 border-t border-border-subtle space-y-2">
+      {!entry ? (
+        <p className="text-xs text-text-muted leading-relaxed">
+          {customFirmware.label} isn&apos;t compiled yet — run{" "}
+          <code className="text-2xs">
+            node scripts/compile-firmware.mjs --sketch scripts/firmware-src/{planId} --key {planId}
+          </code>
+          , or use the code package with the Arduino IDE.
+        </p>
+      ) : (
+        <>
+          <p className="text-xs text-text-secondary leading-relaxed">{customFirmware.label}.</p>
+          <Button variant="primary" size="sm" onClick={() => onStart(entry)}>
+            Flash {customFirmware.label}
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** "0x3C"-style two-digit uppercase hex, matching the wire format exactly (line-parser.ts / diag.ino). */
 function hexAddr(n: number): string {
   return n.toString(16).toUpperCase().padStart(2, "0");
+}
+
+/**
+ * A3 (build-provenance rebuild cycle): the app itself watching for a
+ * FORGE_BUILD_ID line after a flash and saying so — replaces the previous
+ * blind "assume success" once `hard_reset` returns. This is exactly the
+ * check that would have caught a stale-binary reflash within seconds
+ * instead of hours of unexplained symptoms.
+ */
+function FlashConfirmBanner({ state }: { state: ConfirmState }) {
+  if (state.status === "waiting") {
+    return (
+      <p className="text-xs text-text-muted flex items-center gap-2">
+        <MiniSpinner />
+        Confirming the board is running build {state.expected}…
+      </p>
+    );
+  }
+  if (state.status === "confirmed") {
+    return <p className="text-xs text-success">✓ Confirmed: device is running build {state.expected}.</p>;
+  }
+  if (state.status === "mismatch") {
+    return (
+      <p className="text-xs text-warning">
+        ⚠ Device reports build {state.got} — expected {state.expected}. This looks like a stale
+        flash; try flashing again.
+      </p>
+    );
+  }
+  return (
+    <p className="text-xs text-text-muted">
+      Couldn&apos;t confirm which build is running — no FORGE_BUILD_ID line seen (older firmware?).
+    </p>
+  );
 }
 
 function ConsoleLine({ text }: { text: string }) {
@@ -395,10 +541,12 @@ function ConsoleLine({ text }: { text: string }) {
  * either) rather than showing an empty card shell.
  */
 function WiringCheckCard({
+  plan,
   verdicts,
   unexpected,
   onOpenUnstick,
 }: {
+  plan: BuildPlan;
   verdicts: DeviceVerdict[];
   unexpected: UnexpectedDevice[];
   onOpenUnstick?: (symptomHint: string) => void;
@@ -409,7 +557,7 @@ function WiringCheckCard({
       <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Wiring check</p>
       <ul className="space-y-1.5">
         {verdicts.map((v) => (
-          <DeviceVerdictRow key={v.device.catalogId} verdict={v} onOpenUnstick={onOpenUnstick} />
+          <DeviceVerdictRow key={v.device.catalogId} plan={plan} verdict={v} verdicts={verdicts} onOpenUnstick={onOpenUnstick} />
         ))}
         {unexpected.map((u) => (
           <li key={u.address} className="text-xs text-text-muted">
@@ -422,13 +570,21 @@ function WiringCheckCard({
 }
 
 function DeviceVerdictRow({
+  plan,
   verdict,
+  verdicts,
   onOpenUnstick,
 }: {
+  plan: BuildPlan;
   verdict: DeviceVerdict;
+  verdicts: DeviceVerdict[];
   onOpenUnstick?: (symptomHint: string) => void;
 }) {
   const { device, status, foundAddress } = verdict;
+  // Lazy-mount the debug panel's diagram/diagnosis work only once the
+  // builder actually opens it — stays mounted after that (even if they
+  // collapse it again) so reopening doesn't redo the work or lose state.
+  const [everOpened, setEverOpened] = useState(false);
 
   if (status === "waiting") {
     return (
@@ -447,16 +603,28 @@ function DeviceVerdictRow({
     );
   }
 
+  // Missing — expand in place rather than jumping to a separate drawer, so
+  // the live serial connection and the scan's 3s re-check loop never stop:
+  // reflow the joint and watch this same row flip to the "found" branch
+  // above while the panel stays open.
   return (
-    <li className="flex items-center justify-between gap-2 flex-wrap">
-      <span className="text-sm text-warning">
-        ✗ {device.label} (0x{hexAddr(device.addresses[0])}) hasn&apos;t answered yet
-      </span>
-      {onOpenUnstick && (
-        <Button variant="secondary" size="sm" onClick={() => onOpenUnstick(device.symptomHint)}>
-          Debug this
-        </Button>
-      )}
+    <li>
+      <details onToggle={(e) => (e.target as HTMLDetailsElement).open && setEverOpened(true)}>
+        <summary className="flex items-center justify-between gap-2 flex-wrap list-none cursor-pointer">
+          <span className="text-sm text-warning">
+            ✗ {device.label} (0x{hexAddr(device.addresses[0])}) hasn&apos;t answered yet
+          </span>
+          <span className="text-xs text-accent font-medium shrink-0">Why isn&apos;t this found? ▾</span>
+        </summary>
+        {everOpened && (
+          <MissingDeviceDebugPanel
+            plan={plan}
+            verdict={verdict}
+            verdicts={verdicts}
+            onOpenFullUnstick={onOpenUnstick ? () => onOpenUnstick(device.symptomHint) : undefined}
+          />
+        )}
+      </details>
     </li>
   );
 }

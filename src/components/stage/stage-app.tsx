@@ -46,7 +46,7 @@ import {
   isolatePartIds,
 } from "@/lib/stage/step-isolation";
 import { solveShot, type ShotId, type StageShot } from "@/lib/stage/shots";
-import { ConformanceSeal } from "@/components/build/conformance-seal";
+import { ConformanceSeal } from "./conformance-seal";
 import { StageCanvas } from "./stage-canvas";
 import { CameraRig } from "./camera-rig";
 import { PartsLayer } from "./parts-layer";
@@ -79,7 +79,7 @@ function TreeRows({
     <>
       <button
         onClick={() => onPick(node.id)}
-        className="block w-full text-left px-2 py-1 rounded text-[11px] text-slate-200 hover:bg-white/10 truncate"
+        className="block w-full text-left px-2 py-1 rounded text-xs text-text-secondary hover:bg-surface-hover truncate"
         style={{ paddingLeft: 8 + depth * 12 }}
       >
         {node.label}
@@ -362,7 +362,7 @@ export function StageApp({
   };
 
   const shellStyle: CSSProperties = expanded
-    ? { position: "fixed", inset: 0, zIndex: 50, background: "var(--color-console-bg)" }
+    ? { position: "fixed", inset: 0, zIndex: 50, background: "var(--color-bg)" }
     : { height, ...style };
 
   return (
@@ -410,10 +410,10 @@ export function StageApp({
         <CommitPing />
       </StageCanvas>
 
-      {/* Top chrome: mode chips + wires + tree + expand */}
-      <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2 font-mono text-[11px]">
+      {/* Top chrome: mode chips + wires + tree + expand (token chips, 12px floor) */}
+      <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-2 font-mono text-xs">
         {debugHud && (
-          <span className="px-2 py-1 rounded-md bg-black/70 text-cyan-200">
+          <span className="px-2 py-1 rounded-md bg-console-overlay text-console-accent">
             stage · {tier} · {shot.id}
           </span>
         )}
@@ -430,8 +430,8 @@ export function StageApp({
               }}
               className={`px-2 py-1 rounded-md border ${
                 mode === m
-                  ? "bg-cyan-500/20 border-cyan-400 text-cyan-100"
-                  : "bg-black/50 border-white/20 text-white/80"
+                  ? "bg-accent border-accent text-white"
+                  : "bg-surface/90 border-border text-text-secondary"
               }`}
             >
               {m}
@@ -443,28 +443,32 @@ export function StageApp({
               onClick={() => setShowWires((v) => !v)}
               className={`px-2 py-1 rounded-md border ${
                 showWires
-                  ? "bg-cyan-500/20 border-cyan-400 text-cyan-100"
-                  : "bg-black/50 border-white/20 text-white/80"
+                  ? "bg-accent border-accent text-white"
+                  : "bg-surface/90 border-border text-text-secondary"
               }`}
             >
               Wires
             </button>
-            <button
-              onClick={() => setShowTree((v) => !v)}
-              className={`px-2 py-1 rounded-md border ${
-                showTree
-                  ? "bg-cyan-500/20 border-cyan-400 text-cyan-100"
-                  : "bg-black/50 border-white/20 text-white/80"
-              }`}
-            >
-              Parts
-            </button>
+            {/* Parts tree is an explorer affordance — it only ships in the
+                expanded (Full) stage, never over the inline step view. */}
+            {expanded && (
+              <button
+                onClick={() => setShowTree((v) => !v)}
+                className={`px-2 py-1 rounded-md border ${
+                  showTree
+                    ? "bg-accent border-accent text-white"
+                    : "bg-surface/90 border-border text-text-secondary"
+                }`}
+              >
+                Parts
+              </button>
+            )}
           </>
         )}
         {isolatedId && (
           <button
             onClick={clearFocus}
-            className="px-2 py-1 rounded-md border bg-amber-500/20 border-amber-400 text-amber-100"
+            className="px-2 py-1 rounded-md border bg-warning-soft border-warning/40 text-warning"
           >
             Reassemble
           </button>
@@ -472,17 +476,17 @@ export function StageApp({
         {expandable && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="px-2 py-1 rounded-md border bg-black/50 border-white/20 text-white/80"
+            className="px-2 py-1 rounded-md border bg-surface/90 border-border text-text-secondary"
           >
             {expanded ? "Close" : "Full"}
           </button>
         )}
       </div>
 
-      {/* Parts tree */}
-      {showTree && !stepChrome && (
-        <div className="absolute top-12 left-3 z-10 w-56 max-h-[60%] overflow-y-auto rounded-lg bg-black/78 backdrop-blur p-2">
-          <div className="px-2 pb-1 text-[10px] uppercase tracking-widest text-slate-400">
+      {/* Parts tree (expanded stage only — see the Parts button gate above) */}
+      {expanded && showTree && !stepChrome && (
+        <div className="absolute top-12 left-3 z-10 w-56 max-h-[60%] overflow-y-auto rounded-lg bg-surface-raised/95 border border-border-subtle shadow-card p-2">
+          <div className="px-2 pb-1 text-xs uppercase tracking-widest text-text-muted">
             Parts
           </div>
           <TreeRows node={tree} depth={0} onPick={(id) => {
@@ -495,9 +499,10 @@ export function StageApp({
         </div>
       )}
 
-      {/* Selection / inspect card */}
-      {focusNode && explanation && (
-        <div className="absolute bottom-3 left-3 z-10 max-w-sm rounded-xl bg-black/80 backdrop-blur px-4 py-3 text-slate-100">
+      {/* Selection / inspect card — expanded stage only; the inline step view
+          keeps its attention on the isolated parts + the guided wire. */}
+      {expanded && focusNode && explanation && (
+        <div className="absolute bottom-3 left-3 z-10 max-w-sm rounded-xl bg-surface-raised/95 border border-border-subtle shadow-card px-4 py-3 text-text">
           <div className="flex items-start justify-between gap-3">
             <div className="text-[13px] font-semibold">
               {focusNode.label}
@@ -507,32 +512,32 @@ export function StageApp({
               {!isolatedId && (
                 <button
                   onClick={() => setIsolatedId(focusNode.id)}
-                  className="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 border border-cyan-400/50 text-cyan-100"
+                  className="px-2 py-0.5 rounded text-xs bg-accent border border-accent text-white"
                 >
                   Inspect
                 </button>
               )}
               <button
                 onClick={clearFocus}
-                className="px-2 py-0.5 rounded text-[10px] bg-white/10 border border-white/20"
+                className="px-2 py-0.5 rounded text-xs bg-surface border border-border text-text-secondary"
               >
                 ✕
               </button>
             </div>
           </div>
-          <div className="mt-1 text-[11px] text-slate-300">{explanation.headline}</div>
+          <div className="mt-1 text-xs text-text-secondary">{explanation.headline}</div>
           {explanation.points.slice(0, 3).map((p, i) => (
-            <div key={i} className="text-[11px] text-slate-400">
+            <div key={i} className="text-xs text-text-muted">
               · {p}
             </div>
           ))}
           {focusNode && pinStubsForNode(focusNode).length > 0 && (
-            <div className="mt-1 text-[10px] text-slate-400">
+            <div className="mt-1 text-xs text-text-muted">
               Pins: {pinStubsForNode(focusNode).map((p) => p.name).join(" · ")}
             </div>
           )}
           {focusWires.length > 0 && (
-            <div className="mt-1 text-[10px] text-slate-400 truncate">
+            <div className="mt-1 text-xs text-text-muted truncate">
               Wires: {focusWires.map((w) => wireDisplayLabel(w)).join(", ")}
             </div>
           )}
@@ -541,14 +546,14 @@ export function StageApp({
 
       {/* Wiring legend — the color authority, verbatim (wire mode) */}
       {mode === "wire" && !stepChrome && (
-        <div className="absolute top-3 right-3 z-10 rounded-lg bg-black/78 backdrop-blur px-3 py-2 space-y-1">
-          <div className="text-[9px] uppercase tracking-widest text-slate-400">
+        <div className="absolute top-3 right-3 z-10 rounded-lg bg-surface-raised/95 border border-border-subtle shadow-card px-3 py-2 space-y-1">
+          <div className="text-xs uppercase tracking-widest text-text-muted">
             Wiring · {wirePlan.wires.length}
           </div>
           {wireLegend().map((row) => (
-            <div key={row.meaning} className="flex items-center gap-1.5 text-[10px] text-slate-200">
+            <div key={row.meaning} className="flex items-center gap-1.5 text-xs text-text-secondary">
               <span
-                className="inline-block w-2.5 h-2.5 rounded-full border border-white/30"
+                className="inline-block w-2.5 h-2.5 rounded-full border border-border"
                 style={{ background: row.color }}
               />
               {row.meaning}
@@ -559,13 +564,13 @@ export function StageApp({
 
       {/* Step isolation chip — confirms the stage is only showing this step's parts */}
       {stepChrome && stepIsolateNodeIds && stepIsolateNodeIds.length > 0 && !focusNode && (
-        <div className="absolute bottom-3 left-3 z-10 max-w-[70%] rounded-lg bg-black/75 backdrop-blur px-2.5 py-1.5 text-[10px] text-slate-200 font-mono leading-snug">
-          <span className="text-cyan-300 font-semibold">Isolated</span>
+        <div className="absolute bottom-3 left-3 z-10 max-w-[70%] rounded-lg bg-surface/90 border border-border-subtle shadow-card px-2.5 py-1.5 text-xs text-text-secondary font-mono leading-snug">
+          <span className="text-accent font-semibold">Isolated</span>
           {" · "}
           {displayNodes.map((n) => n.label).filter(Boolean).slice(0, 3).join(" + ") ||
             `${stepIsolateNodeIds.length} parts`}
           {focusWire ? (
-            <span className="block text-slate-400 mt-0.5">
+            <span className="block text-text-muted mt-0.5">
               {focusWire.colorName} · {focusWire.fromPin} → {focusWire.toPin}
             </span>
           ) : null}

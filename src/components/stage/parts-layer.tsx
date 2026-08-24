@@ -8,9 +8,19 @@
  * dynamic ssr:false Stage chunk), so by the time the Canvas paints, part models
  * are already in the loader cache — no pop-in.
  */
-import { Component, Suspense, useMemo, type ReactNode } from "react";
+import { Component, Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useGLTF } from "@react-three/drei";
-import { Box3, MathUtils, Vector3, type Material, type Mesh } from "three";
+import {
+  Box3,
+  EdgesGeometry,
+  LineBasicMaterial,
+  LineSegments,
+  MathUtils,
+  Vector3,
+  type Group,
+  type Material,
+  type Mesh,
+} from "three";
 import type { SceneNode3D } from "@/lib/product-3d";
 import { readyCatalogAssetPaths } from "@/lib/product-3d";
 import { partModelFor, unitToMm } from "@/lib/product-3d/part-models";
@@ -23,6 +33,38 @@ import { useInvalidateOnCommit } from "./stage-invalidate";
 // Warm the loader cache as soon as the Stage chunk arrives.
 if (typeof window !== "undefined") {
   for (const url of readyCatalogAssetPaths()) useGLTF.preload(url);
+}
+
+/** Ink color for feature edges — the --color-text token (DESIGN.md). */
+const EDGE_INK = "#1a2744";
+/** CAD feature-edge threshold: boxes/caps read as outlines, cylinder/sphere
+ *  faceting stays quiet (their face angles sit below this). */
+const EDGE_THRESHOLD_DEG = 40;
+
+/**
+ * CAD-style line work: attach/update EdgesGeometry LineSegments on every mesh
+ * under `root`, ink-colored, matching the part's current opacity. Idempotent —
+ * a second call just re-tunes the existing line material (isolation ghosting).
+ */
+export function syncEdgeLines(root: Group, opacity: number): void {
+  root.traverse((obj) => {
+    const mesh = obj as Mesh;
+    if (!mesh.isMesh || !mesh.geometry) return;
+    let line = mesh.userData.__edgeLine as LineSegments | undefined;
+    if (!line) {
+      line = new LineSegments(
+        new EdgesGeometry(mesh.geometry, EDGE_THRESHOLD_DEG),
+        new LineBasicMaterial({ color: EDGE_INK })
+      );
+      // Edge lines must never intercept part/wire taps.
+      line.raycast = () => {};
+      mesh.add(line);
+      mesh.userData.__edgeLine = line;
+    }
+    const mat = line.material as LineBasicMaterial;
+    mat.transparent = opacity < 0.99;
+    mat.opacity = opacity;
+  });
 }
 
 /** GLB failure → parametric fallback, never a crash or a hole. */
@@ -86,6 +128,8 @@ function GlbPart({
       const center = new Box3().setFromObject(c).getCenter(new Vector3());
       c.position.sub(center);
     }
+    // CAD line work rides the authored model, inherited per-mesh transforms.
+    syncEdgeLines(c as unknown as Group, opacity);
     return c;
   }, [scene, opacity, model]);
   return (
@@ -95,12 +139,13 @@ function GlbPart({
   );
 }
 
-/** Selection cue that works identically for GLBs and fallbacks: a soft puck. */
+/** Selection cue that works identically for GLBs and fallbacks: a flat puck
+ *  in the accent token — outline emphasis, no glow. */
 function SelectionPuck({ radiusMm }: { radiusMm: number }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -radiusMm * 0.02, 0]}>
       <ringGeometry args={[radiusMm * 1.05, radiusMm * 1.22, 40]} />
-      <meshBasicMaterial color="#22d3ee" transparent opacity={0.85} depthWrite={false} />
+      <meshBasicMaterial color="#0e7490" transparent opacity={0.85} depthWrite={false} />
     </mesh>
   );
 }
@@ -125,6 +170,13 @@ export function PartMesh({
 }) {
   const fallback = <BasicPart node={node} opacity={opacity} />;
   const detail = partDetailFor(node.catalogId);
+  // Parametric fallbacks mount synchronously, so their CAD edge lines can be
+  // attached right after commit. The GLB path carries its own (GlbPart clone).
+  const groupRef = useRef<Group>(null);
+  useEffect(() => {
+    if (node.assetUrl) return;
+    if (groupRef.current) syncEdgeLines(groupRef.current, opacity);
+  }, [node.assetUrl, node.id, opacity]);
   const body = node.assetUrl ? (
     <GlbBoundary fallback={fallback}>
       <Suspense fallback={null}>
@@ -145,6 +197,7 @@ export function PartMesh({
   const showPins = selected;
   return (
     <group
+      ref={groupRef}
       position={[
         node.position[0] * rootScale,
         node.position[1] * rootScale,

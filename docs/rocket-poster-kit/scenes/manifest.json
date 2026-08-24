@@ -1,0 +1,154 @@
+{
+ "geostationary-guf-v2": {
+  "file": "geostationary-guf-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a high sun disc, mustard and cream sky bands, flat palm silhouettes. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "geostationary-guf-v2.png",
+  "source_sha256": "a253c33008f1f66b",
+  "style_version": 2
+ },
+ "geostationary-ind-v2": {
+  "file": "geostationary-ind-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a high sun disc, mustard and cream sky bands, flat palm silhouettes. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "geostationary-ind-v2.png",
+  "source_sha256": "fb88b801dbd1d17e",
+  "style_version": 2
+ },
+ "low earth-chn-v2": {
+  "file": "low earth-chn-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a large pale sun disc at the horizon, warm mustard and brick-red sky bands. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "low earth-chn-v2.png",
+  "source_sha256": "90100eb7ccc39446",
+  "style_version": 2
+ },
+ "low earth-ind-v2": {
+  "file": "low earth-ind-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a large pale sun disc at the horizon, warm mustard and brick-red sky bands. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "low earth-ind-v2.png",
+  "source_sha256": "ef61e14e64ba83fa",
+  "style_version": 2
+ },
+ "low earth-kaz-v2": {
+  "file": "low earth-kaz-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a large pale sun disc at the horizon, warm mustard and brick-red sky bands. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "low earth-kaz-v2.png",
+  "source_sha256": "645193cf8e72f264",
+  "style_version": 2
+ },
+ "low earth-nzl-v2": {
+  "file": "low earth-nzl-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a large pale sun disc at the horizon, warm mustard and brick-red sky bands. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "low earth-nzl-v2.png",
+  "source_sha256": "3fa38d38d294d419",
+  "style_version": 2
+ },
+ "low earth-usa-v2": {
+  "file": "low earth-usa-v2.png",
+  "model": "flux_2",
+  "prompt": "manual ingest",
+  "source": "pad-dawn-1.png",
+  "source_sha256": "7bc6c7cb34ebee29",
+  "style_version": 2
+ },
+ "lunar-chn-v2": {
+  "file": "lunar-chn-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a large pale CRESCENT MOON disc low over the horizon, deep BLUE sky bands with a scatter of cream stars. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "lunar-chn-v2.png",
+  "source_sha256": "66d0d3f57c02b4bd",
+  "style_version": 2
+ },
+ "mars-jpn-v2": {
+  "file": "mars-jpn-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a small pale sun, brick-RED and mustard sky bands, a flat rocky ridgeline. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "mars-jpn-v2.png",
+  "source_sha256": "971b40e7eb706328",
+  "style_version": 2
+ },
+ "medium earth-rus-v2": {
+  "file": "medium earth-rus-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a small high sun, blue and cream sky bands, simplified flat plains. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "medium earth-rus-v2.png",
+  "source_sha256": "a4ae34bc71c6e9ce",
+  "style_version": 2
+ },
+ "polar-usa-v2": {
+  "file": "polar-usa-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a low sun disc, THREE strongly saturated sky bands in DEEP BLUE, FOREST GREEN and BRICK RED, a narrow cream band at the horizon, and a jagged dark ridgeline. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "polar-usa-v2.png",
+  "source_sha256": "e80758c718680dc2",
+  "style_version": 2
+ },
+ "suborbital-swe-v2": {
+  "file": "suborbital-swe-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a large sun disc, mustard sky bands, a wide flat desert plain. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "suborbital-swe-v2.png",
+  "source_sha256": "0f7164424e61c68d",
+  "style_version": 2
+ },
+ "sun-earth l2-usa-v2": {
+  "file": "sun-earth l2-usa-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a small pale moon, deep BLUE sky bands with a scatter of cream stars. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "sun-earth l2-usa-v2.png",
+  "source_sha256": "ca690ac3d6fc7a39",
+  "style_version": 2
+ },
+ "sun-synchronous-guf-v2": {
+  "file": "sun-synchronous-guf-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a low sun disc, cool green and cream sky bands, a distant flat ridgeline. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "sun-synchronous-guf-v2.png",
+  "source_sha256": "81fc2aefa0900db5",
+  "style_version": 2
+ },
+ "sun-synchronous-jpn-v2": {
+  "file": "sun-synchronous-jpn-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a low sun disc, cool green and cream sky bands, a distant flat ridgeline. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "sun-synchronous-jpn-v2.png",
+  "source_sha256": "f430ad8dd84ea8b7",
+  "style_version": 2
+ },
+ "sun-synchronous-nor-v2": {
+  "file": "sun-synchronous-nor-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a low sun disc, cool green and cream sky bands, a distant flat ridgeline. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "sun-synchronous-nor-v2.png",
+  "source_sha256": "f107fd3bf1ef417e",
+  "style_version": 2
+ },
+ "sun-synchronous-nzl-v2": {
+  "file": "sun-synchronous-nzl-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a low sun disc, cool green and cream sky bands, a distant flat ridgeline. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "sun-synchronous-nzl-v2.png",
+  "source_sha256": "df1cf47fced4e6fd",
+  "style_version": 2
+ },
+ "unknown-chn-v2": {
+  "file": "unknown-chn-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a pale sun disc, mustard and cream sky bands, a flat plain. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "unknown-chn-v2.png",
+  "source_sha256": "7714ce0f44842f08",
+  "style_version": 2
+ },
+ "unknown-rus-v2": {
+  "file": "unknown-rus-v2.png",
+  "model": "flux_2",
+  "prompt": "A vintage 1930s Swiss alpine travel poster, restyled for spaceflight. Flat lithographic illustration, hard-edged blocks of solid colour, no gradients, no photorealism, no texture, no shading. Bold simplified silhouettes, compressed perspective, screen-printed poster finish. A LAUNCH PAD LANDSCAPE with no rocket on it: simplified geometric gantry and service towers standing at the LEFT edge, flat layered sky bands, and a graphic sun or moon disc. TONAL STRUCTURE, identical in every image: a narrow DARK band across the very top, then two or three SATURATED mid-tone sky bands, then a LIGHT CREAM band just above the horizon, then DARK ground silhouettes along the bottom. Never an all-dark image, never an all-pale image, never an empty one -- always this same light-to-dark banding. Scene motif: a pale sun disc, mustard and cream sky bands, a flat plain. IMPORTANT: the CENTRE-RIGHT of the frame is EMPTY SKY containing nothing. The BOTTOM FIFTH is a plain flat band of one solid colour containing nothing. No rocket, no spacecraft, no text, no lettering, no numbers, no people, no logos, no border, no frame, no margin -- the illustration runs to all four edges.",
+  "source": "unknown-rus-v2.png",
+  "source_sha256": "47fc23c6feeb7748",
+  "style_version": 2
+ }
+}

@@ -1,3 +1,7 @@
+> **SHIPPED, THEN SUPERSEDED (2026-08-24).** Its SolderWorkbench, pad map and step surfaces
+> were deleted in the rebuild. The principle it established — compiled facts guarantee that
+> text, diagram and 3D cannot disagree — survives and is now enforced by the Claim contract.
+
 ---
 status: ACTIVE
 ---

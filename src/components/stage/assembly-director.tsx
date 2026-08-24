@@ -47,11 +47,11 @@ export function AssemblyDirector({
 
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-3 pointer-events-none">
-      <div className="pointer-events-auto mx-auto max-w-3xl rounded-xl bg-black/72 backdrop-blur px-4 py-3 text-slate-100 shadow-lg">
+      <div className="pointer-events-auto mx-auto max-w-3xl rounded-xl bg-surface-raised/95 border border-border-subtle shadow-card px-4 py-3 text-text">
         {/* Callout — the authored beginner prose for this phase */}
         <div className="text-[13px] leading-snug mb-2">
           <span className="font-semibold">{frame.phase.title}</span>
-          <span className="text-slate-300"> — {frame.callout}</span>
+          <span className="text-text-secondary"> — {frame.callout}</span>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -59,7 +59,7 @@ export function AssemblyDirector({
               if (!playing && scrub >= max) onScrub(0); // replay from the start
               onPlayingChange(!playing);
             }}
-            className="shrink-0 px-3 py-1.5 rounded-md bg-cyan-500/20 border border-cyan-400/50 text-cyan-100 text-xs font-medium"
+            className="shrink-0 px-3 py-1.5 rounded-md bg-accent border border-accent text-white text-xs font-medium"
           >
             {playing ? "Pause" : "Play"}
           </button>
@@ -75,7 +75,7 @@ export function AssemblyDirector({
               onScrub(parseFloat(e.target.value));
               invalidateStage();
             }}
-            className="w-full accent-cyan-400"
+            className="w-full accent-accent"
           />
         </div>
         {/* Phase chips */}
@@ -88,10 +88,10 @@ export function AssemblyDirector({
                 onScrub(p.index);
                 invalidateStage();
               }}
-              className={`px-2 py-0.5 rounded-md text-[10px] border transition-colors ${
+              className={`px-2 py-0.5 rounded-md text-xs border transition-colors ${
                 frame.phaseIndex === p.index
-                  ? "bg-cyan-500/25 border-cyan-400 text-cyan-50"
-                  : "bg-white/5 border-white/15 text-slate-300 hover:border-white/40"
+                  ? "bg-accent border-accent text-white"
+                  : "bg-surface border-border text-text-secondary hover:border-border-strong"
               }`}
             >
               {p.index + 1} · {p.title.length > 22 ? `${p.title.slice(0, 22)}…` : p.title}

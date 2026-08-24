@@ -25,6 +25,15 @@ export interface DiagnosisAction {
   action: string;
   expect: string;
   ifFail?: string;
+  /**
+   * Tags this action as PURELY about wire continuity on these nets (e.g.
+   * ["sda","scl"]) — lets src/lib/serial/bus-proof.ts's filterDiagnosesByProof
+   * skip an action a sibling device on the same shared bus already proved.
+   * Optional; every action with no hint renders exactly as before. Only
+   * tag actions with no software/config component — "swap these wires" is
+   * a wire check, "set the library address" is not.
+   */
+  netHint?: string[];
 }
 
 export type Likelihood = "very_likely" | "likely" | "possible";
@@ -127,6 +136,44 @@ function d(
  * Ranked diagnosis trees for a symptom in the context of this plan/step.
  * Pure TypeScript — no LLM. Merges step commonMistakes when present.
  */
+/**
+ * Reality-aware trim (Slice 3, V2): drop checklist actions that are purely
+ * about wire continuity on nets the builder's own reality already PROVED
+ * (every joint on the net verified at instrument/assisted tier). Mirrors
+ * filterDiagnosesByProof's contract exactly: never empties a checklist,
+ * trimmed diagnoses sort last, orders renumber.
+ */
+export function filterDiagnosesByReality(
+  diagnoses: Diagnosis[],
+  reality: import("./build-reality/types").BuildReality | undefined
+): Diagnosis[] {
+  if (!reality) return diagnoses;
+  const byNet = new Map<string, { total: number; verified: number }>();
+  for (const j of Object.values(reality.joints)) {
+    if (j.state === "removed") continue;
+    const key = j.netName.toLowerCase();
+    const row = byNet.get(key) ?? { total: 0, verified: 0 };
+    row.total++;
+    if (j.state === "verified" && j.evidence && j.evidence.tier !== "self-report") row.verified++;
+    byNet.set(key, row);
+  }
+  const proven = new Set(
+    [...byNet.entries()].filter(([, r]) => r.total > 0 && r.verified === r.total).map(([k]) => k)
+  );
+  if (proven.size === 0) return diagnoses;
+
+  const withTrim = diagnoses.map((d) => {
+    const kept = d.actions.filter(
+      (a) => !(a.netHint && a.netHint.length > 0 && a.netHint.every((t) => proven.has(t.toLowerCase())))
+    );
+    const trimmed = kept.length < d.actions.length;
+    const finalActions = (kept.length > 0 ? kept : d.actions).map((a, i) => ({ ...a, order: i + 1 }));
+    return { diagnosis: { ...d, actions: finalActions }, trimmed };
+  });
+  withTrim.sort((a, b) => Number(a.trimmed) - Number(b.trimmed));
+  return withTrim.map((w) => w.diagnosis);
+}
+
 export function diagnose(plan: BuildPlan, symptomId: SymptomId, step?: BuildStep): Diagnosis[] {
   const parts = plan.parts || [];
   const blob = planBlob(plan, step);
@@ -218,11 +265,13 @@ export function diagnose(plan: BuildPlan, symptomId: SymptomId, step?: BuildStep
             action: "Swap the SDA and SCL wires at one end only (ESP or OLED).",
             expect: "Display shows content after reset.",
             ifFail: "Swap back and continue.",
+            netHint: ["sda", "scl"],
           },
           {
             order: 2,
             action: "Confirm OLED VCC is on 3.3V (not 5V) and GND is common with the ESP.",
             expect: "Multimeter: ~3.3V between OLED VCC and GND when powered.",
+            netHint: ["power", "gnd"],
           },
         ],
       }),
@@ -426,6 +475,7 @@ export function diagnose(plan: BuildPlan, symptomId: SymptomId, step?: BuildStep
             action: "Run I2C scanner — SHT31 often 0x44/0x45; BME280 0x76/0x77.",
             expect: "Sensor address appears alongside OLED if both connected.",
             ifFail: "Check SDA/SCL continuity and common GND.",
+            netHint: ["sda", "scl", "gnd"],
           },
           {
             order: 2,

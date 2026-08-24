@@ -3,8 +3,18 @@
     "esp32c3": {
       "bin": "/firmware/esp32c3/diag.bin",
       "offset": 0,
-      "builtAt": "2026-07-17T18:10:42.179Z",
-      "sketch": "diag v1"
+      "builtAt": "2026-08-14T05:55:39.268Z",
+      "sketch": "diag v1",
+      "buildId": "51f280d4"
+    }
+  },
+  "customSketches": {
+    "solar-weather-clock": {
+      "bin": "/firmware/esp32c3/solar-weather-clock.bin",
+      "offset": 0,
+      "builtAt": "2026-08-20T22:16:15.447Z",
+      "sketch": "Solar Weather Clock",
+      "buildId": "e46f4516"
     }
   }
 }

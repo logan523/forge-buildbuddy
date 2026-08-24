@@ -76,3 +76,40 @@ test("429 when the daily cap is exhausted (spend circuit-breaker)", async () => 
   assert.equal(second.status, 429);
   if ("error" in second.body) assert.match(second.body.error, /cap/i);
 });
+
+test("200: the builder's bench digest lands in the prompt with the ground-truth framing", async () => {
+  let captured = "";
+  const complete = async (_s: string, user: string) => {
+    captured = user;
+    return "ok";
+  };
+  const r = await handleStepHelp(
+    {
+      question: "can I connect the sensor the same way I did the OLED?",
+      stepTitle: "Wire it up",
+      realityDigest:
+        "FORM: breadboard (Half-size 400-tie)\nTHEIR WIRE COLORS (already reflected in the connections list): GND=brown\nPROGRESS: 6 joints made, 4 proven live by the board (nets SDA, SCL answered — those wires are proven good)",
+    },
+    "ip-bench",
+    complete
+  );
+  assert.equal(r.status, 200);
+  assert.match(captured, /THE BUILDER'S BENCH \(their declared reality/);
+  assert.match(captured, /GND=brown/);
+  assert.match(captured, /proven good/);
+});
+
+test("bench digest is size-capped, never a payload amplifier", async () => {
+  let captured = "";
+  const complete = async (_s: string, user: string) => {
+    captured = user;
+    return "ok";
+  };
+  await handleStepHelp(
+    { question: "q", realityDigest: "x".repeat(5000) },
+    "ip-cap",
+    complete
+  );
+  const block = captured.split("THE BUILDER'S BENCH")[1] ?? "";
+  assert.ok(block.length <= 900, `bench block capped, got ${block.length}`);
+});

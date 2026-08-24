@@ -1,5 +1,8 @@
 # Engineering Methodology Research for BuildBuddy AI Platform
 
+> **HISTORICAL (2026-07-08).** Research synthesis under the old name. Not a current plan.
+
+
 ## The Meta-Question
 
 **"How can we approach any project in the simplest way to get built?"**

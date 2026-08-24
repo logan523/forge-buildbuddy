@@ -47,7 +47,7 @@ function ApproachArrow({
     <group>
       <Line
         points={[a, b]}
-        color="#0ea5e9"
+        color="#0e7490"
         lineWidth={1.5}
         dashed
         dashSize={0.045}
@@ -57,7 +57,7 @@ function ApproachArrow({
       />
       <mesh position={tip} rotation={[pitch, yaw, 0, "YXZ"]}>
         <coneGeometry args={[0.018, 0.05, 12]} />
-        <meshBasicMaterial color="#0ea5e9" transparent opacity={0.9} />
+        <meshBasicMaterial color="#0e7490" transparent opacity={0.9} />
       </mesh>
     </group>
   );

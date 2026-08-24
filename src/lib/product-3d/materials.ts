@@ -1,6 +1,10 @@
 /**
- * PBR material presets — Palantir-grade studio look for parametric parts.
- * Open-source Three.js MeshPhysicalMaterial parameters (no proprietary assets).
+ * Matte technical material presets — the CAD/MATLAB look for parametric parts.
+ *
+ * Flat colors, roughness ≈ 1, metalness 0, no clearcoat/sheen/transmission:
+ * form reads from silhouette + ink edge lines (parts-layer), not from glossy
+ * highlights. Per-part color identity stays data (pcb green, brass, copper) —
+ * only the photoreal response was removed.
  */
 import type { SceneMaterial } from "./types";
 
@@ -24,142 +28,33 @@ export interface PhysicalMatProps {
   color: string;
   metalness: number;
   roughness: number;
-  clearcoat?: number;
-  clearcoatRoughness?: number;
-  sheen?: number;
-  sheenRoughness?: number;
-  sheenColor?: string;
   emissive?: string;
   emissiveIntensity?: number;
-  ior?: number;
-  transmission?: number;
-  thickness?: number;
-  envMapIntensity?: number;
-  /** Brushed/machined metal: stretches the highlight into a streak (three r158+). 0 = isotropic. */
-  anisotropy?: number;
-  anisotropyRotation?: number;
 }
 
 const PRESETS: Record<MaterialPresetId, PhysicalMatProps> = {
-  bamboo: {
-    color: "#c9a66b",
-    metalness: 0.02,
-    roughness: 0.72,
-    clearcoat: 0.15,
-    clearcoatRoughness: 0.55,
-    sheen: 0.25,
-    sheenRoughness: 0.7,
-    sheenColor: "#e8d4a8",
-    envMapIntensity: 0.55,
-  },
-  brass: {
-    color: "#d4a84b",
-    // Satin brass, not mirror: roughness up + envMap down so the cage stops
-    // throwing white glints that bloom and wash out the parts inside it.
-    metalness: 0.92,
-    roughness: 0.28,
-    clearcoat: 0.18,
-    clearcoatRoughness: 0.3,
-    envMapIntensity: 1.05,
-    // Machined brass: the highlight stretches into a streak, not a plastic dot.
-    anisotropy: 0.55,
-  },
-  copper: {
-    color: "#c47a3a",
-    metalness: 0.94,
-    roughness: 0.3,
-    clearcoat: 0.2,
-    clearcoatRoughness: 0.24,
-    envMapIntensity: 1.05,
-    anisotropy: 0.45,
-  },
+  bamboo: { color: "#c9a66b", metalness: 0, roughness: 0.95 },
+  brass: { color: "#d4a84b", metalness: 0, roughness: 0.85 },
+  copper: { color: "#c47a3a", metalness: 0, roughness: 0.85 },
+  // The OLED face is the one surface allowed to read as emissive — it's a
+  // display, and the screen content carries information, not decoration.
   oled_glass: {
     color: "#060c14",
-    metalness: 0.08,
-    roughness: 0.06,
-    clearcoat: 1,
-    clearcoatRoughness: 0.03,
-    transmission: 0.22,
-    thickness: 0.45,
-    ior: 1.5,
+    metalness: 0,
+    roughness: 0.6,
     emissive: "#0a3d32",
     emissiveIntensity: 0.4,
-    envMapIntensity: 1.7,
   },
-  oled_bezel: {
-    color: "#121218",
-    metalness: 0.4,
-    roughness: 0.42,
-    clearcoat: 0.15,
-    envMapIntensity: 0.75,
-  },
-  pcb_green: {
-    color: "#0f3d24",
-    metalness: 0.04,
-    roughness: 0.68,
-    clearcoat: 0.12,
-    clearcoatRoughness: 0.55,
-    envMapIntensity: 0.55,
-  },
-  solar_cell: {
-    color: "#070b14",
-    metalness: 0.62,
-    roughness: 0.12,
-    clearcoat: 0.6,
-    clearcoatRoughness: 0.08,
-    envMapIntensity: 1.35,
-  },
-  solar_frame: {
-    color: "#8b96a5",
-    metalness: 0.9,
-    roughness: 0.22,
-    envMapIntensity: 1.25,
-  },
-  plastic_soft: {
-    color: "#c4b5fd",
-    metalness: 0.05,
-    roughness: 0.48,
-    clearcoat: 0.35,
-    clearcoatRoughness: 0.3,
-    envMapIntensity: 0.65,
-  },
-  plastic_hard: {
-    color: "#d6d3d1",
-    metalness: 0.08,
-    roughness: 0.55,
-    clearcoat: 0.2,
-    envMapIntensity: 0.5,
-  },
-  battery_body: {
-    color: "#1e293b",
-    metalness: 0.55,
-    roughness: 0.38,
-    clearcoat: 0.25,
-    envMapIntensity: 0.9,
-  },
-  sensor_body: {
-    color: "#d1fae5",
-    metalness: 0.08,
-    roughness: 0.42,
-    clearcoat: 0.3,
-    envMapIntensity: 0.6,
-  },
-  touch_pad: {
-    color: "#a78bfa",
-    metalness: 0.15,
-    roughness: 0.4,
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.2,
-    emissive: "#6d28d9",
-    emissiveIntensity: 0.12,
-    envMapIntensity: 0.8,
-  },
-  generic: {
-    color: "#94a3b8",
-    metalness: 0.2,
-    roughness: 0.5,
-    envMapIntensity: 0.7,
-  },
+  oled_bezel: { color: "#121218", metalness: 0, roughness: 0.85 },
+  pcb_green: { color: "#0f3d24", metalness: 0, roughness: 0.95 },
+  solar_cell: { color: "#070b14", metalness: 0, roughness: 0.7 },
+  solar_frame: { color: "#8b96a5", metalness: 0, roughness: 0.9 },
+  plastic_soft: { color: "#c4b5fd", metalness: 0, roughness: 0.95 },
+  plastic_hard: { color: "#d6d3d1", metalness: 0, roughness: 0.95 },
+  battery_body: { color: "#1e293b", metalness: 0, roughness: 0.9 },
+  sensor_body: { color: "#d1fae5", metalness: 0, roughness: 0.95 },
+  touch_pad: { color: "#a78bfa", metalness: 0, roughness: 0.95 },
+  generic: { color: "#94a3b8", metalness: 0, roughness: 0.95 },
 };
 
 export function getMaterialPreset(id: MaterialPresetId | string | undefined): PhysicalMatProps {
@@ -197,10 +92,6 @@ export function inferMaterialPreset(
   if (id === "sensor") return "sensor_body";
   if (id === "shell" || id === "body") return "plastic_hard";
 
-  if (material.metalness != null && material.metalness > 0.7) {
-    if (c.includes("b8") || c.includes("d4a") || c.includes("c9a")) return "brass";
-    if (c.includes("b87") || c.includes("873")) return "copper";
-  }
   if (c.includes("c4a") || c.includes("d4b") || c.includes("bamboo")) return "bamboo";
 
   return "generic";
@@ -215,14 +106,12 @@ export function resolvePhysicalMaterial(
 ): PhysicalMatProps & { transparent: boolean; opacity: number } {
   const presetId = inferMaterialPreset(geomKind, material, nodeId);
   const base = { ...getMaterialPreset(presetId) };
-  // Allow explicit color override when not using strong metal presets
+  // Allow explicit color override when not using strong identity presets
   if (material.color && presetId === "generic") {
     base.color = material.color;
   }
   if (material.emissive) base.emissive = material.emissive;
   if (material.emissiveIntensity != null) base.emissiveIntensity = material.emissiveIntensity;
-  if (material.metalness != null && presetId === "generic") base.metalness = material.metalness;
-  if (material.roughness != null && presetId === "generic") base.roughness = material.roughness;
 
   return {
     ...base,

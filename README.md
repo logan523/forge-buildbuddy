@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Forge
 
-## Getting Started
+You are at a bench holding a soldering iron and two modules. Forge tells you the next single
+action — **which wire, from which pad, to which pad** — in your own colours and hole
+coordinates, and proves it worked before you trust it.
 
-First, run the development server:
+It is for beginners, built to a rigour bar that suits people who cannot yet tell when they are
+being lied to.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # http://localhost:3007
+npm test             # 828 tests
+npx tsc --noEmit
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `/build/solar-weather-clock` for a real build, wiring and all.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## The one idea
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Every fact that reaches your eye carries how it is known:
 
-## Learn More
+| | |
+|---|---|
+| **derived** | computed from the netlist or the catalog, and it names what computed it |
+| **declared** | you told us — your wire is brown, your board says `G`, this end is in C1 |
+| **evidenced** | an instrument answered: the display replied at 0x3C |
+| **unknown** | we don't know, and here is what would close it |
 
-To learn more about Next.js, take a look at the following resources:
+`unknown` carries no value, so no code can read one, so no screen can render one. A part we
+have not matched says *"we haven't matched this to a part we've measured"* instead of quietly
+printing a different product's part number — which is what it used to do.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Screens look emptier than ones that guess. That is the point.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## What's in here
 
-## Deploy on Vercel
+| Path | |
+|---|---|
+| `src/lib/claim/` | the contract above |
+| `src/components/bench/` | the product: one action, one picture, one proof |
+| `src/lib/actions/cursor.ts` | the spine — one ordered action list, one position |
+| `src/lib/build-reality/` | your bench: joints, evidence, your colours, your coordinates |
+| `src/lib/electrical/` | netlist, voltage domains, ERC |
+| `src/lib/breadboard/` | board geometry, and the shared-column short that burns boards |
+| `src/lib/serial/` | Web Serial + I²C scan — the proof half |
+| `src/lib/core-loop.golden.test.ts` | the contract the product may not break |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`CLAUDE.md` is the working constitution and is more detailed than this file.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Verification, not vibes
+
+`src/lib/core-loop.golden.test.ts` encodes six moments from a real twelve-day build — *"which do
+I pick up next"*, *"GND is brown"*, *"the ESP got super fucking hot"*, *"answered at 0x3C"* — and
+it was written to pass **before** the rewrite that replaced the entire UI, so it describes the
+product rather than the code that happens to exist.
+
+Web Serial is desktop Chromium only. Everything degrades and says so; nothing pretends.
+
+## Also here
+
+`docs/rocket-poster-kit/` is a self-contained Python kit that renders e-ink travel posters for
+upcoming rocket launches. It has its own README and its own tests, and sits outside `npm test`
+because the Node CI has no Python.

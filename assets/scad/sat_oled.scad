@@ -1,4 +1,4 @@
-// BuildBuddy — 0.96" SSD1306 module (~27×27×4 mm)
+// Forge — 0.96" SSD1306 module (~27×27×4 mm)
 // openscad -o oled.stl assets/scad/sat_oled.scad
 
 w = 27;

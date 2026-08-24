@@ -1,5 +1,6 @@
 /**
- * Firmware manifest loader — pure fetch + validate, C2.
+ * Firmware manifest loader — pure fetch + validate, C2 (+ generalized
+ * per-plan custom sketches and build-provenance, rebuild cycle).
  *
  * public/firmware/manifest.json is written by scripts/compile-firmware.mjs
  * (dev-time tooling, requires arduino-cli — see that script's header). On a
@@ -8,6 +9,13 @@
  * that identically to a 404, a network error, or a malformed/wrong-shaped
  * response — every failure mode resolves to the same empty manifest, so
  * callers never need a try/catch, just `manifest.families[family]`.
+ *
+ * `families` is one generic test sketch per board family (today: the diag
+ * scanner, same binary for everyone). `customSketches` is a second, optional
+ * map keyed by an arbitrary slug (in practice a BuildPlan id) for compiled
+ * builds that belong to one specific plan, not a whole board family — see
+ * `--key` on compile-firmware.mjs. Additive: existing `families` consumers
+ * are unaffected by a manifest that also has `customSketches`.
  */
 
 export interface FirmwareManifestEntry {
@@ -19,10 +27,20 @@ export interface FirmwareManifestEntry {
   builtAt: string;
   /** Human label for what's flashed, e.g. "diag v1". */
   sketch: string;
+  /**
+   * Short content-derived build ID (sha256 of the sketch source, truncated),
+   * embedded inside the compiled binary itself (see build_id.h) so the app
+   * can confirm post-flash that the device is actually running this build,
+   * not a stale one. Optional so older manifest entries (pre-provenance)
+   * still validate — callers that need confirmation just treat a missing
+   * buildId as "can't confirm," never a hard failure.
+   */
+  buildId?: string;
 }
 
 export interface FirmwareManifest {
   families: Record<string, FirmwareManifestEntry>;
+  customSketches?: Record<string, FirmwareManifestEntry>;
 }
 
 export const EMPTY_MANIFEST: FirmwareManifest = { families: {} };
@@ -34,24 +52,31 @@ function isEntry(v: unknown): v is FirmwareManifestEntry {
     typeof e.bin === "string" &&
     typeof e.offset === "number" &&
     typeof e.builtAt === "string" &&
-    typeof e.sketch === "string"
+    typeof e.sketch === "string" &&
+    (e.buildId === undefined || typeof e.buildId === "string")
   );
+}
+
+function validateEntryMap(raw: unknown): Record<string, FirmwareManifestEntry> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, FirmwareManifestEntry> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (isEntry(value)) out[key] = value;
+  }
+  return out;
 }
 
 /**
  * Drop anything that doesn't match the shape rather than trusting the file
  * wholesale — a hand-edited or half-written manifest should degrade to
- * "missing for this family," never crash the flash flow.
+ * "missing for this family/plan," never crash the flash flow.
  */
 function validate(raw: unknown): FirmwareManifest {
   if (!raw || typeof raw !== "object") return { families: {} };
-  const families = (raw as Record<string, unknown>).families;
-  if (!families || typeof families !== "object") return { families: {} };
-  const out: Record<string, FirmwareManifestEntry> = {};
-  for (const [key, value] of Object.entries(families as Record<string, unknown>)) {
-    if (isEntry(value)) out[key] = value;
-  }
-  return { families: out };
+  const obj = raw as Record<string, unknown>;
+  const families = validateEntryMap(obj.families);
+  const hasCustom = obj.customSketches && typeof obj.customSketches === "object";
+  return hasCustom ? { families, customSketches: validateEntryMap(obj.customSketches) } : { families };
 }
 
 /**

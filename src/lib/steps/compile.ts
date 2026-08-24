@@ -68,13 +68,18 @@ export function edgesFromModel(plan: BuildPlan, model: ElectricalModel): Compile
       const wireColor =
         planColors.get(net.name.toLowerCase()) ??
         (net as ElectricalNet & { wireColor?: string }).wireColor;
-      const colorHex = netColorFor(net.netClass, wireColor, net.name);
-      const colorName = wireColorName(colorHex);
+      const canonicalHex = netColorFor(net.netClass, wireColor, net.name);
+      const canonicalName = wireColorName(canonicalHex);
+      // Reality stamp (R2): the builder's declared color wins for display;
+      // the canonical name is kept for step-assignment scoring (eng E5).
+      const colorHex = net.displayColorHex ?? canonicalHex;
+      const colorName = net.displayColorName ?? canonicalName;
       const grade: CompiledConnection["grade"] = members.length === 2 ? "consistent" : "derived";
       const domain = domainForNet(net);
       const hub = members.length === 2 ? members[0] : pickHub(members);
       for (const m of members) {
         if (m === hub) continue;
+        const memberOverride = net.memberColorOverrides?.[`${m.ref}:${m.pin}`];
         edges.push({
           id: `${net.name}:${m.ref}:${m.pin}`,
           netName: net.name,
@@ -85,8 +90,13 @@ export function edgesFromModel(plan: BuildPlan, model: ElectricalModel): Compile
           toRef: m.ref,
           toPin: m.pin,
           toLabel: nameByRef.get(m.ref) || m.ref,
-          colorHex,
-          colorName,
+          colorHex: memberOverride?.hex ?? colorHex,
+          colorName: memberOverride?.name ?? colorName,
+          ...(memberOverride?.label ?? net.displayColorLabel
+            ? { colorLabel: memberOverride?.label ?? net.displayColorLabel }
+            : {}),
+          ...(memberOverride || net.displayColorSource === "user" ? { colorSource: "user" as const } : {}),
+          ...(canonicalName !== (memberOverride?.name ?? colorName) ? { canonicalColorName: canonicalName } : {}),
           grade,
           domainKey: domain.key,
           domainLabel: domain.label,
@@ -110,7 +120,9 @@ function edgeTokens(edge: CompiledConnection): { token: string; weight: number }
   push(edge.fromPin, 2);
   push(edge.toPin, 2);
   push(edge.netName, 2);
-  push(edge.colorName, 1);
+  // Step assignment must NEVER move when the builder declares a color (eng
+  // E5): authored prose says "black wire"; scoring uses the canonical name.
+  push(edge.canonicalColorName ?? edge.colorName, 1);
   for (const label of [edge.fromLabel, edge.toLabel]) {
     for (const w of label.toLowerCase().split(/[^a-z0-9]+/)) {
       if (w.length >= 3 && !STOP_WORDS.has(w)) push(w, 1);

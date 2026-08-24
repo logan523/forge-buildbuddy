@@ -1,0 +1,433 @@
+{
+  "id": "rocket-launch-art",
+  "title": "Rocket Launch Wall Art",
+  "description": "A framed e-ink poster that watches every rocket launch on Earth. It pulls the next launch from a free public API and prints a vintage travel-poster style card: the rocket, where it's going, and why. Holds the image on zero power, runs months on a battery, and looks like a print rather than a screen.",
+  "difficulty": "intermediate",
+  "estimatedTime": "2-3 hours (the art pipeline is already built)",
+  "estimatedCost": "$95-115",
+  "buildModes": [
+    "quick_test",
+    "full_build"
+  ],
+  "activeMode": "full_build",
+  "hazardTags": [
+    "LIPO",
+    "ESD_SENSITIVE"
+  ],
+  "generatedAt": "2026-08-22T00:00:00Z",
+  "modelUsed": "researched-build",
+  "warnings": [
+    "E-ink panels must be put to SLEEP after every refresh. Leaving the driver energized on a static image can permanently damage the electrophoretic layer — the image persists BECAUSE power is off, not despite it.",
+    "Write the image in a warm room. Below ~18C the colors lock in washed out (greys instead of blacks) and stay that way until you re-refresh warm."
+  ],
+  "hazardAssessment": [
+    {
+      "category": "chemical",
+      "severity": "HIGH",
+      "description": "Lithium polymer battery. Fire risk if shorted, punctured, or reverse-connected.",
+      "mitigation": "Use the board's own JST/MX1.25 battery header and its onboard charge IC. Never reverse polarity. Check the connector's pinout against the silkscreen before plugging in — cell polarity is NOT standardized across vendors."
+    },
+    {
+      "category": "mechanical",
+      "severity": "MEDIUM",
+      "description": "The panel's flat flex ribbon is fragile and not repairable.",
+      "mitigation": "Never crease it, never pull the panel by the ribbon, and open the connector latch fully before inserting."
+    }
+  ],
+  "tools": [
+    {
+      "name": "Computer with USB-C cable",
+      "required": true
+    },
+    {
+      "name": "Small Phillips screwdriver",
+      "required": true
+    },
+    {
+      "name": "Craft knife or mat cutter (for the window mat)",
+      "required": false
+    },
+    {
+      "name": "Multimeter (to verify sleep current)",
+      "required": false
+    }
+  ],
+  "parts": [
+    {
+      "id": "photopainter",
+      "name": "Waveshare ESP32-S3-PhotoPainter",
+      "specification": "7.3 inch E Ink Spectra 6 (E6), 800x480, six colours. Active area 160.0 x 96.0 mm (6.30 x 3.78 in). ESP32-S3-WROOM-1-N16R8 with WiFi + BLE, PCF85063 RTC, SHTC3, MX1.25 LiPo header, 16GB TF card and reader included, in a solid wood frame. 25s full refresh.",
+      "quantity": 1,
+      "notes": "All-in-one. This is the whole display half of the build — panel, MCU, frame and charge circuit in one part. ~$83.",
+      "estimatedPrice": "$83 direct / $109 Amazon",
+      "whyThisPart": "Buy the 'with BAT' SKU. It is $1 more than the no-battery version and includes a 3.7V 1500mAh cell already terminated with the correct connector, which removes a separate battery purchase and its polarity risk entirely.",
+      "commonMistake": "Buying PhotoPainter (B). It is RP2350-based with NO radio at all -- SD card only. On Amazon the tell is a title mentioning 'Raspberry Pi Zero' or '7.3inch ACeP 7-Color'; both appear in the 'customers also viewed' strip on the correct listing."
+    },
+    {
+      "id": "microsd",
+      "name": "microSD card (INCLUDED -- spare only)",
+      "specification": "A 16GB TF card and reader ship in the box. A spare must be microSDHC (32GB or under), which the SD spec makes FAT32. microSDXC (64GB+) is exFAT and the firmware cannot enumerate it.",
+      "quantity": 1,
+      "estimatedPrice": "$0 (included) / ~$23 spare",
+      "whyThisPart": "Included in the kit -- verified in Waveshare's package contents. Listed here so nobody buys one thinking it is missing, and so the FAT32 constraint is written down.",
+      "searchQuery": "microSD card 16GB Class 10 U1",
+      "commonMistake": "Buying a 128GB card because it costs nearly the same. The constraint is structural, not arbitrary: SDHC (<=32GB) is FAT32, SDXC (>=64GB) is exFAT. Look for microSDHC on the label."
+    },
+    {
+      "id": "lipo-2000",
+      "name": "LiPo battery (INCLUDED with the 'with BAT' SKU)",
+      "specification": "3.7V 1500mAh, pre-terminated MX1.25 2-pin. NOT PH2.0 -- MX1.25 is a 1.25mm pitch and PH2.0 is 2.0mm; a PH2.0 cell physically will not plug in. Most 103450 cells sold on Amazon are PH2.0.",
+      "quantity": 1,
+      "notes": "Buy a PROTECTED cell — one with the small protection board bonded under the kapton tape at the terminals. Forge's electrical check flags this build for lithium protection because it cannot verify from the outside that the PhotoPainter's onboard charge circuit protects the cell. A protected cell answers that regardless, and is the right call on any battery you leave charging unattended on a wall.",
+      "estimatedPrice": "$1 (the SKU upgrade)",
+      "whyThisPart": "Waveshare's own board table specifies an MX1.25 2PIN header. Taking the bundled cell avoids both the connector mismatch and the polarity risk, since no listing states which pin is positive.",
+      "commonMistake": "Buying a PH2.0 103450 cell because the pitch was not checked. It will not fit."
+    },
+    {
+      "id": "usb-c-cable",
+      "name": "USB-C cable",
+      "specification": "Data-capable (not charge-only)",
+      "quantity": 1,
+      "notes": "Charge-only cables are the #1 cause of 'my board won't show up as a serial port'."
+    },
+    {
+      "id": "matte-glazing",
+      "name": "Matte or anti-reflective glazing (optional)",
+      "specification": "Non-glare acrylic, cut to 160 x 96 mm. An 8x10 sheet is the cheapest source and cuts down easily.",
+      "quantity": 1,
+      "notes": "E-ink's matte, glare-free surface is its main advantage over an LCD. Standard glossy frame glass throws that away and re-introduces reflections.",
+      "whyThisPart": "OPTIONAL, and try the build without it first. E Ink Spectra 6 already has a matte, non-specular front surface and ships with a protective film.",
+      "commonMistake": "Mounting non-glare acrylic with an air gap. Its matte finish diffuses light and only works pressed directly against the artwork -- with a gap it visibly softens the image, which on a 0.2mm pixel pitch costs more in sharpness than it buys in glare reduction."
+    }
+  ],
+  "wiringConnections": [
+    {
+      "from": "LiPo battery +",
+      "to": "PhotoPainter battery header +",
+      "wireColor": "red"
+    },
+    {
+      "from": "LiPo battery -",
+      "to": "PhotoPainter battery header -",
+      "wireColor": "black"
+    }
+  ],
+  "structuredNets": [
+    {
+      "name": "VBAT",
+      "netClass": "power",
+      "members": [
+        {
+          "ref": "photopainter",
+          "pin": "BAT+"
+        },
+        {
+          "ref": "lipo-2000",
+          "pin": "+"
+        }
+      ]
+    },
+    {
+      "name": "GND",
+      "netClass": "gnd",
+      "members": [
+        {
+          "ref": "photopainter",
+          "pin": "BAT-"
+        },
+        {
+          "ref": "lipo-2000",
+          "pin": "-"
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "stepNumber": 1,
+      "title": "Know what you're building (and what it will look like)",
+      "quickSummary": "Set expectations before you unbox — e-ink is paper, not a screen.",
+      "description": "This piece prints a launch card on electronic paper. Two things to know now so you are not disappointed later. First: e-ink white is not paper white. It reflects about 35-45% of light where real paper reflects 80-85%, so it reads like matte newsprint or a risograph print. Hung next to a real photo print, the difference is obvious. Second: it does not glow. In a dark room it is invisible, exactly like a print. Both of those are the POINT — they are why it reads as art instead of as a monitor.",
+      "goal": "Understand the medium before you commit parts to it.",
+      "whyThisWorks": "Vintage travel posters were screen-printed with a handful of flat spot inks. That is almost exactly the constraint a 6-color e-ink panel imposes. You are not degrading the art to fit the panel — you are returning it to roughly the production limits it was designed under. Flat color fields, bold shapes and heavy type are the best case for this technology; photographs are the worst case.",
+      "doneWhen": "You can say out loud what this will look like at night (dark) and next to a print (greyer).",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 2,
+      "title": "Unbox and inspect the panel before anything else",
+      "quickSummary": "Check the ribbon and the connector latch while everything is still returnable.",
+      "description": "Unpack the PhotoPainter. Look at the flat flexible cable (FFC/FPC) joining the panel to the board. It should be flat, uncreased, and fully seated with its latch closed. This ribbon is the most fragile part of the entire build and it cannot be repaired — a crease is a dead panel.",
+      "goal": "Confirm the panel and ribbon arrived intact.",
+      "youNeed": [
+        "The PhotoPainter",
+        "Good light"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Unpack and lay the unit face-up on a soft surface."
+        },
+        {
+          "n": 2,
+          "text": "Inspect the flex ribbon for creases, kinks, or tears.",
+          "caution": "Never pull the panel by the ribbon."
+        },
+        {
+          "n": 3,
+          "text": "Confirm the connector latch is fully closed and the ribbon is square in it."
+        },
+        {
+          "n": 4,
+          "text": "Check the panel glass for cracks or delamination at the corners."
+        }
+      ],
+      "doneWhen": "Ribbon is flat and seated, latch closed, glass undamaged.",
+      "commonMistakes": [
+        "Forcing a ribbon into a closed latch — open the latch FIRST, insert with zero force, then close it."
+      ],
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 3,
+      "title": "Prove the panel with your own image before anything talks to the network",
+      "quickSummary": "Format a card FAT32, drop one BMP on it, watch your picture appear.",
+      "description": "The PhotoPainter loads images from a microSD card, not over the wire. Prove that path works with a file you made before adding WiFi, a server, or an API to the list of things that could be wrong. If your own BMP appears on the panel, every remaining problem is a network problem.",
+      "goal": "Your own 800x480 image on the panel, from the card.",
+      "youNeed": [
+        "microSD card",
+        "computer",
+        "USB-C cable"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Format the card as FAT32. Not exFAT.",
+          "caution": "128GB+ cards arrive exFAT and the firmware cannot enumerate them. The frame looks dead with no error. This is the single most common way this build appears broken."
+        },
+        {
+          "n": 2,
+          "text": "Create a folder called pic in the card's root (06_user_Foundation_img on the ESP32-S3 build) and copy in one 24-bit BMP at exactly 800x480."
+        },
+        {
+          "n": 3,
+          "text": "Generate that BMP with the kit rather than exporting from an image editor: python3 export_bmp.py next-launch.png --out pic/001.bmp",
+          "caution": "The firmware matches every pixel against six EXACT RGB triples with no nearest-colour fallback, and its colour variable lives outside the pixel loop -- so a pixel matching none of them inherits the previous pixel and smears across the row. An editor's colour management will silently break this. export_bmp.py maps to the nominal triples and refuses to write anything else."
+        },
+        {
+          "n": 4,
+          "text": "On macOS, delete the dot-underscore files Finder leaves behind, plus any fileList.txt and index.txt in the card root.",
+          "caution": "Waveshare documents this: the firmware enumerates those files and hangs."
+        },
+        {
+          "n": 5,
+          "text": "Insert the card, power on, and watch a full refresh. It cycles through several colour passes for 25-30 seconds and looks broken while it does. That is normal for 6-colour e-ink."
+        }
+      ],
+      "doneWhen": "Your own poster is on the panel and stays there with the power off.",
+      "whyThisWorks": "The SD path is the firmware's native input and has no dependencies. Proving it first means any later failure is definitely upstream.",
+      "commonMistakes": [
+        "Formatting exFAT because the card came that way.",
+        "Exporting the BMP from Photoshop or Preview -- colour management shifts the values off the six exact triples and the image smears.",
+        "Assuming the long multi-colour flashing sequence is a fault."
+      ],
+      "verification": "The image is visible, correct, and survives unplugging.",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 4,
+      "title": "Flash firmware that already does the network work",
+      "quickSummary": "Don't write WiFi, NTP and TLS from scratch -- flash esp32-photoframe.",
+      "description": "The hard parts of the device side are solved. aitjcize/esp32-photoframe (MIT, actively developed) targets this exact board and adds URL-based auto-fetch with ETag caching, a REST API and a web UI. Writing your own WiFi retry loop, NTP-before-TLS ordering and certificate pinning is real work with real traps, and none of it is differentiated.",
+      "goal": "Firmware on the board that can fetch an image from a URL.",
+      "youNeed": [
+        "computer",
+        "USB-C cable"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Clone github.com/aitjcize/esp32-photoframe and build for this board: ./build.py --board waveshare_photopainter_73"
+        },
+        {
+          "n": 2,
+          "text": "Flash over USB-C with the battery DISCONNECTED.",
+          "caution": "Shipping boards use the AXP2101 PMIC and restart unpredictably when USB-C and battery are connected at once. Waveshare has confirmed this. Use one or the other, never both."
+        },
+        {
+          "n": 3,
+          "text": "Join it to your WiFi through its setup flow, then confirm it can pull a static image from any URL before pointing it at your own server."
+        },
+        {
+          "n": 4,
+          "text": "Check that the firmware sleeps the panel after each refresh.",
+          "caution": "Mandatory, not an optimisation. The image persists BECAUSE power is off. Leaving the driver energised on a static image damages the electrophoretic layer permanently."
+        },
+        {
+          "n": 5,
+          "text": "Set the image URL to the .bmp endpoint, not a .png one.",
+          "caution": "The firmware displays a BMP directly but DECODES AND RE-DITHERS a PNG or JPEG against its own palette. Our poster is already flat six-ink art, so re-dithering only adds speckle to every flat field. Verified in the firmware's docs/API.md."
+        }
+      ],
+      "doneWhen": "The frame fetches an image from a URL you control and displays it.",
+      "whyThisWorks": "NTP before TLS, WiFi retry, and root-CA pinning are all traps someone else has already hit and fixed. An ESP32 boots believing it is 1970, so certificate date validation fails on a cold boot with an error that looks like a network fault.",
+      "commonMistakes": [
+        "Flashing with the battery plugged in and chasing phantom resets.",
+        "Writing your own TLS stack and pinning the LEAF certificate -- the host is Cloudflare-fronted and rotates leaves, so a pinned leaf bricks the frame within weeks. Pin the ROOT CA.",
+        "Skipping the panel sleep call.",
+        "Serving the poster as PNG because it is smaller. The device re-dithers PNG and undoes the colour work; BMP is passed straight to the panel."
+      ],
+      "verification": "A URL change on your side shows up on the panel after the next wake.",
+      "mediaKind": "usb_upload"
+    },
+    {
+      "stepNumber": 5,
+      "title": "Run the server that renders the poster",
+      "quickSummary": "python3 serve.py --port 8080 on any always-on machine.",
+      "description": "All the real work happens off the device: fetch the next launch, render an 800x480 poster from the six inks, pack it as a BMP, and serve it with an ETag. The ESP32 never decodes an image or talks to a launch API. Decoding costs RAM and awake time, and awake time is the battery budget.",
+      "goal": "An HTTP endpoint serving a current, panel-legal BMP.",
+      "youNeed": [
+        "a Raspberry Pi, spare machine, or always-on computer"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Run python3 docs/rocket-poster-kit/serve.py --port 8080 on a machine that stays awake."
+        },
+        {
+          "n": 2,
+          "text": "Check http://<host>:8080/status -- it reports the current launch, render age and whether the last fetch came from cache or network."
+        },
+        {
+          "n": 3,
+          "text": "Fetch http://<host>:8080/panel.bmp twice. The second should return 304 Not Modified with an empty body.",
+          "caution": "That 304 is the point of the whole design. It means the frame skips a 25-second panel refresh when nothing has changed."
+        },
+        {
+          "n": 4,
+          "text": "Leave it running. It polls Launch Library 2 adaptively -- hourly when the launch is far out, every five minutes in the final hour."
+        }
+      ],
+      "doneWhen": "curl returns a 1,152,054-byte BMP, and 304 on the repeat request.",
+      "whyThisWorks": "The free API tier allows 15 requests per hour PER IP ADDRESS -- not per device, so a whole household shares it. The server polls once and caches; the frame only ever talks to the server.",
+      "commonMistakes": [
+        "Letting the ESP32 poll the launch API directly -- several devices or a tight loop will throttle your whole household's IP.",
+        "Serving a PNG. The firmware reads 24-bit BMP only.",
+        "Rebuilding the image on every request instead of on a real data change, which burns a panel refresh for nothing."
+      ],
+      "verification": "Two curls: 200 with an ETag, then 304.",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 6,
+      "title": "Point the frame at your server",
+      "quickSummary": "One URL in the firmware config, then watch a real launch appear.",
+      "description": "Connect the two halves. The frame polls your endpoint on its own wake schedule; the ETag decides whether it redraws.",
+      "goal": "The frame showing the real next launch, updating itself.",
+      "youNeed": [
+        "the frame on WiFi",
+        "the server running"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "Set the firmware's image URL to http://<your-host>:8080/panel.bmp"
+        },
+        {
+          "n": 2,
+          "text": "Use a fixed IP or hostname for the server. A DHCP lease change silently strands the frame."
+        },
+        {
+          "n": 3,
+          "text": "Force a refresh and confirm the current launch appears, matching what /status reports."
+        },
+        {
+          "n": 4,
+          "text": "Hit /refresh to redraw the poster from cached data and confirm the frame picks it up on its next wake. This is free. Add ?upstream=1 only when you want fresh launch data.",
+          "caution": "An upstream refresh costs 2 of your 15 requests per hour, and that limit is per IP -- shared with every other device in the house. The server refuses the call rather than let you get throttled, and /status shows what you've spent."
+        }
+      ],
+      "doneWhen": "The panel shows the real next launch, and updates on its own when the launch changes.",
+      "whyThisWorks": "ETag caching means the expensive operation -- the refresh -- only happens on a genuine content change.",
+      "commonMistakes": [
+        "Using the server's DHCP address and losing it on the next lease.",
+        "Expecting an instant update. The frame only checks when it wakes.",
+        "Hammering /refresh?upstream=1 while debugging. Eight hits exhausts the hourly budget and the 429 blocks your whole network, not just the frame."
+      ],
+      "verification": "Change the data, wait for a wake, see the panel follow.",
+      "mediaKind": "generic_checklist"
+    },
+    {
+      "stepNumber": 7,
+      "title": "Connect the battery and go wireless",
+      "quickSummary": "Check polarity against the silkscreen, then unplug USB for good.",
+      "description": "Last, because everything above is easier with USB power and because the PMIC bug means you should never have both connected.",
+      "goal": "The frame running on battery, on the wall, with no cable.",
+      "youNeed": [
+        "LiPo battery with protection PCB",
+        "multimeter (optional)"
+      ],
+      "actions": [
+        {
+          "n": 1,
+          "text": "UNPLUG USB-C first.",
+          "caution": "USB-C and battery connected simultaneously restarts the board unpredictably -- confirmed AXP2101 behaviour."
+        },
+        {
+          "n": 2,
+          "text": "Check the battery connector's polarity against the board's silkscreen before plugging it in.",
+          "caution": "JST wiring is NOT standardised across vendors. If the connector's red and black are opposite to the board's markings, STOP. Do not 'just try it'. Reversed polarity kills the board."
+        },
+        {
+          "n": 3,
+          "text": "Optional: measure deep-sleep current with a multimeter. Boards commonly idle 10-40x worse than the datasheet suggests -- measure before trusting any battery-life estimate."
+        }
+      ],
+      "doneWhen": "The frame runs on battery and refreshes overnight.",
+      "whyThisWorks": "Sleep current dominates the power budget. The wake and the panel refresh are almost free by comparison.",
+      "commonMistakes": [
+        "Assuming red equals positive on the board side. Trust the silkscreen, not the wire colour.",
+        "Leaving USB-C plugged in 'just to be safe'.",
+        "Using a bare cell with no protection PCB."
+      ],
+      "verification": "Unplugged, on the wall, still updating a day later.",
+      "mediaKind": "battery_id_poles"
+    },
+    {
+      "stepNumber": 8,
+      "title": "Frame it, hang it, and schedule the refresh for the middle of the night",
+      "quickSummary": "Matte glazing, a mat that overlaps the bezel, and a 4 AM update.",
+      "description": "Mount the panel in the frame with the mat window cut about 2mm INSIDE the active area so it overlaps and hides the inactive border. Use matte or anti-reflective glazing, or no glazing at all — glossy glass destroys the one advantage e-ink has over an LCD. Finally, schedule refreshes for the small hours: a Spectra 6 update flashes through several full-panel color passes for roughly half a minute and looks broken to anyone watching.",
+      "goal": "An object that reads as a framed print.",
+      "actions": [
+        {
+          "n": 1,
+          "text": "Cut the mat window ~2mm smaller than the active area on each side."
+        },
+        {
+          "n": 2,
+          "text": "Route the flex ribbon so nothing presses on it and it isn't forced into a tight bend."
+        },
+        {
+          "n": 3,
+          "text": "Fit matte/AR glazing, or leave the glazing out entirely."
+        },
+        {
+          "n": 4,
+          "text": "Schedule the daily refresh for ~4 AM."
+        },
+        {
+          "n": 5,
+          "text": "Verify deep-sleep current with a multimeter in series with the battery.",
+          "caution": "Boards commonly idle 10-40x worse than the datasheet suggests. Measure before you trust any battery estimate."
+        }
+      ],
+      "doneWhen": "It hangs on the wall, updates overnight, and a visitor has to be told it is a display.",
+      "whyThisWorks": "Every choice here is about removing the tells: reflections, a visible bezel, a cable, and a refresh someone can watch.",
+      "commonMistakes": [
+        "Using the frame's original glossy glass — it re-introduces exactly the glare e-ink avoids."
+      ],
+      "mediaKind": "final_assembly"
+    }
+  ]
+}

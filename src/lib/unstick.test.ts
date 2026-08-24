@@ -46,4 +46,26 @@ describe("unstick", () => {
     const symptoms = relevantSymptoms(plan, uploadStep);
     assert.equal(symptoms[0].id, "no_upload");
   });
+
+  it("oled-sda-scl-swap's two actions carry the netHint bus-proof.ts's proof filtering reads", () => {
+    const diags = diagnose(plan, "blank_display", wiringStep);
+    const swap = diags.find((d) => d.id === "oled-sda-scl-swap");
+    assert.ok(swap);
+    assert.deepEqual(swap!.actions[0].netHint, ["sda", "scl"]);
+    assert.deepEqual(swap!.actions[1].netHint, ["power", "gnd"]);
+  });
+
+  it("sensor-i2c-bus's first action carries the expected netHint", () => {
+    const diags = diagnose(plan, "sensor_wrong");
+    const bus = diags.find((d) => d.id === "sensor-i2c-bus");
+    assert.ok(bus);
+    assert.deepEqual(bus!.actions[0].netHint, ["sda", "scl", "gnd"]);
+  });
+
+  it("untagged actions (e.g. oled-i2c-address's) have no netHint — purely additive field", () => {
+    const diags = diagnose(plan, "blank_display", wiringStep);
+    const addr = diags.find((d) => d.id === "oled-i2c-address");
+    assert.ok(addr);
+    assert.ok(addr!.actions.every((a) => a.netHint === undefined));
+  });
 });

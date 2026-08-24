@@ -122,4 +122,49 @@ describe("instruction resolve", () => {
       "Pads clean."
     );
   });
+
+  it("resolveDoneWhen: a software step with customFirmware names the real entry file, not a guessed template", () => {
+    const step: BuildStep = { stepNumber: 7, title: "Upload the firmware", description: "x" };
+    const result = resolveDoneWhen(step, null, {
+      id: "solar-weather-clock",
+      label: "Solar Weather Clock firmware",
+      boardFamily: "esp32c3",
+      entryFile: "weather-clock.ino",
+      files: [],
+      authoredBy: "human",
+    });
+    assert.match(result, /weather-clock\.ino/);
+    assert.match(result, /not a Forge template/i);
+  });
+
+  it("resolveDoneWhen: customFirmware is skipped for non-software steps", () => {
+    const step: BuildStep = { stepNumber: 1, title: "Cut the frame", description: "x" };
+    const result = resolveDoneWhen(step, null, {
+      id: "solar-weather-clock",
+      label: "x",
+      boardFamily: "esp32c3",
+      entryFile: "weather-clock.ino",
+      files: [],
+      authoredBy: "human",
+    });
+    assert.doesNotMatch(result, /weather-clock\.ino/);
+  });
+
+  it("resolveDoneWhen: an explicit authored doneWhen still wins over customFirmware", () => {
+    const step: BuildStep = {
+      stepNumber: 7,
+      title: "Upload the firmware",
+      description: "x",
+      doneWhen: "The OLED shows the time.",
+    };
+    const result = resolveDoneWhen(step, null, {
+      id: "solar-weather-clock",
+      label: "x",
+      boardFamily: "esp32c3",
+      entryFile: "weather-clock.ino",
+      files: [],
+      authoredBy: "human",
+    });
+    assert.equal(result, "The OLED shows the time.");
+  });
 });

@@ -46,6 +46,7 @@ export class LineSplitter {
 
 export type ScannerLine =
   | { kind: "i2c-found"; address: number }
+  | { kind: "build-id"; buildId: string }
   | { kind: "boot" }
   | { kind: "plain" };
 
@@ -63,6 +64,13 @@ export type ScannerLine =
 // hex still classifies correctly.
 const I2C_FOUND_RE = /found device at 0x([0-9a-f]{1,2})\b/i;
 
+// Printed as the FIRST line in setup() by every sketch compiled through
+// scripts/compile-firmware.mjs (build-provenance, rebuild cycle) — see
+// build_id.h / FORGE_BUILD_ID. Lets the post-flash confirmation banner
+// (flash-console.tsx) verify the device is actually running the build that
+// was just flashed, not a stale one left over from an earlier flash.
+const BUILD_ID_RE = /^FORGE_BUILD_ID=([0-9a-f]+)/i;
+
 // ESP32 ROM bootloader banner noise, e.g.:
 //   rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
 // Beginners see this on every power-up/reset and it looks like a crash —
@@ -75,6 +83,8 @@ const BOOT_NOISE_RE = /\brst:|\bboot:/i;
  * slice will cross-check found addresses against the plan's expected parts.
  */
 export function parseScannerLine(line: string): ScannerLine {
+  const buildId = line.match(BUILD_ID_RE);
+  if (buildId) return { kind: "build-id", buildId: buildId[1].toLowerCase() };
   const found = line.match(I2C_FOUND_RE);
   if (found) {
     const address = parseInt(found[1], 16);
