@@ -37,6 +37,7 @@ import { Fact } from "@/components/claim/fact";
 import { ActionCard } from "./action-card";
 import { ProofStrip } from "./proof-strip";
 import { DeclareColor } from "./declare-color";
+import { DeclareHole } from "./declare-hole";
 import { ChapterSheet } from "./chapter-sheet";
 import { PartsSheet } from "./parts-sheet";
 
@@ -122,12 +123,28 @@ export function BenchScreen({
             <ActionCard action={a} reality={reality} />
             {/* Inline, under the sentence it corrects — not behind a drawer. */}
             <DeclareColor action={a} reality={reality} />
+            <DeclareHole action={a} reality={reality} />
             <ProofStrip action={a} reality={reality} canGoLive={canGoLive} />
-            <div
-              className="rounded-lg border border-border-subtle overflow-x-auto bg-surface-raised p-2"
-              // Derived from the netlist by svgCircuitDiagram; no user text reaches it.
-              dangerouslySetInnerHTML={{ __html: diagram }}
-            />
+            {/* One hero picture. On a breadboard the board sheet above IS the
+                picture, so the circuit demotes to on-demand rather than
+                putting two drawings of one wire side by side. */}
+            {reality.formFactor === "breadboard" ? (
+              <details>
+                <summary className="text-xs text-text-muted cursor-pointer min-h-[44px] flex items-center">
+                  Show the whole circuit
+                </summary>
+                <div
+                  className="mt-2 rounded-lg border border-border-subtle overflow-x-auto bg-surface-raised p-2"
+                  dangerouslySetInnerHTML={{ __html: diagram }}
+                />
+              </details>
+            ) : (
+              <div
+                className="rounded-lg border border-border-subtle overflow-x-auto bg-surface-raised p-2"
+                // Derived from the netlist by svgCircuitDiagram; no user text reaches it.
+                dangerouslySetInnerHTML={{ __html: diagram }}
+              />
+            )}
           </>
         ) : (
           <div className="text-center py-16 space-y-2">
