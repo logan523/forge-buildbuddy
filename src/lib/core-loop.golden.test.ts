@@ -142,7 +142,11 @@ test("CORE 4: four wires in one breadboard column is caught BEFORE power", () =>
 
   // The teaching copy is part of the contract, not decoration: it must explain
   // the board's hidden metal and must never blame the builder.
-  const copy = `${short!.title} ${short!.detail} ${short!.fix}`.toLowerCase();
+  // `teach` is the causal field. An earlier draft of this test read a
+  // non-existent `detail`, which stringified to "undefined" and still matched
+  // on the title -- runtime green, tsc red. Assert the real field.
+  assert.ok(short!.teach && short!.fix, "the violation carries no teaching copy");
+  const copy = `${short!.title} ${short!.teach} ${short!.fix}`.toLowerCase();
   assert.match(copy, /strip|column|joined|metal|inside/, "the copy does not explain the cause");
   assert.doesNotMatch(copy, /\byou (made|did) (a|an) (mistake|error)\b|wrong of you|your fault/,
     "the copy blames the builder");
