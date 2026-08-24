@@ -46,3 +46,24 @@ test("the acknowledgement is recorded with a time, not a boolean", async () => {
   touchPlan(id, { buildMode: "full" });
   assert.equal(loadMeta(id)?.safetyAckAt, at, "the acknowledgement was lost on a later write");
 });
+
+test("the gate does not print the same warning twice", async () => {
+  // Seen on screen: an authored warning and a derived finding rendered as two
+  // cards with the same sentence, at the bottom of the safety screen. The
+  // validator reads the same plan the warnings came from, so restatement is
+  // the normal case, not an edge one.
+  await import("../test-utils/dom");
+  const { render, screen, cleanup } = await import("@testing-library/react");
+  const { SafetyGate } = await import("../components/bench/safety-gate");
+  const weatherClock = (await import("@/data/solar-weather-clock.json")).default;
+  const { applyTrustPipeline } = await import("./trust");
+
+  const plan = applyTrustPipeline(weatherClock as never);
+  render(<SafetyGate plan={plan} onAcknowledge={() => {}} onHome={() => {}} />);
+
+  // "Li-ion cells can fire if shorted, crushed, or charged incorrectly" appears
+  // in both an authored warning and a derived finding. It must render once.
+  const hits = screen.queryAllByText(/cells can fire if shorted/i);
+  assert.equal(hits.length, 1, `the same warning rendered ${hits.length} times`);
+  cleanup();
+});

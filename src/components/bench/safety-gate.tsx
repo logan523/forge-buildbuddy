@@ -20,6 +20,9 @@
 import type { BuildPlan } from "@/lib/types";
 import { hazardLabel, isBlockingHazard, needsSafetyAck } from "@/lib/hazards";
 
+/** Compare on words, not punctuation — the two sources differ in dashes. */
+const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+
 export function SafetyGate({
   plan,
   onAcknowledge,
@@ -31,13 +34,23 @@ export function SafetyGate({
 }) {
   const tags = plan.safetyReport?.hazardTags ?? plan.hazardTags ?? [];
   const blocking = tags.filter(isBlockingHazard);
-  const findings = (plan.safetyReport?.findings ?? []).filter(
-    (f) => f.severity === "critical" || f.severity === "warning"
-  );
   // Authored warnings are the plan's own words and are often the most specific
   // thing available ("connect the battery last, after every other joint is
-  // checked"). They render alongside derived findings, never instead of them.
+  // checked"), so they lead.
   const warnings = plan.warnings ?? [];
+
+  // Derived findings frequently restate an authored warning almost verbatim --
+  // the validator reads the same plan. Showing both put two cards with the
+  // same sentence at the bottom of this screen, which is the "one thing drawn
+  // twice" problem the rebuild exists to remove. Keep the finding only when it
+  // says something the warnings don't.
+  const said = warnings.map(norm);
+  const findings = (plan.safetyReport?.findings ?? [])
+    .filter((f) => f.severity === "critical" || f.severity === "warning")
+    .filter((f) => {
+      const body = norm(`${f.title} ${f.detail}`);
+      return !said.some((w) => w.includes(norm(f.detail)) || body.includes(w) || w.includes(body));
+    });
 
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col bg-surface">
