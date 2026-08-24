@@ -40,6 +40,7 @@ import { DeclareColor } from "./declare-color";
 import { DeclareHole } from "./declare-hole";
 import { ChapterSheet } from "./chapter-sheet";
 import { PartsSheet } from "./parts-sheet";
+import { PowerGate } from "./power-gate";
 
 export function BenchScreen({
   plan,
@@ -56,6 +57,7 @@ export function BenchScreen({
 }) {
   const [chaptersOpen, setChaptersOpen] = useState(false);
   const [partsOpen, setPartsOpen] = useState(false);
+  const [gateOpen, setGateOpen] = useState(false);
   const cursor = useMemo(() => buildActionCursor(plan, reality), [plan, reality]);
   const canGoLive = useMemo(() => detectCapability().webSerial, []);
   const a = cursor.current;
@@ -154,10 +156,10 @@ export function BenchScreen({
             </p>
             {canGoLive && (
               <button
-                onClick={onOpenLiveCheck}
+                onClick={() => setGateOpen(true)}
                 className="mt-4 px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold cursor-pointer"
               >
-                Check it against the board
+                Before I plug it in…
               </button>
             )}
           </div>
@@ -198,6 +200,9 @@ export function BenchScreen({
 
       {chaptersOpen && <ChapterSheet cursor={cursor} onClose={() => setChaptersOpen(false)} />}
       {partsOpen && <PartsSheet plan={plan} onClose={() => setPartsOpen(false)} />}
+      {gateOpen && (
+        <PowerGate plan={plan} reality={reality} onClose={() => { setGateOpen(false); onOpenLiveCheck(); }} />
+      )}
     </div>
   );
 }
