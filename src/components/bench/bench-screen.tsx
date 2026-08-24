@@ -37,6 +37,7 @@ import { Fact } from "@/components/claim/fact";
 import { ActionCard } from "./action-card";
 import { ProofStrip } from "./proof-strip";
 import { ChapterSheet } from "./chapter-sheet";
+import { PartsSheet } from "./parts-sheet";
 
 export function BenchScreen({
   plan,
@@ -52,6 +53,7 @@ export function BenchScreen({
   onOpenStuck: (symptomId?: string) => void;
 }) {
   const [chaptersOpen, setChaptersOpen] = useState(false);
+  const [partsOpen, setPartsOpen] = useState(false);
   const cursor = useMemo(() => buildActionCursor(plan, reality), [plan, reality]);
   const canGoLive = useMemo(() => detectCapability().webSerial, []);
   const a = cursor.current;
@@ -101,7 +103,13 @@ export function BenchScreen({
             {cursor.verifiedCount > 0 && ` · ${cursor.verifiedCount} proven live`}
           </p>
         </div>
-        <Fact claim={planCostClaim(plan)} className="text-xs text-text-muted hidden sm:inline" />
+        <button
+          onClick={() => setPartsOpen(true)}
+          className="text-xs text-text-muted hover:text-text cursor-pointer shrink-0"
+          aria-label="Parts and prices"
+        >
+          <Fact claim={planCostClaim(plan)} />
+        </button>
       </header>
 
       <main className="flex-1 overflow-y-auto px-5 py-6 max-w-2xl w-full mx-auto space-y-6">
@@ -168,9 +176,8 @@ export function BenchScreen({
         </button>
       </footer>
 
-      {chaptersOpen && (
-        <ChapterSheet cursor={cursor} onClose={() => setChaptersOpen(false)} />
-      )}
+      {chaptersOpen && <ChapterSheet cursor={cursor} onClose={() => setChaptersOpen(false)} />}
+      {partsOpen && <PartsSheet plan={plan} onClose={() => setPartsOpen(false)} />}
     </div>
   );
 }
