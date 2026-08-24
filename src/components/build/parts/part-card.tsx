@@ -18,6 +18,7 @@
  */
 
 import type { Part, ShoppingLink } from "@/lib/types";
+import { Fact, OptionalFact } from "@/components/claim/fact";
 import {
   bestLink,
   formatUsdRange,
@@ -59,7 +60,10 @@ export function PartCard({ part, showImage, compact, onTooltip, strategy = "spli
   const tip = glossaryTip(`${part.name} ${part.specification}`);
   const badge = !compact ? confidenceBadge(part) : null;
   const guidance = !compact ? buyGuidance(part) : null;
-  const hasGuidance = !!(guidance && (guidance.lookFor || guidance.avoid));
+  // "Look for" always renders when guidance exists -- if we do not know what
+  // to look for, saying so is the point. Silently omitting the line is how a
+  // beginner buys the wrong thing without ever learning we were unsure.
+  const hasGuidance = !!guidance;
   const mod = part.catalogId ? getModuleById(part.catalogId) : undefined;
   const substitutes = !compact && mod ? resolveSubstitutes(mod) : [];
   const vendorLabel = VENDOR_LABEL[link.vendor] || link.label || "Buy";
@@ -153,17 +157,14 @@ export function PartCard({ part, showImage, compact, onTooltip, strategy = "spli
 
       {!compact && hasGuidance && (
         <div className="mt-2 ml-9 space-y-1 text-[11px] text-text-secondary">
-          {guidance!.lookFor && (
-            <p>
-              <span className="text-text-muted">Look for:</span>{" "}
-              <span className="text-text font-medium">{guidance!.lookFor}</span>
-            </p>
-          )}
-          {guidance!.avoid && (
-            <p className="text-warning">
-              <span className="font-medium">Avoid:</span> {guidance!.avoid}
-            </p>
-          )}
+          <p>
+            <span className="text-text-muted">Look for:</span>{" "}
+            <Fact
+              claim={guidance!.lookFor}
+              render={(v) => <span className="text-text font-medium">{v}</span>}
+            />
+          </p>
+          <OptionalFact label="Avoid:" claim={guidance!.avoid} />
         </div>
       )}
 
