@@ -1,4 +1,4 @@
-// BuildBuddy — FR4 blank (defaults = ESP32-C3 SuperMini real mm)
+// Forge — FR4 blank (defaults = ESP32-C3 SuperMini real mm)
 // openscad -o pcb.stl -D 'w=22.5' -D 'h=18' -D 'd=3.2' assets/scad/sat_pcb.scad
 // Board in XY, thickness Z; origin center.
 

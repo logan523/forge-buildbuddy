@@ -1,4 +1,4 @@
-// BuildBuddy sat_clock — brass wire cube cage (life-size craft)
+// Forge sat_clock — brass wire cube cage (life-size craft)
 // Default size from deriveCageEdgeMm (~48 mm), not illustration 68.
 // openscad -o cage.stl -D 'size=48' -D 'rod_r=2.0' -D 'fn=48' assets/scad/sat_cage.scad
 // Units: mm. Centered at origin (matches frame node local space).

@@ -1,4 +1,4 @@
-// BuildBuddy sat_clock — metal stand (life-size desk prop)
+// Forge sat_clock — metal stand (life-size desk prop)
 // openscad -o stand.stl -D 'stem_h=90' -D 'foot_r=18' assets/scad/sat_stand.scad
 
 stem_r = 2.2;

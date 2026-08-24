@@ -1,5 +1,11 @@
 # Forge Agentic Expansion
 
+> **PARKED (2026-08-24).** MCP was deferred by decision, and the rebuild did not revive it.
+> `src/lib/mcp/` still exists and still works; nothing in the build flow reaches it. Layer C's
+> wire-colour doctrine is WRONG — read `docs/BUILD-REALITY.md`, where the builder's declared
+> colour outranks the class standard.
+
+
 **Status:** STRATEGY — durable north-star for product expansion  
 **Date:** 2026-07-27  
 **Audience:** Founder + agents working in this repo  

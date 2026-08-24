@@ -1,4 +1,4 @@
-// BuildBuddy sat_clock — real 16340 cell (Ø16.5 × 34 mm)
+// Forge sat_clock — real 16340 cell (Ø16.5 × 34 mm)
 // Local Y = length (matches RealPartSpec / sat-pins ±Y terminals)
 // openscad -o cell.stl -D 'radius=8.25' -D 'height=34' -D 'fn=48' assets/scad/sat_cell.scad
 

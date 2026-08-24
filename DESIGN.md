@@ -1,5 +1,10 @@
 # Design system — Forge / BuildBuddy
 
+> **PARTLY STALE (2026-08-24).** Title still reads "Forge / BuildBuddy"; the name is Forge.
+> Token and primitive guidance still applies; any component inventory does not — the rebuild
+> replaced `src/components/build/` entirely with `src/components/bench/`.
+
+
 Generated from live tokens in `src/app/globals.css` and product principles in `PRODUCT.md`.
 Register: **product** (workshop tool UI). Color strategy: **Restrained** (tinted neutrals + one accent).
 
