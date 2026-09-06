@@ -23,7 +23,9 @@ the firmware build.
 import argparse, hashlib, json, sys
 from pathlib import Path
 
+import export_bmp
 import poster
+from palette import NOMINAL
 from spectra6 import verify
 
 KIT = Path(__file__).resolve().parent
@@ -38,7 +40,13 @@ def frames():
         if off:
             raise SystemExit(f"fixture {i} renders {len(off)} off-ink colours; "
                              f"refusing to freeze an illegal golden")
-        yield i, r, img
+        # Freeze what the DEVICE must produce, not what the designer works in.
+        # poster.render() renders in MEASURED inks (white is 214,211,200 --
+        # newsprint, not paper) because that is the space quantisation has to
+        # happen in. The panel driver exact-matches NOMINAL triples. A golden
+        # in design space would have failed every C diff by 100% of bytes,
+        # which is exactly how this was found.
+        yield i, r, export_bmp.to_panel_bmp(img)
 
 
 def digest(img) -> str:
@@ -53,7 +61,12 @@ def main() -> None:
 
     OUT.mkdir(exist_ok=True)
     index, drift = {}, []
+    legal = set(NOMINAL.values())
     for i, rec, img in frames():
+        stray = {c for _, c in img.convert("RGB").getcolors(1 << 24)} - legal
+        if stray:
+            raise SystemExit(f"fixture {i}: {len(stray)} non-nominal colours "
+                             f"survived the panel mapping")
         name = f"{i:02d}.png"
         d = digest(img)
         index[name] = {"sha256_16": d,
