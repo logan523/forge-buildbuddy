@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps the poster server alive across logout, reboot and crashes.
+
+  Install:
+      cp com.forge.rocket-poster.plist ~/Library/LaunchAgents/
+      launchctl load  ~/Library/LaunchAgents/com.forge.rocket-poster.plist
+  Stop:
+      launchctl unload ~/Library/LaunchAgents/com.forge.rocket-poster.plist
+  Watch:
+      tail -f /tmp/forge-rocket-poster.log
+
+  KeepAlive restarts it if it dies. RunAtLoad starts it at login. Neither
+  keeps the MAC awake -- a sleeping Mac is a dead frame, and that is the one
+  thing this file cannot fix. Either set Settings > Lock Screen / Energy to
+  never sleep, or move the server to something that is always on.
+
+  The interpreter is pinned to /opt/homebrew/bin/python3 deliberately.
+  /usr/bin/python3 (Apple's) has no Pillow, so it would crash-loop forever
+  without ever serving a byte. If you upgrade or move Homebrew's Python,
+  update this path -- `which python3` tells you the current one.
+
+  ThrottleInterval is 60s so a crash-loop cannot hammer the Launch Library
+  API: every restart costs 2 of 15 requests per hour, shared with every other
+  device on this IP. serve.py tracks that budget on disk precisely so a
+  restart cannot forget what it already spent.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.forge.rocket-poster</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>serve.py</string>
+        <string>--port</string>
+        <string>8080</string>
+        <string>--host</string>
+        <string>0.0.0.0</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/logansilver/buildbuddy/docs/rocket-poster-kit</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/forge-rocket-poster.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/forge-rocket-poster.log</string>
+</dict>
+</plist>

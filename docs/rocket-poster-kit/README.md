@@ -11,6 +11,32 @@ python3 poster.py --all             # render all 24 offline fixtures
 python3 -m unittest discover .      # the gates
 ```
 
+## Running it for real (always-on)
+
+The frame wakes on its own schedule for months. A server started from a
+terminal does not survive that. `com.forge.rocket-poster.plist` is a launchd
+agent that restarts on crash and starts at login:
+
+```bash
+cp com.forge.rocket-poster.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.forge.rocket-poster.plist
+tail -f /tmp/forge-rocket-poster.log
+```
+
+Two things it deliberately cannot fix, both worth knowing before you hang the
+frame on a wall:
+
+* **A sleeping Mac is a dead frame.** launchd restarts a crashed process; it
+  does not wake a sleeping machine. Either set the Mac never to sleep, or move
+  the server to something that always is (a Pi is the usual answer).
+* **A DHCP lease change silently strands the frame.** It keeps polling an
+  address that now belongs to something else, forever, with no error. Give the
+  server a DHCP reservation on the router before pointing the frame at it.
+
+The interpreter in the plist is pinned to Homebrew's Python on purpose --
+Apple's `/usr/bin/python3` has no Pillow and would crash-loop forever without
+ever serving a byte.
+
 ## With the kit in your hands
 
 The frame pulls its image from this server over WiFi. Nothing goes on an SD
