@@ -22,16 +22,49 @@ mission 49. The rule everywhere: shed tracking, then size, then wrap. Never
 clip. A clipped rocket name is worse than a small one.
 """
 
+from pathlib import Path
+
 from PIL import Image, ImageDraw, ImageFont
 
-# Futura: the mid-century geometric sans the alpine posters were lettered in,
-# and already on any macOS box. Condensed ExtraBold is the headline face.
-FUTURA = "/System/Library/Fonts/Supplemental/Futura.ttc"
+# Archivo (SIL OFL 1.1), VENDORED at fonts/Archivo.ttf.
+#
+# This was Apple's Futura, at /System/Library/Fonts/Supplemental/Futura.ttc.
+# Two problems with that, both fatal here rather than merely untidy: baked
+# glyph atlases are derived rasterisations shipped on an SD card inside a
+# device, and a system font path makes the goldens unreproducible on any
+# machine that is not this Mac. The oracle has to be portable or it is not an
+# oracle.
+#
+# Archivo is a grotesque with real width and weight axes (Weight 100-900,
+# Width 62-125), so the four faces this kit uses are points on those axes
+# rather than four separate files. Same geometric-poster register as Futura;
+# the extra-condensed extra-bold headline is the one that matters.
+FONT_PATH = str(Path(__file__).resolve().parent / "fonts" / "Archivo.ttf")
+
 MEDIUM, BOLD, CONDENSED, XCONDENSED = 0, 2, 3, 4
+
+# (weight, width) per face id. Kept as the old integer ids so every call site
+# and every ladder reads unchanged.
+_AXES = {
+    MEDIUM:     (500, 100),
+    BOLD:       (700, 100),
+    CONDENSED:  (700,  80),
+    XCONDENSED: (800,  62),
+}
+
+_FONTS: dict = {}
 
 
 def font(index, size):
-    return ImageFont.truetype(FUTURA, size, index=index)
+    """Cached. Variable-font instances are not free to build, and the fit
+    ladders ask for the same (face, size) many times per poster."""
+    key = (index, int(size))
+    f = _FONTS.get(key)
+    if f is None:
+        f = ImageFont.truetype(FONT_PATH, int(size))
+        f.set_variation_by_axes(list(_AXES[index]))
+        _FONTS[key] = f
+    return f
 
 
 # --------------------------------------------------------------------------
@@ -63,6 +96,10 @@ _ADV: dict = {}
 
 def advance(draw, ch, fnt) -> int:
     """Integer advance for ONE glyph, unkerned. The only measurement primitive."""
+    # id() is a sound key ONLY because font() caches instances, so one
+    # (face, size) is always the same object. An earlier key used a font
+    # attribute that was never set, so all four faces collided and every face
+    # measured as the first one asked for.
     key = (ch, id(fnt))
     a = _ADV.get(key)
     if a is None:
