@@ -722,3 +722,41 @@ class Bake(unittest.TestCase):
         man = json.loads((out / "manifest.json").read_text())
         self.assertEqual(man["format_version"], self.bake.FORMAT_VERSION)
         self.assertTrue(man["plates"] and man["vehicles"])
+
+
+class Goldens(unittest.TestCase):
+    """The frozen frames the C renderer will be diffed against.
+
+    Deliberately cheap: this reads files. The expensive re-derivation from
+    poster.py lives in freeze_goldens.py --check and is a SEPARATE job, so a
+    Pillow bump fails a drift test rather than the firmware build.
+    """
+
+    def setUp(self):
+        import json as _j
+        self.dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "goldens")
+        with open(os.path.join(self.dir, "index.json")) as f:
+            self.index = _j.load(f)
+
+    def test_all_24_fixtures_have_a_frozen_frame(self):
+        recs = json.load(open(os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "launch-samples.json")))["samples"]
+        self.assertEqual(len(self.index), len(recs),
+                         "a fixture has no golden — the C gate would not cover it")
+        for name in self.index:
+            self.assertTrue(os.path.exists(os.path.join(self.dir, name)), f"{name} missing")
+
+    def test_every_golden_is_panel_legal(self):
+        """A golden with an off-ink pixel would teach the C renderer to emit
+        one, and GUI_RGBToSpectra6 turns those silently into white."""
+        for name in sorted(self.index):
+            with self.subTest(golden=name):
+                img = Image.open(os.path.join(self.dir, name))
+                self.assertEqual(img.size, (W, H))
+                self.assertEqual(verify(img), set())
+
+    def test_goldens_are_the_right_shape_for_a_byte_diff(self):
+        """The firmware test compares raw RGB888. Assert that is what these
+        decode to, so the C side can memcmp without guessing a format."""
+        img = Image.open(os.path.join(self.dir, "00.png")).convert("RGB")
+        self.assertEqual(len(img.tobytes()), W * H * 3)
