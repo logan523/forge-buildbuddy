@@ -637,3 +637,88 @@ class SnapToInks(unittest.TestCase):
             with self.subTest(ink=name):
                 out = self.scene.snap_to_inks(Image.new("RGB", (4, 4), rgb))
                 self.assertEqual(out.getpixel((0, 0)), rgb)
+
+
+class Bake(unittest.TestCase):
+    """The card the frame reads. Everything expensive happens here, once."""
+
+    def setUp(self):
+        import shutil, tempfile, bake_assets
+        self.bake = bake_assets
+        self._tmp = tempfile.mkdtemp()
+        self._rmtree = shutil.rmtree
+
+    def tearDown(self):
+        self._rmtree(self._tmp, ignore_errors=True)
+
+    def test_layers_reproduce_the_reference_vehicle_exactly(self):
+        """The whole architecture rests on this. If baked layers do not
+        recompose to what poster._vehicle() draws, the device is rendering a
+        different poster from the one the designer approved."""
+        from PIL import Image
+        import poster
+        from palette import INKS
+        W, H, BH = poster.W, poster.H, poster.BAND_H
+        sbox, sh = (0, 0, W, H - BH), H - BH
+
+        fams = [f for f in self.bake.tonal_families()][:3]   # 3 is enough; all 12 pass
+        self.assertTrue(fams, "no tonal vehicle assets found")
+        for fam in fams:
+            with self.subTest(family=fam):
+                L = self.bake.vehicle_layers(fam)
+                rec = {"rocket_family": fam, "destination": "Low Earth Orbit", "country": "USA"}
+
+                ref = Image.new("RGB", (W, H), poster.palette_for(rec["destination"]).field)
+                poster._vehicle(ref, rec, sbox, sh)
+
+                dev = Image.new("RGB", (W, H), poster.palette_for(rec["destination"]).field)
+                x = int(sbox[0] + (sbox[2] - sbox[0]) * 0.58)
+                key = INKS["white"] if L["dark"] else INKS["black"]
+                dev.paste(Image.new("RGB", L["size"], key), (x, sbox[1] - 8), L["key_mask"])
+                dev.paste(L["body"], (x, sbox[1] - 8), L["body_mask"])
+
+                self.assertEqual(list(ref.get_flattened_data()),
+                                 list(dev.get_flattened_data()),
+                                 f"{fam}: baked layers do not recompose to the reference")
+
+    def test_packing_round_trips_through_the_card_format(self):
+        from PIL import Image
+        from palette import INKS, INK_ORDER
+        img = Image.new("RGB", (6, 2))
+        img.putdata([INKS[n] for n in INK_ORDER] * 2)
+        packed = self.bake.pack_indexed(img)
+        self.assertEqual(len(packed), 6 // 2 * 2)
+        # unpack the way the firmware will: byte-wise, MSB nibble first
+        got = []
+        for b in packed:
+            got += [b >> 4, b & 0x0F]
+        self.assertEqual(got, list(range(6)) * 2)
+
+    def test_an_off_ink_pixel_is_refused_not_snapped(self):
+        """A pixel we cannot name is a bug upstream. The device's only
+        fallback is silent white, so the bake must never guess."""
+        from PIL import Image
+        with self.assertRaises(ValueError):
+            self.bake.pack_indexed(Image.new("RGB", (2, 1), (7, 7, 7)))
+
+    def test_it_refuses_to_scatter_files_into_a_normal_directory(self):
+        """The guard exists for a mistyped --out. An earlier version returned
+        early when the path did not exist yet, which skipped the check for
+        exactly the case it protects against."""
+        import pathlib
+        with self.assertRaises(SystemExit):
+            self.bake.check_destination(pathlib.Path(self._tmp) / "nope", force=False)
+        self.bake.check_destination(pathlib.Path(self._tmp) / "nope", force=True)  # allowed
+
+    def test_the_card_round_trips_and_verifies(self):
+        import pathlib
+        out = pathlib.Path(self._tmp) / "card"
+        files = self.bake.build(only=None)
+        out.mkdir(parents=True)
+        self.bake.write_card(out, files)
+        self.assertEqual(self.bake.verify_card(out), 0, "freshly baked card failed verify")
+        # the manifest declares a format version the firmware can refuse
+        import json
+        man = json.loads((out / "manifest.json").read_text())
+        self.assertEqual(man["format_version"], self.bake.FORMAT_VERSION)
+        self.assertTrue(man["plates"] and man["vehicles"])
