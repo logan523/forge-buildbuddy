@@ -123,14 +123,14 @@ class TypeFits(unittest.TestCase):
     def test_vehicle_and_meta_lines_fit(self):
         for rec in SAMPLES:
             veh = " · ".join(x for x in [rec["rocket"], rec["mission"], rec["provider"]] if x)
-            f, tr = T.fit_tracked(self.d, veh, T.MEDIUM, self.col,
+            f, tr, veh = T.fit_tracked(self.d, veh, T.MEDIUM, self.col,
                                   [19, 18, 17, 16, 15, 14, 13], [0.8, 0.4, 0.0])
             with self.subTest(field="vehicle", rocket=rec["rocket"]):
                 self.assertLessEqual(T.tracked_width(self.d, veh, f, tr), self.col)
 
             meta = " · ".join(x for x in ["12 SEP 2026 · 22:34 UTC", rec["purpose"].upper(),
                                           rec["site"].upper()] if x)
-            f2, tr2 = T.fit_tracked(self.d, meta, T.MEDIUM, self.col,
+            f2, tr2, meta = T.fit_tracked(self.d, meta, T.MEDIUM, self.col,
                                     [13, 12, 11, 10, 9], [0.6, 0.3, 0.0])
             with self.subTest(field="meta", site=rec["site"]):
                 self.assertLessEqual(T.tracked_width(self.d, meta, f2, tr2), self.col)
@@ -153,7 +153,7 @@ class TypeFits(unittest.TestCase):
             line = " · ".join(x for x in [
                 "LAST", (prev.get("rocket_short") or prev.get("rocket") or "").upper(),
                 prev.get("mission") or "", "01 JAN 2026"] if x)
-            f, tr = T.fit_tracked(d, line, T.MEDIUM, W - M - 250, [10, 9, 8], [1.2, 0.6, 0.2])
+            f, tr, line = T.fit_tracked(d, line, T.MEDIUM, W - M - 250, [10, 9, 8], [1.2, 0.6, 0.2])
             with self.subTest(i=i):
                 self.assertLess(H - 62 + f.size, H - 2, "previous-launch line runs off the canvas")
                 self.assertLessEqual(T.tracked_width(d, line, f, tr), W - M - 250,

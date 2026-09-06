@@ -34,6 +34,52 @@ def font(index, size):
     return ImageFont.truetype(FUTURA, size, index=index)
 
 
+# --------------------------------------------------------------------------
+# Determinism: integer pen, no kerning.
+#
+# This layer exists so the layout is a PURE INTEGER FUNCTION of
+# (string, face, size, track) -- which is what makes a C port verifiable and
+# what stops the same Python producing different line breaks on two machines.
+#
+# Two measured problems it fixes:
+#
+#   PIL ships HarfBuzz when raqm is available (it is here: features.check
+#   ("raqm") is True). textlength("AVATAR") is 75.5625 whole against 79.671875
+#   summed per glyph -- 4.1 px of GPOS kerning. wrap() measured whole strings,
+#   tracked_width() stepped per character, and the two silently disagreed.
+#   Worse, raqm's presence is an ENVIRONMENT property, so the same code on a
+#   box without it wrapped differently.
+#
+#   Pillow quantises glyph rasterisation to half-pixels, so a thresholded mask
+#   is not invariant to sub-pixel x -- 2 distinct masks across 16 offsets. The
+#   pen was fractional because put() centres on (col - w) / 2.
+#
+# Both go away if every advance is an integer and every measurement is the sum
+# of the same integers actually used to place glyphs.
+# --------------------------------------------------------------------------
+
+_ADV: dict = {}
+
+
+def advance(draw, ch, fnt) -> int:
+    """Integer advance for ONE glyph, unkerned. The only measurement primitive."""
+    key = (ch, id(fnt))
+    a = _ADV.get(key)
+    if a is None:
+        a = int(round(draw.textlength(ch, font=fnt)))
+        _ADV[key] = a
+    return a
+
+
+def string_width(draw, s, fnt, track=0.0) -> int:
+    """Width of `s` as it will ACTUALLY be drawn: the sum of the same integer
+    advances the pen will step by. Never PIL's kerned whole-string measure."""
+    if not s:
+        return 0
+    return (sum(advance(draw, c, fnt) for c in s)
+            + int(round(track)) * (len(s) - 1))
+
+
 def _stamp(img, draw_into_mask, ink):
     mask = Image.new("L", img.size, 0)
     draw_into_mask(ImageDraw.Draw(mask))
@@ -42,25 +88,31 @@ def _stamp(img, draw_into_mask, ink):
 
 
 def text(img, xy, s, fnt, ink):
-    """Hard-edged text. No antialiasing, by design."""
-    _stamp(img, lambda md: md.text(xy, s, font=fnt, fill=255), ink)
+    """Hard-edged text. No antialiasing and no kerning, by design.
+
+    Steps per character rather than drawing one run, so the pen positions are
+    the same integers `string_width` measured.
+    """
+    tracked(img, xy, s, fnt, ink, track=0.0)
 
 
 def tracked(img, xy, s, fnt, ink, track=0.0):
-    """Letter-spaced text. PIL has no tracking, so step the pen manually."""
+    """Letter-spaced text on an INTEGER pen. PIL has no tracking, so step it."""
     measure = ImageDraw.Draw(img)
+    step = int(round(track))
 
     def draw_all(md):
-        x, y = xy
+        x, y = int(round(xy[0])), int(round(xy[1]))
         for ch in s:
             md.text((x, y), ch, font=fnt, fill=255)
-            x += measure.textlength(ch, font=fnt) + track
+            x += advance(measure, ch, fnt) + step
 
     _stamp(img, draw_all, ink)
 
 
-def tracked_width(draw, s, fnt, track=0.0):
-    return sum(draw.textlength(c, font=fnt) for c in s) + track * max(0, len(s) - 1)
+def tracked_width(draw, s, fnt, track=0.0) -> int:
+    """Kept as the ladders' name for it; now just the integer measure."""
+    return string_width(draw, s, fnt, track)
 
 
 def fit(draw, s, index, max_w, start, floor, track=0.0):
@@ -77,20 +129,35 @@ def fit(draw, s, index, max_w, start, floor, track=0.0):
 
 def fit_tracked(draw, s, index, max_w, sizes, tracks):
     """Shed letter-spacing before size. Tracking is the first thing worth
-    losing on a 50-character provider name; legibility is the last."""
+    losing on a 50-character provider name; legibility is the last.
+
+    Returns (font, track, text). The third element is the string as it should
+    actually be drawn -- at the floor it is truncated with an ellipsis.
+
+    That floor used to return the smallest font and whatever width came with
+    it, so a long line simply bled sideways under the vehicle with no rescue.
+    It was latent until measurement became unkerned (integer per-glyph sums run
+    ~2.5% wider than PIL's kerned whole-string measure), which pushed the real
+    worst-case previous-launch line past its column. A shortened line is
+    recoverable; one running under a dithered rocket is not.
+    """
     for size in sizes:
         f = font(index, size)
         for tr in tracks:
             if tracked_width(draw, s, f, tr) <= max_w:
-                return f, tr
-    return font(index, sizes[-1]), tracks[-1]
+                return f, tr, s
+    f, tr = font(index, sizes[-1]), tracks[-1]
+    cut = s
+    while cut and tracked_width(draw, cut + "…", f, tr) > max_w:
+        cut = cut[:-1]
+    return f, tr, (cut + "…" if cut != s else s)
 
 
 def wrap(draw, s, fnt, max_w):
     words, lines, cur = s.split(), [], ""
     for word in words:
         trial = (cur + " " + word).strip()
-        if draw.textlength(trial, font=fnt) <= max_w or not cur:
+        if string_width(draw, trial, fnt) <= max_w or not cur:
             cur = trial
         else:
             lines.append(cur)

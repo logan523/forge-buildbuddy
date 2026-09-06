@@ -275,7 +275,7 @@ def _band_text(img, d, rec, box, centred, previous=None):
     # this line to 7px, which is about five pixels of letterform on a 128 PPI
     # panel -- fewer words at a legible size beats more words as texture.
     line = "  ·  ".join(x for x in [rec.get("mission"), rec.get("rocket")] if x).upper()
-    f2, t2 = T.fit_tracked(d, line, T.MEDIUM, colw,
+    f2, t2, line = T.fit_tracked(d, line, T.MEDIUM, colw,
                            [pt(8), pt(7.5), pt(7), pt(6.5)], [1.6, 0.9, 0.3])
     if centred:
         put(line, f2, t2, y, sub); y += f2.size + 10
@@ -285,7 +285,7 @@ def _band_text(img, d, rec, box, centred, previous=None):
         y += 6
 
     meta = fmt_when(rec.get("t0_utc"))
-    f3, t3 = T.fit_tracked(d, meta, T.MEDIUM, colw,
+    f3, t3, meta = T.fit_tracked(d, meta, T.MEDIUM, colw,
                            [pt(6.5), pt(6), pt(5.5)], [1.2, 0.6, 0.3])
     put(meta, f3, t3, y, ink)
     y += f3.size + 8
@@ -294,7 +294,7 @@ def _band_text(img, d, rec, box, centred, previous=None):
         prev = "LAST · " + " · ".join(x for x in [
             (previous.get("rocket_short") or previous.get("rocket") or "").upper(),
             fmt_when(previous.get("t0_utc")).split(" · ")[0]] if x)
-        f4, t4 = T.fit_tracked(d, prev, T.MEDIUM, colw, [pt(5.5), pt(5)], [1.0, 0.5])
+        f4, t4, prev = T.fit_tracked(d, prev, T.MEDIUM, colw, [pt(5.5), pt(5)], [1.0, 0.5])
         put(prev, f4, t4, y, sub)
 
 
