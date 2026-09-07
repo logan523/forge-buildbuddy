@@ -335,11 +335,14 @@ def check_destination(out: Path, force: bool) -> None:
 def write_card(out: Path, files: list[tuple[str, bytes]]) -> None:
     """Stage, then rename. A card yanked mid-write leaves the previous
     manifest intact rather than a truncated one the firmware would reject."""
+    import shutil
     stage = out / ".rocket.tmp"
-    if stage.exists():
-        for p in sorted(stage.rglob("*"), reverse=True):
-            p.unlink() if p.is_file() else p.rmdir()
-        stage.rmdir()
+    # rmtree, not a hand-rolled walk. macOS drops AppleDouble "._name" files
+    # into directories on a FAT volume as you write them, so a reverse-sorted
+    # rglob + rmdir hits both a vanished path and a non-empty directory. It
+    # crashed AFTER writing the card correctly, which is the worst shape of
+    # bug: the work is done and the tool reports failure.
+    shutil.rmtree(stage, ignore_errors=True)
     for rel, blob in files:
         dst = stage / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -351,9 +354,7 @@ def write_card(out: Path, files: list[tuple[str, bytes]]) -> None:
         if final.exists():
             final.unlink()
         (stage / rel).replace(final)
-    for p in sorted(stage.rglob("*"), reverse=True):
-        p.unlink() if p.is_file() else p.rmdir()
-    stage.rmdir()
+    shutil.rmtree(stage, ignore_errors=True)
 
 
 def verify_card(out: Path) -> int:
