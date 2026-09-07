@@ -748,12 +748,21 @@ class Goldens(unittest.TestCase):
 
     def test_every_golden_is_panel_legal(self):
         """A golden with an off-ink pixel would teach the C renderer to emit
-        one, and GUI_RGBToSpectra6 turns those silently into white."""
+        one, and GUI_RGBToSpectra6 turns those silently into white.
+
+        Checked against NOMINAL, not the measured inks that spectra6.verify()
+        knows about. Goldens are frozen in panel space -- what the DEVICE must
+        produce -- because poster.render() works in measured inks (white is
+        214,211,200) while the panel driver exact-matches nominal triples.
+        Freezing in design space made every byte of the first C diff differ.
+        """
+        legal = set(NOMINAL.values())
         for name in sorted(self.index):
             with self.subTest(golden=name):
-                img = Image.open(os.path.join(self.dir, name))
+                img = Image.open(os.path.join(self.dir, name)).convert("RGB")
                 self.assertEqual(img.size, (W, H))
-                self.assertEqual(verify(img), set())
+                stray = {c for _, c in img.getcolors(1 << 24)} - legal
+                self.assertEqual(stray, set(), f"{name} carries non-nominal colours")
 
     def test_goldens_are_the_right_shape_for_a_byte_diff(self):
         """The firmware test compares raw RGB888. Assert that is what these
