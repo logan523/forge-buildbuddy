@@ -26,6 +26,12 @@ typedef struct {
                               * The site is only the segment before its first
                               * comma; LL2 tails these with a country name that
                               * the flag already says. */
+    char stats[320];         /* "COMMERCIAL CREW PROGRAM · 227TH ORBITAL ATTEMPT
+                              * OF 2026 · 402ND FROM THIS PAD", or "".
+                              * Facts joined by " \xC2\xB7 "; the renderer drops
+                              * whole trailing facts until the line fits, so a
+                              * fragment like "344TH FOR THIS ..." never ships. */
+    char precision[16];      /* LL2 net_precision: "Month", "Day", "Hour", ... */
 } rocket_record_t;
 
 /* Every atlas the fit ladders can reach. Missing sizes are skipped, so a

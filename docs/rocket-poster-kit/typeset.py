@@ -134,17 +134,30 @@ def text(img, xy, s, fnt, ink):
 
 
 def tracked(img, xy, s, fnt, ink, track=0.0):
-    """Letter-spaced text on an INTEGER pen. PIL has no tracking, so step it."""
+    """Letter-spaced text on an INTEGER pen. PIL has no tracking, so step it.
+
+    Each glyph is thresholded ON ITS OWN before being merged. Drawing the whole
+    run into one grey mask and thresholding once looks equivalent and is not:
+    where two glyphs' antialiased edges overlap, the greys ADD and can cross
+    127 together, lighting a pixel neither glyph has alone. That artifact is
+    unreproducible by anything compositing pre-thresholded glyphs -- which is
+    exactly what the device does from the baked atlas -- so it showed up as a
+    one-pixel conformance failure between '1' and '5' in "1565TH".
+
+    Per-glyph thresholding is also what this module claims to do: hard edges,
+    no antialiasing. The old form quietly made a glyph's appearance depend on
+    its neighbour.
+    """
     measure = ImageDraw.Draw(img)
     step = int(round(track))
-
-    def draw_all(md):
-        x, y = int(round(xy[0])), int(round(xy[1]))
-        for ch in s:
-            md.text((x, y), ch, font=fnt, fill=255)
-            x += advance(measure, ch, fnt) + step
-
-    _stamp(img, draw_all, ink)
+    hard = Image.new("L", img.size, 0)
+    x, y = int(round(xy[0])), int(round(xy[1]))
+    for ch in s:
+        one = Image.new("L", img.size, 0)
+        ImageDraw.Draw(one).text((x, y), ch, font=fnt, fill=255)
+        hard.paste(255, (0, 0), one.point(lambda v: 255 if v > 127 else 0))
+        x += advance(measure, ch, fnt) + step
+    img.paste(Image.new("RGB", img.size, ink), (0, 0), hard)
 
 
 def tracked_width(draw, s, fnt, track=0.0) -> int:

@@ -91,6 +91,20 @@ def normalize(raw):
         # fault, and must never be rendered as an error.
         "status": status.get("abbrev") or "TBD",
         "status_full": status.get("name") or "To Be Determined",
+        # How much of `net` LL2 actually knows. A Month-precision record still
+        # carries a full timestamp (2026-09-30T00:00:00Z) -- that midnight is a
+        # PLACEHOLDER, not a launch time, and rendering it as one states a fact
+        # nobody has. 4 of any 10 upcoming launches are Month precision.
+        "net_precision": ((raw.get("net_precision") or {}).get("name") or ""),
+        # Ordinals for THIS launch, inclusive: pad_launch_attempt_count is 138
+        # when pad.total_launch_count (prior launches) is 137. So these read as
+        # "the 138th launch from this pad", not "138 have happened".
+        "n_pad": raw.get("pad_launch_attempt_count") or 0,
+        "n_site": raw.get("location_launch_attempt_count") or 0,
+        "n_agency": raw.get("agency_launch_attempt_count") or 0,
+        "n_year": raw.get("orbital_launch_attempt_count_year") or 0,
+        "n_alltime": raw.get("orbital_launch_attempt_count") or 0,
+        "program": [p.get("name") for p in (raw.get("program") or []) if p.get("name")],
     }
 
 

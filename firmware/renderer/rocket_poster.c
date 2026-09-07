@@ -40,6 +40,8 @@ static const int32_t META_TRACKS[] = { 1, 1, 0 };
 #define WHO_MAX_W 620
 static const int32_t WHO_SIZES[]   = { 11, 10, 9 };
 static const int32_t WHO_TRACKS[]  = { 1, 0 };
+static const int32_t STATS_SIZES[]  = { 10, 9 };
+static const int32_t STATS_TRACKS[] = { 1, 0 };
 static const int32_t PREV_SIZES[]  = { 10, 9 };
 static const int32_t PREV_TRACKS[] = { 1, 0 };
 
@@ -150,6 +152,28 @@ static const rkt_atlas_t *fit_tracked(const rocket_fonts_t *f, int face,
     return a;
 }
 
+/*
+ * Drop the last " · "-joined fact from `s`. Mirrors poster.py popping the last
+ * element before re-joining: the facts themselves never contain U+00B7, so the
+ * last separator is unambiguously the last join. Returns false when only one
+ * fact remains, which the caller then renders (possibly shrunk) rather than
+ * emptying the line.
+ */
+static bool drop_last_fact(char *s)
+{
+    const size_t n = strlen(s);
+    if (n < 5u) { return false; }
+    /* " \xC2\xB7 " -- space, U+00B7, space */
+    for (size_t i = n - 4u; i > 0u; --i) {
+        if (s[i] == ' ' && (unsigned char) s[i + 1u] == 0xC2u &&
+            (unsigned char) s[i + 2u] == 0xB7u && s[i + 3u] == ' ') {
+            s[i] = '\0';
+            return true;
+        }
+    }
+    return false;
+}
+
 static void draw_centred(uint8_t *rgb, const rkt_atlas_t *a, const char *s,
                          int32_t y, int32_t track, uint8_t ink)
 {
@@ -183,7 +207,7 @@ uint16_t rocket_render_poster(const rocket_scene_t *scene,
 
     char lines[3][256];
     int n = 0;
-    int32_t y = BAND_Y0 + 18;
+    int32_t y = BAND_Y0 + 14;
 
     /* --- destination headline --- */
     const rkt_atlas_t *fh = fit_wrap(fonts, RKT_FACE_XCONDENSED, rec->destination,
@@ -193,7 +217,7 @@ uint16_t rocket_render_poster(const rocket_scene_t *scene,
         draw_centred(rgb, fh, lines[i], y, TRK_HEAD, INK_BLACK);
         y += (int32_t) fh->size + 3;
     }
-    y += 8;
+    y += 5;
 
     /* --- mission · rocket --- */
     char l2[256];
@@ -203,18 +227,18 @@ uint16_t rocket_render_poster(const rocket_scene_t *scene,
                                         LINE2_SIZES, 4, LINE2_TRACKS, 3, &t2);
     if (f2 != NULL) {
         draw_centred(rgb, f2, l2, y, t2, INK_RED);
-        y += (int32_t) f2->size + 8;
+        y += (int32_t) f2->size + 6;
     }
 
     /* --- date --- */
     char meta[64];
-    rkt_fmt_when(rec->t0_utc, meta, sizeof meta);
+    rkt_fmt_when(rec->t0_utc, rec->precision, meta, sizeof meta);
     int32_t t3 = 0;
     const rkt_atlas_t *f3 = fit_tracked(fonts, RKT_FACE_MEDIUM, meta, COLW,
                                         META_SIZES, 3, META_TRACKS, 3, &t3);
     if (f3 != NULL) {
         draw_centred(rgb, f3, meta, y, t3, INK_BLACK);
-        y += (int32_t) f3->size + 6;
+        y += (int32_t) f3->size + 5;
     }
 
     /* --- provider · launch site --- */
@@ -226,7 +250,27 @@ uint16_t rocket_render_poster(const rocket_scene_t *scene,
                                             WHO_SIZES, 3, WHO_TRACKS, 2, &t5);
         if (f5 != NULL) {
             draw_centred(rgb, f5, who, y, t5, INK_BLACK);
-            y += (int32_t) f5->size + 6;
+            y += (int32_t) f5->size + 5;
+        }
+    }
+
+    /* --- programme + this launch's ordinals --- */
+    if (rec->stats[0] != '\0') {
+        char st[320];
+        snprintf(st, sizeof st, "%s", rec->stats);
+        /* Shed whole facts before shrinking, exactly as poster.py does: a
+         * fragment on the wall is worse than one fewer fact. */
+        const rkt_atlas_t *floor_a = pick(fonts, RKT_FACE_MEDIUM,
+                                         STATS_SIZES[(sizeof STATS_SIZES / sizeof STATS_SIZES[0]) - 1]);
+        while (floor_a != NULL && rkt_text_width(floor_a, st, 0) > WHO_MAX_W) {
+            if (!drop_last_fact(st)) { break; }
+        }
+        int32_t t6 = 0;
+        const rkt_atlas_t *f6 = fit_tracked(fonts, RKT_FACE_MEDIUM, st, WHO_MAX_W,
+                                            STATS_SIZES, 2, STATS_TRACKS, 2, &t6);
+        if (f6 != NULL) {
+            draw_centred(rgb, f6, st, y, t6, INK_BLACK);
+            y += (int32_t) f6->size + 4;
         }
     }
 

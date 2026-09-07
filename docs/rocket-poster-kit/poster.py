@@ -193,14 +193,28 @@ def on(ink):
     return INKS["black"] if (0.299 * r + 0.587 * g + 0.114 * b) > 128 else INKS["white"]
 
 
-def fmt_when(iso):
+def fmt_when(iso, precision=""):
     """LL2's `net` is ISO-8601 Zulu. Rendered in UTC deliberately -- the panel
     hangs in one room but the launches are worldwide, and UTC is what every
-    launch feed quotes."""
+    launch feed quotes.
+
+    `precision` is how much of that timestamp LL2 actually knows. A Month
+    record still ships a full stamp -- 2026-09-30T00:00:00Z -- and that
+    midnight is a PLACEHOLDER. Printing it as a launch time asserts a fact
+    nobody has; roughly 4 of any 10 upcoming launches are Month precision.
+    So the format is cut to what is known, and no further.
+    """
     try:
         t = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     except (ValueError, TypeError):
         return ""
+    p = (precision or "").strip().lower()
+    if p == "year":
+        return t.strftime("%Y")
+    if p == "month":
+        return t.strftime("%b %Y").upper()
+    if p == "day":
+        return t.strftime("%d %b %Y").upper()
     return t.strftime("%d %b %Y · %H:%M UTC").upper()
 
 
@@ -252,6 +266,42 @@ def _vehicle(img, rec, box, h):
               v.split()[3].point(lambda p: 255 if p > 140 else 0))
 
 
+def _ordinal(n):
+    """1 -> 1ST, 11 -> 11TH, 121 -> 121ST. Uppercase, because the band is."""
+    if not n or n <= 0:
+        return ""
+    suf = "TH" if 10 <= n % 100 <= 20 else {1: "ST", 2: "ND", 3: "RD"}.get(n % 10, "TH")
+    return f"{n}{suf}"
+
+
+def _stats_parts(rec):
+    """Programme, then this launch's ordinals, MOST interesting first.
+
+    Returned as a list because the caller drops whole facts from the end
+    until the line fits. Truncating the string instead leaves a fragment
+    like "344TH FOR THIS ..." on the wall.
+
+    LL2's *_launch_attempt_count fields are inclusive of this flight -- 138 when
+    the pad has hosted 137 before -- so they read as "the 138th launch from this
+    pad", not as a total. A zero means the API did not supply it, and that fact
+    is dropped rather than printed as "0TH".
+
+    "THIS PAD" / "THIS SITE" / "THIS AGENCY" instead of repeating names that the
+    provider line directly above already spells out.
+    """
+    year = (rec.get("t0_utc") or "")[:4]
+    parts = list(rec.get("program") or [])
+    if rec.get("n_year") and year:
+        parts.append(f"{_ordinal(rec['n_year'])} ORBITAL ATTEMPT OF {year}")
+    if rec.get("n_pad"):
+        parts.append(f"{_ordinal(rec['n_pad'])} FROM THIS PAD")
+    if rec.get("n_site"):
+        parts.append(f"{_ordinal(rec['n_site'])} FROM THIS SITE")
+    if rec.get("n_agency"):
+        parts.append(f"{_ordinal(rec['n_agency'])} FOR THIS AGENCY")
+    return [x.upper() for x in parts]
+
+
 def _short_site(v):
     """First segment of a site string.
 
@@ -275,11 +325,11 @@ def _band_text(img, d, rec, box, centred, previous=None):
     dest = (rec.get("destination") or "UNKNOWN").upper()
     lines, fh = T.fit_wrap(d, dest, T.XCONDENSED, colw, pt(23), pt(10), 2.0,
                            1 if centred else 3)
-    y = y0 + (18 if centred else 26)
+    y = y0 + (14 if centred else 26)
     for ln in lines:
         put(ln, fh, 2.0, y, ink)
         y += fh.size + 3
-    y += 8
+    y += 5
 
     # Mission and vehicle only. Adding provider (50 chars) and site (59) forced
     # this line to 7px, which is about five pixels of letterform on a 128 PPI
@@ -288,17 +338,17 @@ def _band_text(img, d, rec, box, centred, previous=None):
     f2, t2, line = T.fit_tracked(d, line, T.MEDIUM, colw,
                            [pt(8), pt(7.5), pt(7), pt(6.5)], [1.6, 0.9, 0.3])
     if centred:
-        put(line, f2, t2, y, sub); y += f2.size + 8
+        put(line, f2, t2, y, sub); y += f2.size + 6
     else:
         for ln in T.wrap(d, line, f2, colw)[:3]:
             put(ln, f2, t2, y, sub); y += f2.size + 4
         y += 6
 
-    meta = fmt_when(rec.get("t0_utc"))
+    meta = fmt_when(rec.get("t0_utc"), rec.get("net_precision"))
     f3, t3, meta = T.fit_tracked(d, meta, T.MEDIUM, colw,
                            [pt(6.5), pt(6), pt(5.5)], [1.2, 0.6, 0.3])
     put(meta, f3, t3, y, ink)
-    y += f3.size + 6
+    y += f3.size + 5
 
     # Provider and launch site. The first draft tried to append these to line 2
     # and drove it to 7px; on their own line they fit at a legible size.
@@ -311,12 +361,29 @@ def _band_text(img, d, rec, box, centred, previous=None):
         f5, t5, who = T.fit_tracked(d, who, T.MEDIUM, 620,
                                     [pt(6), pt(5.5), pt(5)], [0.6, 0.3])
         put(who, f5, t5, y, ink)
-        y += f5.size + 6
+        y += f5.size + 5
+
+    # Counters LL2 always sends and nothing rendered until now. Same 620px cap
+    # as the provider line, for the same reason: a wider centred line starts
+    # left of x=70 and runs under the flag.
+    parts = _stats_parts(rec)
+    while parts:
+        st = " · ".join(parts)
+        f6 = T.font(T.MEDIUM, pt(5))          # the floor of the ladder below
+        if T.string_width(d, st, f6, 0) <= 620:
+            break
+        parts.pop()                            # drop the least interesting fact
+    if parts:
+        st = " · ".join(parts)
+        f6, t6, st = T.fit_tracked(d, st, T.MEDIUM, 620,
+                                   [pt(5.5), pt(5)], [1.0, 0.5])
+        put(st, f6, t6, y, ink)
+        y += f6.size + 4
 
     if previous:
         prev = "LAST · " + " · ".join(x for x in [
             (previous.get("rocket_short") or previous.get("rocket") or "").upper(),
-            fmt_when(previous.get("t0_utc")).split(" · ")[0]] if x)
+            fmt_when(previous.get("t0_utc"), previous.get("net_precision")).split(" · ")[0]] if x)
         f4, t4, prev = T.fit_tracked(d, prev, T.MEDIUM, colw, [pt(5.5), pt(5)], [1.0, 0.5])
         put(prev, f4, t4, y, sub)
 

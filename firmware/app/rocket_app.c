@@ -216,6 +216,38 @@ static const char *jstr(const cJSON *o, const char *k)
     return (cJSON_IsString(v) && v->valuestring != NULL) ? v->valuestring : NULL;
 }
 
+/* 1 -> "1ST", 11 -> "11TH", 121 -> "121ST". Mirrors poster._ordinal. */
+static void ordinal(int n, char *out, size_t cap)
+{
+    out[0] = '\0';
+    if (n <= 0) { return; }
+    const char *suf = "TH";
+    if (!(n % 100 >= 10 && n % 100 <= 20)) {
+        switch (n % 10) {
+            case 1: suf = "ST"; break;
+            case 2: suf = "ND"; break;
+            case 3: suf = "RD"; break;
+            default: break;
+        }
+    }
+    snprintf(out, cap, "%d%s", n, suf);
+}
+
+/* Append " · fact" (or "fact" when empty). U+00B7 is two bytes in UTF-8. */
+static void join(char *dst, size_t cap, const char *fact)
+{
+    if (fact == NULL || fact[0] == '\0') { return; }
+    const size_t n = strlen(dst);
+    if (n == 0u) { snprintf(dst, cap, "%s", fact); }
+    else { snprintf(dst + n, cap - n, " \xC2\xB7 %s", fact); }
+}
+
+static int jint(const cJSON *o, const char *k)
+{
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(o, k);
+    return cJSON_IsNumber(v) ? (int) v->valuedouble : 0;
+}
+
 static void upper_into(char *dst, size_t cap, const char *src)
 {
     size_t i = 0;
@@ -291,6 +323,48 @@ static bool parse_launch(const char *json, rocket_record_t *rec,
     upper_into(rec->who, sizeof rec->who, who);
 
     const char *net = jstr(r, "net");
+    /* net_precision: how much of `net` LL2 actually knows. A Month record ships
+     * a full timestamp whose time is a placeholder; rkt_fmt_when cuts the format
+     * to match rather than printing a launch time nobody has stated. */
+    const cJSON *npz = cJSON_GetObjectItemCaseSensitive(r, "net_precision");
+    const char *prec = npz ? jstr(npz, "name") : NULL;
+    snprintf(rec->precision, sizeof rec->precision, "%s", (prec != NULL) ? prec : "");
+
+    /* Programme, then this launch's ordinals. The *_launch_attempt_count fields
+     * are inclusive of this flight (138 when the pad has hosted 137 before), so
+     * they read as "the 138th launch from this pad". A zero means the API did
+     * not supply it and the fact is dropped, never printed as "0TH". */
+    char stats[320];
+    stats[0] = '\0';
+    const cJSON *prog = cJSON_GetObjectItemCaseSensitive(r, "program");
+    if (cJSON_IsArray(prog)) {
+        const cJSON *it = NULL;
+        cJSON_ArrayForEach(it, prog) {
+            const char *pn = jstr(it, "name");
+            if (pn != NULL) { join(stats, sizeof stats, pn); }
+        }
+    }
+    char ord[24], fact[96];
+    const int n_year = jint(r, "orbital_launch_attempt_count_year");
+    if (n_year > 0 && net != NULL && strlen(net) >= 4u) {
+        ordinal(n_year, ord, sizeof ord);
+        snprintf(fact, sizeof fact, "%s ORBITAL ATTEMPT OF %.4s", ord, net);
+        join(stats, sizeof stats, fact);
+    }
+    const struct { const char *key; const char *tail; } ORD[] = {
+        { "pad_launch_attempt_count",      "FROM THIS PAD"    },
+        { "location_launch_attempt_count", "FROM THIS SITE"   },
+        { "agency_launch_attempt_count",   "FOR THIS AGENCY"  },
+    };
+    for (size_t i = 0; i < sizeof ORD / sizeof ORD[0]; ++i) {
+        const int n = jint(r, ORD[i].key);
+        if (n <= 0) { continue; }
+        ordinal(n, ord, sizeof ord);
+        snprintf(fact, sizeof fact, "%s %s", ord, ORD[i].tail);
+        join(stats, sizeof stats, fact);
+    }
+    upper_into(rec->stats, sizeof rec->stats, stats);
+
     snprintf(rec->t0_utc, sizeof rec->t0_utc, "%s", (net != NULL) ? net : "");
 
     /* The AGENCY's country, not the pad's -- an Electron from Wallops is still

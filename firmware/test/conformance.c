@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 {
     if (argc < 4) {
         fprintf(stderr, "usage: %s <card> <plate.rkt> <family> "
-                        "[atlas-list] [flag] [dest] [line2] [t0] [prev] [who]\n", argv[0]);
+                        "[atlas-list] [flag] [dest] [line2] [t0] [prev] [who] [stats] [prec]\n", argv[0]);
         return 2;
     }
     const char *card = argv[1], *plate_rel = argv[2], *fam = argv[3];
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
         .field_ink = 1u,
     };
 
-    rocket_record_t rec = { {0}, {0}, {0}, {0}, {0} };
+    rocket_record_t rec = { {0}, {0}, {0}, {0}, {0}, {0}, {0} };
     if (argc >= 10) {
         snprintf(rec.destination, sizeof rec.destination, "%s", argv[6]);
         snprintf(rec.line2,       sizeof rec.line2,       "%s", argv[7]);
@@ -123,6 +123,12 @@ int main(int argc, char **argv)
         snprintf(rec.prev_line,   sizeof rec.prev_line,   "%s", argv[9]);
         if (argc >= 11) {
             snprintf(rec.who, sizeof rec.who, "%s", argv[10]);
+        }
+        if (argc >= 12) {
+            snprintf(rec.stats, sizeof rec.stats, "%s", argv[11]);
+        }
+        if (argc >= 13) {
+            snprintf(rec.precision, sizeof rec.precision, "%s", argv[12]);
         }
     }
 

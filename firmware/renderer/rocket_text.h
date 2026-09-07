@@ -74,7 +74,13 @@ int rkt_text_draw(uint8_t *rgb, int32_t buf_w, int32_t buf_h,
 /* "%d %b %Y · %H:%M UTC", uppercased, from an ISO-8601 Zulu string.
  * A 12-entry month table, never strftime: %b is locale-dependent and ESP
  * newlib's "C" locale and the host's LC_TIME do not have to agree. Writes ""
- * when the input does not parse, which is what poster.py does. */
-void rkt_fmt_when(const char *iso, char *out, size_t out_len);
+ * when the input does not parse, which is what poster.py does.
+ *
+ * `precision` is LL2's net_precision. A Month record still carries a full
+ * timestamp whose time is a PLACEHOLDER (2026-09-30T00:00:00Z), so the format
+ * is cut to what is actually known: Year -> "2026", Month -> "SEP 2026",
+ * Day -> "30 SEP 2026", anything else -> the full form. */
+void rkt_fmt_when(const char *iso, const char *precision,
+                  char *out, size_t out_len);
 
 #endif /* ROCKET_TEXT_H */

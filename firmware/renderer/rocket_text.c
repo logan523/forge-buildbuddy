@@ -225,7 +225,20 @@ static bool digits(const char *s, int n, int *out)
     return true;
 }
 
-void rkt_fmt_when(const char *iso, char *out, size_t out_len)
+static bool prec_is(const char *p, const char *want)
+{
+    if (p == NULL) { return false; }
+    size_t i = 0;
+    for (; p[i] != '\0' && want[i] != '\0'; ++i) {
+        const unsigned char a = (unsigned char) p[i];
+        const unsigned char b = (unsigned char) want[i];
+        const unsigned char la = (a >= 'A' && a <= 'Z') ? (unsigned char)(a - 'A' + 'a') : a;
+        if (la != b) { return false; }
+    }
+    return p[i] == '\0' && want[i] == '\0';
+}
+
+void rkt_fmt_when(const char *iso, const char *precision, char *out, size_t out_len)
 {
     /* Uppercased already: poster.py calls .upper() on the result, and Python's
      * .upper() is full Unicode while C toupper() is ASCII/locale -- so the
@@ -246,11 +259,21 @@ void rkt_fmt_when(const char *iso, char *out, size_t out_len)
     }
     if (M < 1 || M > 12) { return; }
 
-    /* "%d %b %Y · %H:%M UTC" -- the middot is U+00B7, two bytes in UTF-8. */
+    /* "%d %b %Y · %H:%M UTC" -- the middot is U+00B7, two bytes in UTF-8.
+     * Cut to what LL2 actually knows; see the header. */
     const char *mon = MONTH[M - 1];
     char buf[64];
-    int n = snprintf(buf, sizeof buf, "%02d %s %04d \xC2\xB7 %02d:%02d UTC",
+    int n;
+    if (prec_is(precision, "year")) {
+        n = snprintf(buf, sizeof buf, "%04d", Y);
+    } else if (prec_is(precision, "month")) {
+        n = snprintf(buf, sizeof buf, "%s %04d", mon, Y);
+    } else if (prec_is(precision, "day")) {
+        n = snprintf(buf, sizeof buf, "%02d %s %04d", D, mon, Y);
+    } else {
+        n = snprintf(buf, sizeof buf, "%02d %s %04d \xC2\xB7 %02d:%02d UTC",
                      D, mon, Y, h, m);
+    }
     if (n < 0 || (size_t) n >= out_len) { return; }
     memcpy(out, buf, (size_t) n + 1u);
 }
