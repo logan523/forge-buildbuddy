@@ -267,6 +267,29 @@ static bool parse_launch(const char *json, rocket_record_t *rec,
     }
     upper_into(rec->line2, sizeof rec->line2, joined);
 
+    /* "PROVIDER · SITE" -- the launch site truncated at its first comma.
+     * LL2 tails sites with a country ("Jiuquan Satellite Launch Center,
+     * People's Republic of China" is 59 chars) that the flag already states. */
+    const char *prov = lsp ? jstr(lsp, "name") : NULL;
+    const char *site = loc ? jstr(loc, "name") : NULL;
+    char site_short[96];
+    site_short[0] = '\0';
+    if (site != NULL) {
+        size_t n = 0;
+        while (site[n] != '\0' && site[n] != ',' && n + 1u < sizeof site_short) { ++n; }
+        memcpy(site_short, site, n);
+        site_short[n] = '\0';
+        while (n > 0u && site_short[n - 1u] == ' ') { site_short[--n] = '\0'; }
+    }
+    char who[192];
+    if (prov != NULL && site_short[0] != '\0') {
+        snprintf(who, sizeof who, "%s \xC2\xB7 %s", prov, site_short);
+    } else {
+        snprintf(who, sizeof who, "%s", (prov != NULL) ? prov
+                                      : (site_short[0] != '\0') ? site_short : "");
+    }
+    upper_into(rec->who, sizeof rec->who, who);
+
     const char *net = jstr(r, "net");
     snprintf(rec->t0_utc, sizeof rec->t0_utc, "%s", (net != NULL) ? net : "");
 

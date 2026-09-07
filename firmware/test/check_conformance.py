@@ -33,9 +33,11 @@ for i, r in enumerate(recs):
             (prev.get("rocket_short") or prev.get("rocket") or "").upper(),
             poster.fmt_when(prev.get("t0_utc")).split(" · ")[0]] if x)
     line2 = "  ·  ".join(x for x in [r.get("mission"), r.get("rocket")] if x).upper()
+    who = " · ".join(x for x in [r.get("provider"),
+                                 poster._short_site(r.get("site"))] if x).upper()
     out = subprocess.run(["/tmp/rocket_conformance", str(CARD), man["plates"][key], fam,
         al.name, (r.get("country") or "").upper(), (r.get("destination") or "UNKNOWN").upper(),
-        line2, r.get("t0_utc") or "", prev_line], capture_output=True)
+        line2, r.get("t0_utc") or "", prev_line, who], capture_output=True)
     if len(out.stdout) != W*H*3:
         print(f"  fixture {i}: no frame  {out.stderr.decode()[:80]}"); bad += 1; continue
     want = Image.open(KIT/"goldens"/f"{i:02d}.png").convert("RGB").tobytes()
@@ -74,9 +76,11 @@ for i, r in enumerate(recs):
             (prev.get("rocket_short") or prev.get("rocket") or "").upper(),
             poster.fmt_when(prev.get("t0_utc")).split(" · ")[0]] if x)
     line2 = "  ·  ".join(x for x in [r.get("mission"), r.get("rocket")] if x).upper()
+    who = " · ".join(x for x in [r.get("provider"),
+                                 poster._short_site(r.get("site"))] if x).upper()
     out = subprocess.run(["/tmp/rocket_conformance", str(CARD), man["plates"][key], fam,
         al.name, (r.get("country") or "").upper(), (r.get("destination") or "UNKNOWN").upper(),
-        line2, r.get("t0_utc") or "", prev_line], capture_output=True)
+        line2, r.get("t0_utc") or "", prev_line, who], capture_output=True)
     if len(out.stdout) != W*H*3:
         print(f"  fixture {i}: no frame  {out.stderr.decode()[:80]}"); bad += 1; continue
     want = Image.open(KIT/"goldens"/f"{i:02d}.png").convert("RGB").tobytes()

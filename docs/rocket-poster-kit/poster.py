@@ -252,6 +252,16 @@ def _vehicle(img, rec, box, h):
               v.split()[3].point(lambda p: 255 if p > 140 else 0))
 
 
+def _short_site(v):
+    """First segment of a site string.
+
+    LL2 sites carry a country tail ("Jiuquan Satellite Launch Center, People's
+    Republic of China" is 59 chars). The segment before the first comma is the
+    part a reader needs; the rest is the flag's job.
+    """
+    return (v or "").split(",")[0].strip()
+
+
 def _band_text(img, d, rec, box, centred, previous=None):
     x0, y0, x1, y1 = box
     colw = x1 - x0 - 48
@@ -269,7 +279,7 @@ def _band_text(img, d, rec, box, centred, previous=None):
     for ln in lines:
         put(ln, fh, 2.0, y, ink)
         y += fh.size + 3
-    y += 10
+    y += 8
 
     # Mission and vehicle only. Adding provider (50 chars) and site (59) forced
     # this line to 7px, which is about five pixels of letterform on a 128 PPI
@@ -278,7 +288,7 @@ def _band_text(img, d, rec, box, centred, previous=None):
     f2, t2, line = T.fit_tracked(d, line, T.MEDIUM, colw,
                            [pt(8), pt(7.5), pt(7), pt(6.5)], [1.6, 0.9, 0.3])
     if centred:
-        put(line, f2, t2, y, sub); y += f2.size + 10
+        put(line, f2, t2, y, sub); y += f2.size + 8
     else:
         for ln in T.wrap(d, line, f2, colw)[:3]:
             put(ln, f2, t2, y, sub); y += f2.size + 4
@@ -288,7 +298,20 @@ def _band_text(img, d, rec, box, centred, previous=None):
     f3, t3, meta = T.fit_tracked(d, meta, T.MEDIUM, colw,
                            [pt(6.5), pt(6), pt(5.5)], [1.2, 0.6, 0.3])
     put(meta, f3, t3, y, ink)
-    y += f3.size + 8
+    y += f3.size + 6
+
+    # Provider and launch site. The first draft tried to append these to line 2
+    # and drove it to 7px; on their own line they fit at a legible size.
+    # Fitted against 620px, NOT colw: `put` centres on the full 800 box, and a
+    # line wider than ~660 would start left of x=70 and run under the flag
+    # (x=30..70, y=436..461). Capping the fit width is what keeps them apart.
+    who = " · ".join(x for x in [rec.get("provider"),
+                                 _short_site(rec.get("site"))] if x).upper()
+    if who:
+        f5, t5, who = T.fit_tracked(d, who, T.MEDIUM, 620,
+                                    [pt(6), pt(5.5), pt(5)], [0.6, 0.3])
+        put(who, f5, t5, y, ink)
+        y += f5.size + 6
 
     if previous:
         prev = "LAST · " + " · ".join(x for x in [

@@ -21,6 +21,11 @@ typedef struct {
     char line2[256];         /* "CREW-13  ·  FALCON 9 BLOCK 5" */
     char t0_utc[32];         /* ISO-8601 Zulu, formatted on the device */
     char prev_line[128];     /* "LAST · ... · 24 AUG 2026", or "" on first boot */
+    char who[192];           /* "SPACEX · CAPE CANAVERAL SFS", or "" when unknown.
+                              * Joined and uppercased by the caller, like line2.
+                              * The site is only the segment before its first
+                              * comma; LL2 tails these with a country name that
+                              * the flag already says. */
 } rocket_record_t;
 
 /* Every atlas the fit ladders can reach. Missing sizes are skipped, so a

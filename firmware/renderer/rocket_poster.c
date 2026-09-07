@@ -34,6 +34,12 @@ static const int32_t LINE2_SIZES[] = { 14, 13, 12, 12 };
 static const int32_t LINE2_TRACKS[] = { 2, 1, 0 };
 static const int32_t META_SIZES[]  = { 12, 11, 10 };
 static const int32_t META_TRACKS[] = { 1, 1, 0 };
+/* Provider + launch site. Fitted against WHO_MAX_W, not COLW: draw_centred
+ * centres on the full 800px frame, so a line wider than ~660 starts left of
+ * x=70 and runs under the flag (x=30..70, y=436..461). */
+#define WHO_MAX_W 620
+static const int32_t WHO_SIZES[]   = { 11, 10, 9 };
+static const int32_t WHO_TRACKS[]  = { 1, 0 };
 static const int32_t PREV_SIZES[]  = { 10, 9 };
 static const int32_t PREV_TRACKS[] = { 1, 0 };
 
@@ -187,7 +193,7 @@ uint16_t rocket_render_poster(const rocket_scene_t *scene,
         draw_centred(rgb, fh, lines[i], y, TRK_HEAD, INK_BLACK);
         y += (int32_t) fh->size + 3;
     }
-    y += 10;
+    y += 8;
 
     /* --- mission · rocket --- */
     char l2[256];
@@ -197,7 +203,7 @@ uint16_t rocket_render_poster(const rocket_scene_t *scene,
                                         LINE2_SIZES, 4, LINE2_TRACKS, 3, &t2);
     if (f2 != NULL) {
         draw_centred(rgb, f2, l2, y, t2, INK_RED);
-        y += (int32_t) f2->size + 10;
+        y += (int32_t) f2->size + 8;
     }
 
     /* --- date --- */
@@ -208,7 +214,20 @@ uint16_t rocket_render_poster(const rocket_scene_t *scene,
                                         META_SIZES, 3, META_TRACKS, 3, &t3);
     if (f3 != NULL) {
         draw_centred(rgb, f3, meta, y, t3, INK_BLACK);
-        y += (int32_t) f3->size + 8;
+        y += (int32_t) f3->size + 6;
+    }
+
+    /* --- provider · launch site --- */
+    if (rec->who[0] != '\0') {
+        char who[192];
+        snprintf(who, sizeof who, "%s", rec->who);
+        int32_t t5 = 0;
+        const rkt_atlas_t *f5 = fit_tracked(fonts, RKT_FACE_MEDIUM, who, WHO_MAX_W,
+                                            WHO_SIZES, 3, WHO_TRACKS, 2, &t5);
+        if (f5 != NULL) {
+            draw_centred(rgb, f5, who, y, t5, INK_BLACK);
+            y += (int32_t) f5->size + 6;
+        }
     }
 
     /* --- previous launch --- */
