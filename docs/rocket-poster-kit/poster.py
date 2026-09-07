@@ -19,7 +19,7 @@ diffusion shreds the letterforms.
 """
 
 import argparse, json, os, sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from PIL import Image, ImageDraw
 
 import numpy as np
@@ -193,29 +193,62 @@ def on(ink):
     return INKS["black"] if (0.299 * r + 0.587 * g + 0.114 * b) > 128 else INKS["white"]
 
 
+def _us_eastern_offset_hours(t):
+    """-5 (EST) or -4 (EDT) for a UTC datetime.
+
+    US Eastern DST runs from the 2nd Sunday in March at 02:00 local (07:00 UTC)
+    to the 1st Sunday in November at 02:00 local (06:00 UTC). Both boundaries
+    are expressed in UTC here so the test is a plain comparison against the
+    instant we already have, with no local-time chicken-and-egg.
+
+    Hard-coded rather than read from a tz database: the device has no tzdata,
+    and a rule the C can reproduce exactly is worth more than generality this
+    frame will never use.
+    """
+    y = t.year
+    # 2nd Sunday in March: the 8th is the earliest possible, then forward to Sunday
+    d = datetime(y, 3, 8, tzinfo=timezone.utc)
+    start = d + timedelta(days=(6 - d.weekday()) % 7)      # Monday=0 .. Sunday=6
+    start = start.replace(hour=7)
+    # 1st Sunday in November
+    d = datetime(y, 11, 1, tzinfo=timezone.utc)
+    end = d + timedelta(days=(6 - d.weekday()) % 7)
+    end = end.replace(hour=6)
+    return -4 if start <= t < end else -5
+
+
 def fmt_when(iso, precision=""):
-    """LL2's `net` is ISO-8601 Zulu. Rendered in UTC deliberately -- the panel
-    hangs in one room but the launches are worldwide, and UTC is what every
-    launch feed quotes.
+    """LL2's `net` is ISO-8601 Zulu; the panel shows US Eastern.
+
+    The frame hangs in one room, so it reads in the time of that room -- not
+    the time every launch feed happens to quote. The zone label is printed
+    (EST/EDT) so it can never be mistaken for UTC.
 
     `precision` is how much of that timestamp LL2 actually knows. A Month
     record still ships a full stamp -- 2026-09-30T00:00:00Z -- and that
     midnight is a PLACEHOLDER. Printing it as a launch time asserts a fact
     nobody has; roughly 4 of any 10 upcoming launches are Month precision.
     So the format is cut to what is known, and no further.
+
+    Note the ordering: the UTC->Eastern shift happens FIRST, so a launch at
+    00:05 UTC correctly reads as the previous evening in New York. Cutting the
+    format for a coarse precision happens after, on the shifted date.
     """
     try:
         t = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     except (ValueError, TypeError):
         return ""
+    off = _us_eastern_offset_hours(t)
+    local = t + timedelta(hours=off)
+    zone = "EDT" if off == -4 else "EST"
     p = (precision or "").strip().lower()
     if p == "year":
-        return t.strftime("%Y")
+        return local.strftime("%Y")
     if p == "month":
-        return t.strftime("%b %Y").upper()
+        return local.strftime("%b %Y").upper()
     if p == "day":
-        return t.strftime("%d %b %Y").upper()
-    return t.strftime("%d %b %Y · %H:%M UTC").upper()
+        return local.strftime("%d %b %Y").upper()
+    return local.strftime(f"%d %b %Y · %H:%M {zone}").upper()
 
 
 PPI = 128                  # 800px across a 6.26in panel
@@ -264,6 +297,24 @@ def _vehicle(img, rec, box, h):
     img.paste(Image.new("RGB", v.size, key), (x, y0 - 8), outline_mask(v))
     img.paste(posterize_vehicle(v), (x, y0 - 8),
               v.split()[3].point(lambda p: 255 if p > 140 else 0))
+
+
+_ASCII_FOLD = {"\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"',
+               "\u2013": "-", "\u2014": "-", "\u2026": "...", "\u00a0": " "}
+
+
+def _first_sentence(t):
+    """Opening sentence of an LL2 description, folded to ASCII.
+
+    The atlas is printable ASCII plus U+00B7, and a glyph with no entry is
+    skipped -- so a curly apostrophe ("CASC/SAST's") would lose a character on
+    the panel and nowhere else. Folded here, once, at the source.
+    """
+    import re as _re
+    t = (t or "").strip()
+    for a, b in _ASCII_FOLD.items():
+        t = t.replace(a, b)
+    return _re.split(r"(?<=[.!?])\s+", t)[0].strip() if t else ""
 
 
 def _ordinal(n):
@@ -323,7 +374,7 @@ def _band_text(img, d, rec, box, centred, previous=None):
         T.tracked(img, (x, y), t, f, col, tr)
 
     dest = (rec.get("destination") or "UNKNOWN").upper()
-    lines, fh = T.fit_wrap(d, dest, T.XCONDENSED, colw, pt(23), pt(10), 2.0,
+    lines, fh = T.fit_wrap(d, dest, T.XCONDENSED, colw, pt(21), pt(10), 2.0,
                            1 if centred else 3)
     y = y0 + (14 if centred else 26)
     for ln in lines:
@@ -336,9 +387,9 @@ def _band_text(img, d, rec, box, centred, previous=None):
     # panel -- fewer words at a legible size beats more words as texture.
     line = "  ·  ".join(x for x in [rec.get("mission"), rec.get("rocket")] if x).upper()
     f2, t2, line = T.fit_tracked(d, line, T.MEDIUM, colw,
-                           [pt(8), pt(7.5), pt(7), pt(6.5)], [1.6, 0.9, 0.3])
+                           [pt(7.5), pt(7), pt(6.5)], [1.6, 0.9, 0.3])
     if centred:
-        put(line, f2, t2, y, sub); y += f2.size + 6
+        put(line, f2, t2, y, sub); y += f2.size + 5
     else:
         for ln in T.wrap(d, line, f2, colw)[:3]:
             put(ln, f2, t2, y, sub); y += f2.size + 4
@@ -346,9 +397,9 @@ def _band_text(img, d, rec, box, centred, previous=None):
 
     meta = fmt_when(rec.get("t0_utc"), rec.get("net_precision"))
     f3, t3, meta = T.fit_tracked(d, meta, T.MEDIUM, colw,
-                           [pt(6.5), pt(6), pt(5.5)], [1.2, 0.6, 0.3])
+                           [pt(6), pt(5.5)], [1.2, 0.6, 0.3])
     put(meta, f3, t3, y, ink)
-    y += f3.size + 5
+    y += f3.size + 4
 
     # Provider and launch site. The first draft tried to append these to line 2
     # and drove it to 7px; on their own line they fit at a legible size.
@@ -359,7 +410,7 @@ def _band_text(img, d, rec, box, centred, previous=None):
                                  _short_site(rec.get("site"))] if x).upper()
     if who:
         f5, t5, who = T.fit_tracked(d, who, T.MEDIUM, 620,
-                                    [pt(6), pt(5.5), pt(5)], [0.6, 0.3])
+                                    [pt(5.5), pt(5)], [0.6, 0.3])
         put(who, f5, t5, y, ink)
         y += f5.size + 5
 
@@ -376,9 +427,25 @@ def _band_text(img, d, rec, box, centred, previous=None):
     if parts:
         st = " · ".join(parts)
         f6, t6, st = T.fit_tracked(d, st, T.MEDIUM, 620,
-                                   [pt(5.5), pt(5)], [1.0, 0.5])
+                                   [pt(5)], [1.0, 0.5])
         put(st, f6, t6, y, ink)
         y += f6.size + 4
+
+    # Mission description, one line. Falls back to the mission TYPE (a short
+    # noun like "Resupply") when the sentence will not fit, so the line either
+    # says something whole or says something shorter -- never a clipped
+    # fragment. Both come straight from LL2 and neither is invented.
+    f7 = T.font(T.MEDIUM, pt(5))
+    blurb = _first_sentence(rec.get("description")).upper()
+    if blurb in ("DETAILS TBD.", "TBD."):
+        blurb = ""
+    if blurb and T.string_width(d, blurb, f7, 0) > 620:
+        blurb = (rec.get("purpose") or "").upper()
+        if blurb == "UNKNOWN":
+            blurb = ""
+    if blurb and T.string_width(d, blurb, f7, 0) <= 620:
+        put(blurb, f7, 0, y, ink)
+        y += f7.size + 4
 
     if previous:
         prev = "LAST · " + " · ".join(x for x in [

@@ -27,6 +27,8 @@
 #include "esp_heap_caps.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include "esp_sleep.h"
 #include "esp_timer.h"
 
@@ -58,7 +60,15 @@ static const char *TAG = "rocket";
  */
 RTC_DATA_ATTR static uint32_t rtc_spent;
 RTC_DATA_ATTR static int64_t  rtc_window_start_us;
-RTC_DATA_ATTR static char     rtc_prev_line[128];
+/*
+ * The previous-launch line lived in RTC_DATA_ATTR, which survives deep sleep
+ * but is WIPED by any power cycle, reflash or brownout. On a wall frame that
+ * is every unplug -- so in practice the "LAST ." line never had data and never
+ * rendered once. NVS survives all of those, which is what "the launch before
+ * this one" actually needs.
+ */
+#define RKT_NVS_NS   "rocket"
+#define RKT_NVS_PREV "prev_line"
 RTC_DATA_ATTR static uint32_t rtc_missed_windows;
 
 /* ------------------------------------------------------------------ card */
@@ -216,6 +226,53 @@ static const char *jstr(const cJSON *o, const char *k)
     return (cJSON_IsString(v) && v->valuestring != NULL) ? v->valuestring : NULL;
 }
 
+/*
+ * Fold typographic punctuation to ASCII, in place.
+ *
+ * The baked atlas is printable ASCII plus U+00B7, and rkt_text_draw SKIPS a
+ * glyph it has no entry for -- so a curly apostrophe in "CASC/SAST's" would
+ * drop a character on the panel and nowhere else. LL2 descriptions are full of
+ * them, along with en/em dashes and ellipses.
+ */
+static void ascii_fold(char *s)
+{
+    static const struct { const char *from; const char *to; } MAP[] = {
+        { "\xE2\x80\x99", "'" }, { "\xE2\x80\x98", "'" },
+        { "\xE2\x80\x9C", "\"" }, { "\xE2\x80\x9D", "\"" },
+        { "\xE2\x80\x93", "-" }, { "\xE2\x80\x94", "-" },
+        { "\xE2\x80\xA6", "..." }, { "\xC2\xA0", " " },
+    };
+    for (size_t i = 0; i < sizeof MAP / sizeof MAP[0]; ++i) {
+        const size_t fl = strlen(MAP[i].from), tl = strlen(MAP[i].to);
+        char *at;
+        while ((at = strstr(s, MAP[i].from)) != NULL) {
+            memmove(at + tl, at + fl, strlen(at + fl) + 1u);
+            memcpy(at, MAP[i].to, tl);
+        }
+    }
+}
+
+/* First sentence: up to a '.', '!' or '?' that ends the string or is followed
+ * by whitespace. "3 high-throughput satellites in MEO (built by Boeing)." must
+ * not split on the decimal-looking dots inside abbreviations mid-word. */
+static void first_sentence(const char *src, char *out, size_t cap)
+{
+    out[0] = '\0';
+    if (src == NULL) { return; }
+    size_t n = 0;
+    while (src[n] != '\0' && n + 1u < cap) {
+        const char c = src[n];
+        ++n;
+        if (c == '.' || c == '!' || c == '?') {
+            const char nx = src[n];
+            if (nx == '\0' || nx == ' ' || nx == '\n' || nx == '\t') { break; }
+        }
+    }
+    memcpy(out, src, n);
+    out[n] = '\0';
+    ascii_fold(out);
+}
+
 /* 1 -> "1ST", 11 -> "11TH", 121 -> "121ST". Mirrors poster._ordinal. */
 static void ordinal(int n, char *out, size_t cap)
 {
@@ -365,6 +422,23 @@ static bool parse_launch(const char *json, rocket_record_t *rec,
     }
     upper_into(rec->stats, sizeof rec->stats, stats);
 
+    /* One line about the mission, and a short stand-in. The RENDERER chooses
+     * between them, because the choice is a width test and there are no font
+     * metrics here. "Details TBD." is LL2's placeholder for "nothing written
+     * yet" and is dropped rather than printed. */
+    char sent[256];
+    first_sentence(jstr(miss, "description"), sent, sizeof sent);
+    if (strcmp(sent, "Details TBD.") == 0 || strcmp(sent, "TBD.") == 0) {
+        sent[0] = '\0';
+    }
+    upper_into(rec->blurb, sizeof rec->blurb, sent);
+    const char *mtype = miss ? jstr(miss, "type") : NULL;
+    if (mtype != NULL && strcmp(mtype, "Unknown") != 0) {
+        upper_into(rec->blurb_alt, sizeof rec->blurb_alt, mtype);
+    } else {
+        rec->blurb_alt[0] = '\0';
+    }
+
     snprintf(rec->t0_utc, sizeof rec->t0_utc, "%s", (net != NULL) ? net : "");
 
     /* The AGENCY's country, not the pad's -- an Electron from Wallops is still
@@ -463,7 +537,17 @@ rocket_state_t rocket_app_run(void)
     }
     free(json);
     rtc_missed_windows = 0;
-    snprintf(rec.prev_line, sizeof rec.prev_line, "%s", rtc_prev_line);
+    rec.prev_line[0] = '\0';
+    {
+        nvs_handle_t nh;
+        if (nvs_open(RKT_NVS_NS, NVS_READONLY, &nh) == ESP_OK) {
+            size_t len = sizeof rec.prev_line;
+            if (nvs_get_str(nh, RKT_NVS_PREV, rec.prev_line, &len) != ESP_OK) {
+                rec.prev_line[0] = '\0';
+            }
+            nvs_close(nh);
+        }
+    }
 
     ESP_LOGI(TAG, "record dest=%s t0=%s family=%s cc=%s",
              rec.destination, rec.t0_utc, family, country);
@@ -562,7 +646,17 @@ rocket_state_t rocket_app_run(void)
      * 128, and an unbounded %s here is a -Wformat-truncation error under the
      * fork's -Werror. Truncating the tail of a "LAST ..." line is the right
      * loss -- the rocket name leads it. */
-    snprintf(rtc_prev_line, sizeof rtc_prev_line, "LAST \xC2\xB7 %.118s", rec.line2);
+    {
+        char pl[128];
+        snprintf(pl, sizeof pl, "LAST \xC2\xB7 %.118s", rec.line2);
+        nvs_handle_t nh;
+        if (nvs_open(RKT_NVS_NS, NVS_READWRITE, &nh) == ESP_OK) {
+            if (nvs_set_str(nh, RKT_NVS_PREV, pl) == ESP_OK) {
+                nvs_commit(nh);
+            }
+            nvs_close(nh);
+        }
+    }
 
     for (int i = 0; i < fonts.count; ++i) { free(atlas_raw[i]); }
     free(o1); free(o2); free(o3); free(o4); free(o5);

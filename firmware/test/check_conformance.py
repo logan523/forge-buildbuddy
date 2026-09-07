@@ -37,9 +37,15 @@ for i, r in enumerate(recs):
                                  poster._short_site(r.get("site"))] if x).upper()
     stats = " · ".join(poster._stats_parts(r))
     prec = r.get("net_precision") or ""
+    blurb = poster._first_sentence(r.get("description")).upper()
+    if blurb in ("DETAILS TBD.", "TBD."):
+        blurb = ""
+    blurb_alt = (r.get("purpose") or "").upper()
+    if blurb_alt == "UNKNOWN":
+        blurb_alt = ""
     out = subprocess.run(["/tmp/rocket_conformance", str(CARD), man["plates"][key], fam,
         al.name, (r.get("country") or "").upper(), (r.get("destination") or "UNKNOWN").upper(),
-        line2, r.get("t0_utc") or "", prev_line, who, stats, prec], capture_output=True)
+        line2, r.get("t0_utc") or "", prev_line, who, stats, prec, blurb, blurb_alt], capture_output=True)
     if len(out.stdout) != W*H*3:
         print(f"  fixture {i}: no frame  {out.stderr.decode()[:80]}"); bad += 1; continue
     want = Image.open(KIT/"goldens"/f"{i:02d}.png").convert("RGB").tobytes()
@@ -82,9 +88,21 @@ for i, r in enumerate(recs):
                                  poster._short_site(r.get("site"))] if x).upper()
     stats = " · ".join(poster._stats_parts(r))
     prec = r.get("net_precision") or ""
+    blurb = poster._first_sentence(r.get("description")).upper()
+    if blurb in ("DETAILS TBD.", "TBD."):
+        blurb = ""
+    blurb_alt = (r.get("purpose") or "").upper()
+    if blurb_alt == "UNKNOWN":
+        blurb_alt = ""
+    if blurb and _T.string_width(_d, blurb, _f, 0) > 620:
+        blurb = (r.get("purpose") or "").upper()
+        if blurb == "UNKNOWN":
+            blurb = ""
+    if blurb and _T.string_width(_d, blurb, _f, 0) > 620:
+        blurb = ""
     out = subprocess.run(["/tmp/rocket_conformance", str(CARD), man["plates"][key], fam,
         al.name, (r.get("country") or "").upper(), (r.get("destination") or "UNKNOWN").upper(),
-        line2, r.get("t0_utc") or "", prev_line, who, stats, prec], capture_output=True)
+        line2, r.get("t0_utc") or "", prev_line, who, stats, prec, blurb, blurb_alt], capture_output=True)
     if len(out.stdout) != W*H*3:
         print(f"  fixture {i}: no frame  {out.stderr.decode()[:80]}"); bad += 1; continue
     want = Image.open(KIT/"goldens"/f"{i:02d}.png").convert("RGB").tobytes()

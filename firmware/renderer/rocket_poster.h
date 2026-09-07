@@ -32,6 +32,17 @@ typedef struct {
                               * whole trailing facts until the line fits, so a
                               * fragment like "344TH FOR THIS ..." never ships. */
     char precision[16];      /* LL2 net_precision: "Month", "Day", "Hour", ... */
+    char blurb[256];         /* One line about the mission, or "". The caller
+                              * has already picked the opening sentence, folded
+                              * it to ASCII and fallen back to the mission type
+                              * if it was too long -- the renderer only draws
+                              * it. */
+    char blurb_alt[64];      /* Shorter stand-in (LL2 mission type, e.g.
+                              * "RESUPPLY") used when `blurb` will not fit.
+                              * The CHOICE lives in the renderer because it is
+                              * a width test, and the device has no font
+                              * metrics when it parses the JSON -- deciding
+                              * here is the only way both sides can agree. */
 } rocket_record_t;
 
 /* Every atlas the fit ladders can reach. Missing sizes are skipped, so a
