@@ -267,6 +267,19 @@ def build(only: str | None) -> list[tuple[str, bytes]]:
                                 "body_mask": f"{base}.body.msk",
                                 "key_mask": f"{base}.key.msk"}
 
+    # The device must not reimplement scene.mood_for(): it is an ordered
+    # substring match over MOODS, and a second copy in C would drift silently
+    # the first time a mood is added. Ship the ordered keys and let the
+    # firmware do "first key that is a substring of the lowercased
+    # destination", which is the whole rule.
+    import scene as _S
+    man["mood_keys"] = list(_S.MOODS.keys())
+    man["style_version"] = _S.STYLE_VERSION
+    man["plate_key_rule"] = ("first mood_key that is a substring of "
+                             "lower(destination), else 'unknown'; then "
+                             "'{mood}-{lower(country) or xxx}-v{style_version}'")
+    man["family_key_rule"] = "lower(rocket_family) with ' ' -> '-'"
+
     man["flags"] = {}
     if not only:
         for code, im in bake_flags().items():
