@@ -31,14 +31,31 @@ from pathlib import Path
 from PIL import Image
 
 import ingest, poster
+import typeset as T
 from palette import INKS, INK_ORDER, NOMINAL
+
+# Every glyph the panel can ever be asked to draw. Deliberately wider than the
+# 44 the fixtures happen to use: LL2 returns arbitrary mission and vehicle
+# names, and a glyph with no atlas entry is a hole in a wall poster. Printable
+# ASCII plus the middot the band uses as a separator. Anything outside this is
+# dropped by the device with a counted warning, never guessed at.
+CHARSET = [chr(c) for c in range(32, 127)] + ["\u00b7"]
+
+# Exactly the (face, size) pairs the fit ladders in poster.py:_band_text can
+# reach. Derived, not listed by hand: fit_wrap steps down by 2 from pt(23) to
+# pt(10); fit_tracked picks from fixed size lists.
+def atlas_combos():
+    pt = poster.pt
+    xc = list(range(pt(23), pt(10) - 1, -2))
+    med = sorted({pt(v) for v in (8, 7.5, 7, 6.5, 6, 5.5, 5)}, reverse=True)
+    return [(T.XCONDENSED, z) for z in xc] + [(T.MEDIUM, z) for z in med]
 
 # Bumped whenever the on-card layout changes in a way old firmware cannot read.
 # The firmware refuses a version it does not know rather than misreading one.
 FORMAT_VERSION = 1
 
 MAGIC = b"RKT1"
-KIND_PLATE, KIND_BODY, KIND_MASK, KIND_FLAG = 0, 1, 2, 3
+KIND_PLATE, KIND_BODY, KIND_MASK, KIND_FLAG, KIND_ATLAS = 0, 1, 2, 3, 4
 HEADER = 16  # magic4 kind1 w2 h2 bpp1 flags1 reserved5
 
 # Assets are found relative to THIS FILE, never the working directory. With
@@ -97,6 +114,53 @@ def pack_mask(img: Image.Image) -> bytes:
     return bytes(out)
 
 
+def _glyph(ch, fnt):
+    """One glyph, rendered through the SAME hard threshold the poster uses,
+    plus its offset from the pen. Proven equal to PIL drawing the string
+    directly -- which only holds because the pen is integer now."""
+    from PIL import ImageDraw
+    pad = 160
+    m = Image.new("L", (pad * 2, pad * 2), 0)
+    ImageDraw.Draw(m).text((pad, pad), ch, font=fnt, fill=255)
+    hard = m.point(lambda v: 255 if v > 127 else 0)
+    bb = hard.getbbox()
+    if bb is None:
+        return None, 0, 0
+    return hard.crop(bb), bb[0] - pad, bb[1] - pad
+
+
+def bake_atlas(face, size):
+    """One (face, size) atlas: metrics table + 1bpp bitmaps."""
+    from PIL import ImageDraw
+    fnt = T.font(face, size)
+    probe = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+    entries, blob = [], bytearray()
+    for ch in CHARSET:
+        bmp, ox, oy = _glyph(ch, fnt)
+        adv = T.advance(probe, ch, fnt)
+        if bmp is None:
+            entries.append((ord(ch), adv, 0, 0, 0, 0, 0))
+            continue
+        w, h = bmp.size
+        if w > 255 or h > 255 or adv > 255 or not (-128 <= ox <= 127) or not (-128 <= oy <= 127):
+            raise ValueError(f"glyph {ch!r} at {face}/{size} exceeds the byte fields "
+                             f"(adv={adv} {w}x{h} off={ox},{oy})")
+        entries.append((ord(ch), adv, w, h, ox, oy, len(blob)))
+        blob += pack_mask(bmp)
+
+    body = bytearray()
+    body += struct.pack("<HHH", len(entries), face, size)
+    for cp, adv, w, h, ox, oy, off in entries:
+        # 12 bytes, with an explicit pad byte before the 4-byte offset.
+        # "<HBBBbbI" packs to ELEVEN (no implicit padding under "<"), which put
+        # the C reader half a field out from the second glyph onward and made
+        # nearly every lookup miss. Keep this in step with
+        # RKT_ATLAS_ENTRY_BYTES.
+        body += struct.pack("<HBBBbbxI", cp, adv, w, h, ox, oy, off)
+    body += blob
+    return _header(KIND_ATLAS, 0xFFFF, 0xFFFF, 1) + bytes(body)
+
+
 # ---------------------------------------------------------------- the assets
 
 def plates() -> dict[str, Image.Image]:
@@ -129,6 +193,31 @@ def vehicle_layers(fam: str) -> dict | None:
         "dark": bool(poster._is_dark_vehicle(v)),
         "size": v.size,
     }
+
+
+def bake_flags():
+    """All 28 flags as 40x25 indexed layers.
+
+    flag.py is a THIRD rasteriser -- d.rectangle on float fractions, d.line
+    with a thick-join for GBR's diagonals, d.ellipse for nine of them. Porting
+    PIL's ellipse scanline fill and thick-line joins to C is the same promise
+    that was correctly refused for LANCZOS, and the flag lands inside the type
+    band so it cannot ride the scene composite. 28 x 1000 px is nothing; bake
+    it and delete the whole problem.
+    """
+    from PIL import ImageDraw
+    import flag as F
+    # poster.py calls flag.draw(d, code, 30, 436, 40, 25) and the border is a
+    # d.rectangle whose corners PIL treats as INCLUSIVE -- so it lands on
+    # x+40 and y+25 as well, covering 41x26 pixels, not 40x25. Baking the
+    # smaller box left a one-pixel black edge missing on every frame.
+    W_, H_ = 41, 26
+    out = {}
+    for code in sorted(F.FLAGS):
+        im = Image.new("RGB", (W_, H_), INKS["white"])
+        F.draw(ImageDraw.Draw(im), code, 0, 0, 40, 25)
+        out[code] = im
+    return out
 
 
 def tonal_families() -> list[str]:
@@ -177,6 +266,22 @@ def build(only: str | None) -> list[tuple[str, bytes]]:
                                 "body": f"{base}.body.rkt",
                                 "body_mask": f"{base}.body.msk",
                                 "key_mask": f"{base}.key.msk"}
+
+    man["flags"] = {}
+    if not only:
+        for code, im in bake_flags().items():
+            path = f"flags/{code}.rkt"
+            files.append((path, _header(KIND_FLAG, im.width, im.height, 4)
+                                + pack_indexed(im)))
+            man["flags"][code] = path
+
+    man["atlases"] = {}
+    if not only:
+        for face, size in atlas_combos():
+            path = f"atlas/{face}_{size}.atl"
+            files.append((path, bake_atlas(face, size)))
+            man["atlases"][f"{face}_{size}"] = path
+        man["charset"] = "".join(CHARSET)
 
     files.append(("manifest.json", json.dumps(man, indent=1).encode()))
     return files
@@ -259,9 +364,15 @@ def verify_card(out: Path) -> int:
             f"vehicles-tonal/ populated.")
 
     bad = 0
-    refs = list(man["plates"].values())
+    refs = (list(man["plates"].values()) + list(man.get("atlases", {}).values())
+            + list(man.get("flags", {}).values()))
     for v in man["vehicles"].values():
         refs += [v["body"], v["body_mask"], v["key_mask"]]
+    if not man.get("atlases"):
+        raise SystemExit(
+            f"Card at {out} has no glyph atlases.\n"
+            f"  Cause: an atlas-less bake. The poster would render with no text.\n"
+            f"  Fix:   re-run without --only, which skips atlases by design.")
     for rel in refs:
         f = out / rel
         if not f.exists():

@@ -1,57 +1,92 @@
 #!/usr/bin/env python3
-"""Diff the C renderer's scene region against the frozen goldens.
+"""Diff the C renderer's FULL frame against the frozen goldens.
 
-Python only decodes PNGs and compares bytes here -- it never renders. The
-oracle is the committed file, not a live poster.py run, so this stays fast and
-stops depending on Pillow's version, FreeType's version or raqm.
+Python decodes PNGs and compares bytes; it never renders. The oracle is the
+committed file, not a live poster.py run, so this stays fast and stops
+depending on Pillow's version, FreeType's version or raqm.
+
+Skips fixtures whose vehicle family has no tonal asset -- those take the
+parametric fallback, which is not ported to C yet.
 """
-import json, subprocess, sys
+import json, subprocess, tempfile, os, sys
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "docs" / "rocket-poster-kit"))
 from PIL import Image
-import scene as S
-
-W, SCENE_H = 800, 336
-KIT = Path(__file__).resolve().parents[2] / "docs" / "rocket-poster-kit"
-
-
-def family_key(rec) -> str:
-    """ingest.load_tonal's rule, which the firmware must apply identically."""
-    return (rec.get("rocket_family") or "").strip().lower().replace(" ", "-")
-
-
-def main() -> int:
-    card, binary = Path(sys.argv[1]), sys.argv[2]
-    recs = json.loads((KIT / "launch-samples.json").read_text())["samples"]
-    man = json.loads((card / "manifest.json").read_text())
-
-    ok = bad = skipped = 0
-    for i, r in enumerate(recs):
-        fam, key = family_key(r), S.plate_key(r)
-        if not fam or fam not in man["vehicles"] or key not in man["plates"]:
-            skipped += 1
-            continue
-        got = subprocess.run([binary, str(card), man["plates"][key], fam],
-                             capture_output=True)
-        if got.returncode != 0:
-            print(f"  fixture {i:>2}: C exited {got.returncode} "
-                  f"{got.stderr.decode()[:100]}")
-            bad += 1
-            continue
-        want = (Image.open(KIT / "goldens" / f"{i:02d}.png").convert("RGB")
-                .crop((0, 0, W, SCENE_H)).tobytes())
-        if got.stdout == want:
-            ok += 1
-        else:
-            n = sum(1 for a, b in zip(got.stdout, want) if a != b)
-            print(f"  fixture {i:>2} {fam:<12} {n:>7,} bytes differ")
-            bad += 1
-
-    print(f"\n  C == golden scene region: {ok} ok · {bad} differ · "
-          f"{skipped} skipped (no tonal asset)")
-    return 1 if bad else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+KIT = Path("/Users/logansilver/buildbuddy/docs/rocket-poster-kit")
+sys.path.insert(0, str(KIT))
+import scene as S, poster
+CARD = Path("/tmp/rktcard")
+recs = json.loads((KIT/"launch-samples.json").read_text())["samples"]
+man  = json.loads((CARD/"manifest.json").read_text())
+W, H = 800, 480
+norm = lambda f: (f or "").strip().lower().replace(" ", "-")
+al = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False)
+al.write("\n".join(man["atlases"].values())); al.close()
+ok = bad = skipped = 0; worst = None
+for i, r in enumerate(recs):
+    fam, key = norm(r.get("rocket_family")), S.plate_key(r)
+    if not fam or fam not in man["vehicles"] or key not in man["plates"]:
+        skipped += 1; continue
+    prev = recs[i-1] if i else None
+    prev_line = ""
+    if prev:
+        prev_line = "LAST · " + " · ".join(x for x in [
+            (prev.get("rocket_short") or prev.get("rocket") or "").upper(),
+            poster.fmt_when(prev.get("t0_utc")).split(" · ")[0]] if x)
+    line2 = "  ·  ".join(x for x in [r.get("mission"), r.get("rocket")] if x).upper()
+    out = subprocess.run(["/tmp/rocket_conformance", str(CARD), man["plates"][key], fam,
+        al.name, (r.get("country") or "").upper(), (r.get("destination") or "UNKNOWN").upper(),
+        line2, r.get("t0_utc") or "", prev_line], capture_output=True)
+    if len(out.stdout) != W*H*3:
+        print(f"  fixture {i}: no frame  {out.stderr.decode()[:80]}"); bad += 1; continue
+    want = Image.open(KIT/"goldens"/f"{i:02d}.png").convert("RGB").tobytes()
+    if out.stdout == want: ok += 1
+    else:
+        d = sum(1 for a,b in zip(out.stdout,want) if a!=b)
+        print(f"  fixture {i:>2} {fam:<11} {d:>8,} bytes differ ({100*d/len(want):.3f}%)")
+        if worst is None: worst = (i, out.stdout)
+        bad += 1
+os.unlink(al.name)
+if worst: Image.frombytes("RGB",(W,H),worst[1]).save("/tmp/_c_frame.png")
+print(f"\n  FULL FRAME: {ok} ok · {bad} differ · {skipped} skipped")
+raise SystemExit(1 if bad else 0)
+import json, subprocess, tempfile, os, sys
+from pathlib import Path
+from PIL import Image
+KIT = Path("/Users/logansilver/buildbuddy/docs/rocket-poster-kit")
+sys.path.insert(0, str(KIT))
+import scene as S, poster
+CARD = Path("/tmp/rktcard")
+recs = json.loads((KIT/"launch-samples.json").read_text())["samples"]
+man  = json.loads((CARD/"manifest.json").read_text())
+W, H = 800, 480
+norm = lambda f: (f or "").strip().lower().replace(" ", "-")
+al = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False)
+al.write("\n".join(man["atlases"].values())); al.close()
+ok = bad = skipped = 0; worst = None
+for i, r in enumerate(recs):
+    fam, key = norm(r.get("rocket_family")), S.plate_key(r)
+    if not fam or fam not in man["vehicles"] or key not in man["plates"]:
+        skipped += 1; continue
+    prev = recs[i-1] if i else None
+    prev_line = ""
+    if prev:
+        prev_line = "LAST · " + " · ".join(x for x in [
+            (prev.get("rocket_short") or prev.get("rocket") or "").upper(),
+            poster.fmt_when(prev.get("t0_utc")).split(" · ")[0]] if x)
+    line2 = "  ·  ".join(x for x in [r.get("mission"), r.get("rocket")] if x).upper()
+    out = subprocess.run(["/tmp/rocket_conformance", str(CARD), man["plates"][key], fam,
+        al.name, (r.get("country") or "").upper(), (r.get("destination") or "UNKNOWN").upper(),
+        line2, r.get("t0_utc") or "", prev_line], capture_output=True)
+    if len(out.stdout) != W*H*3:
+        print(f"  fixture {i}: no frame  {out.stderr.decode()[:80]}"); bad += 1; continue
+    want = Image.open(KIT/"goldens"/f"{i:02d}.png").convert("RGB").tobytes()
+    if out.stdout == want: ok += 1
+    else:
+        d = sum(1 for a,b in zip(out.stdout,want) if a!=b)
+        print(f"  fixture {i:>2} {fam:<11} {d:>8,} bytes differ ({100*d/len(want):.3f}%)")
+        if worst is None: worst = (i, out.stdout)
+        bad += 1
+os.unlink(al.name)
+if worst: Image.frombytes("RGB",(W,H),worst[1]).save("/tmp/_c_frame.png")
+print(f"\n  FULL FRAME: {ok} ok · {bad} differ · {skipped} skipped")
+raise SystemExit(1 if bad else 0)

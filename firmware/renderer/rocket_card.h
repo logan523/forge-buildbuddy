@@ -44,6 +44,9 @@ typedef enum {
     RKT_KIND_BODY  = 1,
     RKT_KIND_MASK  = 2,
     RKT_KIND_FLAG  = 3,
+    /* A glyph atlas: 1bpp like a mask, but its own kind. Its width/height
+     * fields are 0xFFFF sentinels -- the real dimensions are per glyph. */
+    RKT_KIND_ATLAS = 4,
 } rkt_kind_t;
 
 typedef struct {

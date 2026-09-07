@@ -16,7 +16,9 @@ CARD=/tmp/rktcard
 # host fusing a*b+c into an FMA that Xtensa has no instruction for.
 clang -std=c11 -O2 -Wall -Wextra -Werror -fsigned-char -ffp-contract=off \
       -isysroot "$SDK" -o "$BIN" \
-      "$HERE/conformance.c" "$HERE/../renderer/rocket_card.c" "$HERE/../renderer/rocket_render.c"
+      "$HERE/conformance.c" "$HERE/../renderer/rocket_card.c" \
+      "$HERE/../renderer/rocket_render.c" "$HERE/../renderer/rocket_text.c" \
+      "$HERE/../renderer/rocket_poster.c"
 
 python3 "$KIT/bake_assets.py" --out "$CARD" --force >/dev/null
 exec python3 "$HERE/check_conformance.py" "$CARD" "$BIN"

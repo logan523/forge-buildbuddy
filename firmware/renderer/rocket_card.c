@@ -29,7 +29,7 @@ bool rkt_parse_header(const uint8_t *buf, size_t len, rkt_header_t *out)
         return false;
     }
     const uint8_t kind = buf[4];
-    if (kind > RKT_KIND_FLAG) {
+    if (kind > RKT_KIND_ATLAS) {
         return false;
     }
     const uint16_t w = le16(buf + 5);
@@ -41,9 +41,12 @@ bool rkt_parse_header(const uint8_t *buf, size_t len, rkt_header_t *out)
     if (bpp != 1u && bpp != 4u) {
         return false;
     }
-    /* A mask is 1bpp and pixel data is 4bpp; a card claiming otherwise is
-     * corrupt, and guessing would put the wrong bytes on a wall. */
-    if ((kind == RKT_KIND_MASK) != (bpp == 1u)) {
+    /* Pixel layers are 4bpp; masks and glyph atlases are 1bpp. A card claiming
+     * otherwise is corrupt, and guessing would put the wrong bytes on a wall.
+     * An earlier form of this test asked "is it a mask?" rather than "is it
+     * 1bpp data?", which rejected every atlas -- they are 1bpp but not masks. */
+    const bool one_bit_kind = (kind == RKT_KIND_MASK) || (kind == RKT_KIND_ATLAS);
+    if (one_bit_kind != (bpp == 1u)) {
         return false;
     }
     out->kind   = kind;
