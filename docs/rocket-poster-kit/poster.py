@@ -74,8 +74,19 @@ def vehicle_layer(rec, h):
 
     slender = im.height / im.width > SLENDER_RATIO
     target = int(h * 2.3) if slender else h
-    sc = target / im.height
-    out = im.resize((max(1, round(im.width * sc)), target), Image.LANCZOS)
+    # Reduce with shrink_keeping_lines, NOT LANCZOS.
+    #
+    # This used to LANCZOS from ~5000px straight down to `target` -- a 5.4x
+    # reduction -- and only the LAST 2.36x (in _vehicle) got the line-preserving
+    # treatment. So the fix ran after the damage: LANCZOS averages a 2px dark
+    # seam into the surrounding white and it is gone before any threshold sees
+    # it, which is exactly what shrink_keeping_lines exists to prevent.
+    #
+    # Measured dark pixels retained at the drawn size, before -> after:
+    #     ariane      3 -> 4,567      atlas      12 -> 3,174
+    #     soyuz     705 -> 2,201      falcon  2,243 -> 4,004
+    # Ariane and Atlas were rendering as featureless white shapes.
+    out = shrink_keeping_lines(im, target)
     # Anchor the nose near the top either way; a slender vehicle's base simply
     # continues past the bottom edge.
     return out, -12

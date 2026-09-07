@@ -162,6 +162,43 @@ def snap_to_inks(img):
     return Image.fromarray(pal[d.argmin(axis=2)].astype(np.uint8), "RGB")
 
 
+def despeckle_image(img):
+    """Replace pixels that match NONE of their four neighbours with the mode of
+    their eight.
+
+    The generated art carries fine noise that survives the snap as isolated
+    wrong-ink pixels -- 0.24% of a plate, up to 0.51% on the busiest -- and in a
+    large flat sky band a single black pixel is visible.
+
+    Deliberately the narrowest possible rule. A blanket median or mode filter
+    would eat the stars, which are the smallest things on these plates and are
+    the point of a night scene. A star is several pixels wide, so every pixel in
+    it matches a neighbour and the filter never touches it. Verified on the
+    lunar plate: 1,122 isolated pixels removed, every star intact.
+
+    NOT dithering, and not the inverse of it: this removes noise the quantizer
+    let through, it never manufactures a pattern to fake a tone.
+    """
+    a = np.asarray(img.convert("RGB")).astype(np.int32)
+    pal = np.array(list(INKS.values()), dtype=np.int32)
+    idx = ((a[:, :, None, :] - pal[None, None, :, :]) ** 2).sum(axis=3).argmin(axis=2)
+    h, w = idx.shape
+    out = idx.copy()
+    p = np.pad(idx, 1, mode="edge")
+    nb4 = np.stack([p[0:h, 1:w + 1], p[2:h + 2, 1:w + 1],
+                    p[1:h + 1, 0:w], p[1:h + 1, 2:w + 2]], axis=-1)
+    lone = (nb4 != idx[..., None]).all(axis=-1)
+    if not lone.any():
+        return img
+    nb8 = np.stack([p[y:y + h, x:x + w]
+                    for y in (0, 1, 2) for x in (0, 1, 2)
+                    if not (y == 1 and x == 1)], axis=-1)
+    mode = np.stack([(nb8 == k).sum(axis=-1) for k in range(len(INKS))],
+                    axis=-1).argmax(axis=-1)
+    out[lone] = mode[lone]
+    return Image.fromarray(pal[out].astype(np.uint8), "RGB")
+
+
 def ingest_plate(src, key, prompt=None):
     """Raw generation -> a panel-legal plate, cached under `key`."""
     img = trim_border(Image.open(src))
@@ -169,7 +206,12 @@ def ingest_plate(src, key, prompt=None):
     img = img.resize((max(1, round(img.width * s)), max(1, round(img.height * s))),
                      Image.LANCZOS)
     l, t = (img.width - W) // 2, 0            # keep the top: sky, not ground
-    img = snap_to_inks(img.crop((l, t, l + W, t + SCENE_H)))
+    # Despeckle at INGEST, never inside snap_to_inks: poster.py calls that at
+    # RENDER time too, so cleaning there would clean the reference's plate while
+    # the baked card kept its speckle -- 23 of 25 conformance fixtures differed,
+    # C drawing green where the golden had black. The plate on disk is the one
+    # artifact both sides read, so it is the only correct place.
+    img = despeckle_image(snap_to_inks(img.crop((l, t, l + W, t + SCENE_H))))
     os.makedirs(PLATES, exist_ok=True)
     out = os.path.join(PLATES, f"{key}.png")
     img.save(out)
